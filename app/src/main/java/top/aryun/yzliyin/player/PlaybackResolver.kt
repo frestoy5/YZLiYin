@@ -19,14 +19,7 @@ object PlaybackResolver {
 
     /** 只用曲目自己的源取链，不做替补。 */
     suspend fun resolveOwn(song: Song): ResolveResult = when (song.source) {
-        Source.NETEASE -> {
-            val url = NeteaseApi.songUrl(song.id)
-            ResolveResult(
-                url = url,
-                reason = if (song.vip) "该歌曲需要网易云会员，当前账号无权限"
-                else "获取播放链接失败，请稍后重试",
-            )
-        }
+        Source.NETEASE -> NeteaseApi.songUrl(song.id)
         Source.KUGOU -> KugouApi.songUrl(
             hash = song.playId.ifEmpty { song.id },
             albumAudioId = song.playSubId,

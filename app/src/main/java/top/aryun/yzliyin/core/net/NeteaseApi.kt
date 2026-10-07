@@ -13,6 +13,7 @@ import top.aryun.yzliyin.core.model.Paged
 import top.aryun.yzliyin.core.model.Parsers
 import top.aryun.yzliyin.core.model.Playlist
 import top.aryun.yzliyin.core.model.Rank
+import top.aryun.yzliyin.core.model.ResolveResult
 import top.aryun.yzliyin.core.model.Song
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -304,18 +305,32 @@ object NeteaseApi {
 
     /**
      * 取真实播放链接（音质跟随 [top.aryun.yzliyin.core.data.SessionStore.playQuality]）。
-     * @return 可播放 url；不可用时返回空串。
+     *
+     * 会员/付费曲目在无权限时，服务端会下发一段**试听片段**（`url` 非空但带
+     * `freeTrialInfo`，或 `fee` 为会员曲且 `payed=0`）。这种情况一律判为不可用，
+     * 好让上层按「自动找音源」去其它源找同一首歌，而不是只播几十秒。
      */
-    suspend fun songUrl(songId: String): String = withContext(Dispatchers.IO) {
+    suspend fun songUrl(songId: String): ResolveResult = withContext(Dispatchers.IO) {
         runCatching {
-            val id = songId.toLongOrNull() ?: return@withContext ""
+            val id = songId.toLongOrNull()
+                ?: return@withContext ResolveResult("", "网易云曲目 id 无效")
             val level = store.playQuality.ifBlank { "exhigh" }
             val raw = runCatching { client.getSongDownloadUrl(id, level = level) }
                 .getOrElse { client.getSongUrl(id) }
-            val data = JSONObject(raw).optJSONArray("data") ?: return@withContext ""
-            val first = data.optJSONObject(0) ?: return@withContext ""
-            first.optString("url").takeIf(String::isNotBlank) ?: ""
-        }.getOrDefault("")
+            val first = JSONObject(raw).optJSONArray("data")?.optJSONObject(0)
+                ?: return@withContext ResolveResult("", "获取播放链接失败，请稍后重试")
+            val url = first.optString("url")
+            if (url.isBlank()) {
+                return@withContext ResolveResult("", "获取播放链接失败，请稍后重试")
+            }
+            val trial = !first.isNull("freeTrialInfo") ||
+                (first.optInt("payed", -1) == 0 &&
+                    !first.isNull("fee") && isVipFee(first.optInt("fee")))
+            if (trial) {
+                return@withContext ResolveResult("", "该歌曲需要网易云会员，当前账号只能试听")
+            }
+            ResolveResult(url)
+        }.getOrElse { ResolveResult("", "获取播放链接失败，请稍后重试") }
     }
 
     /** 该曲是否需要会员（fee=1 需 VIP，fee=4 需购买专辑）。 */
