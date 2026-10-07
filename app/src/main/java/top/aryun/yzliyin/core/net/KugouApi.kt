@@ -304,8 +304,8 @@ object KugouApi {
     suspend fun checkQr(key: String): QrStatus = withContext(Dispatchers.IO) {
         runCatching {
             val response = client.checkQrCode(key)
-            val data = response.body.optJSONObject("data")
-            val status = data?.optString("status").orEmpty().toIntOrNull() ?: return@runCatching QrStatus.Waiting
+            val data = response.body.optJSONObject("data") ?: return@runCatching QrStatus.Waiting
+            val status = data.optString("status").toIntOrNull() ?: return@runCatching QrStatus.Waiting
             when (status) {
                 4 -> {
                     val token = data.optString("token")
