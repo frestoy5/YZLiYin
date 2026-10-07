@@ -17,10 +17,25 @@ android {
         vectorDrawables.useSupportLibrary = true
     }
 
+    // release 用 Android 默认调试证书签名：assembleRelease 直接产出可安装的包，
+    // 同时不把任何 keystore/口令放进仓库。要正式发布请换成自己的 keystore。
+    val debugKeystore = file("${System.getProperty("user.home")}/.android/debug.keystore")
+    if (debugKeystore.exists()) {
+        signingConfigs {
+            create("release") {
+                storeFile = debugKeystore
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
             isShrinkResources = false
+            signingConfig = signingConfigs.findByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
