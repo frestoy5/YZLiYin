@@ -19,7 +19,13 @@ object PlaybackResolver {
 
     /** 只用曲目自己的源取链，不做替补。 */
     suspend fun resolveOwn(song: Song): ResolveResult = when (song.source) {
-        Source.NETEASE -> NeteaseApi.songUrl(song.id)
+        // 会员曲 + 当前账号不是会员：网易云只会下发试听片段，
+        // 直接判为不可用，省一次请求也避免只播几十秒被当成成功。
+        Source.NETEASE -> if (song.vip && !AppGraph.store.neteaseVip) {
+            ResolveResult("", "该歌曲需要网易云会员，当前账号无权限")
+        } else {
+            NeteaseApi.songUrl(song.id)
+        }
         Source.KUGOU -> KugouApi.songUrl(
             hash = song.playId.ifEmpty { song.id },
             albumAudioId = song.playSubId,
