@@ -28,8 +28,13 @@ internal object KugouCrypto {
     const val SRC_APP_ID = 2919
     const val USER_AGENT = "Android15-1070-11083-46-0-DiscoveryDRADProtocol-wifi"
 
+    /**
+     * 设备注册用的 RSA 公钥。
+     * 酷狗有标准版与 lite 两套密钥，必须与 [APP_ID] / [CLIENT_VERSION] /
+     * [ANDROID_SALT] 的 lite 配置配套，混用会导致注册失败。
+     */
     private const val PUBLIC_KEY_PEM =
-        "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDIAG7QOELSYoIJvTFJhMpe1s/gbjDJX51HBNnEl5HXqTW6lQ7LC8jr9fWZTwusknp+sVGzwd40MwP6U5yDE27M/X1+UR4tvOGOqp94TJtQ1EPnWGWXngpeIW5GxoQGao1rmYWAu6oi1z9XkChrsUdC6DJE5E221wf/4WLFxwAtRQIDAQAB"
+        "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDECi0Np2UR87scwrvTr72L6oO01rBbbBPriSDFPxr3Z5syug0O24QyQO8bg27+0+4kBzTBTBOZ/WWU0WryL1JSXRTXLgFVxtzIY41Pe7lPOgsfTCn5kZcvKhYKJesKnnJDNr5/abvTGf+rHG3YRwsCHcQ08/q6ifSioBszvb3QiwIDAQAB"
 
     fun md5(data: String): String =
         MessageDigest.getInstance("MD5").digest(data.toByteArray(Charsets.UTF_8))
