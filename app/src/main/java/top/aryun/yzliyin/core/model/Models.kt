@@ -89,6 +89,11 @@ data class LyricLine(val timeMs: Long, val text: String)
 /** 分页结果 */
 data class Paged<T>(val items: List<T>, val total: Int, val page: Int, val hasMore: Boolean)
 
+/** 取链结果：[url] 为空时 [reason] 是面向用户的原因说明。 */
+data class ResolveResult(val url: String, val reason: String = "") {
+    val ok: Boolean get() = url.isNotBlank()
+}
+
 /** 网易云扫码登录三步状态 */
 sealed class QrStatus {
     data object Waiting : QrStatus()

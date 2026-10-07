@@ -158,19 +158,16 @@ object PlayerController {
         }
 
         _state.value = _state.value.copy(resolving = true)
-        val firstUrl = PlaybackResolver.url(songs[startIndex])
+        val first = PlaybackResolver.resolve(songs[startIndex])
         _state.value = _state.value.copy(resolving = false)
-        if (firstUrl.isEmpty()) {
-            _state.value = _state.value.copy(
-                preparing = false,
-                error = unavailableReason(songs[startIndex]),
-            )
+        if (!first.ok) {
+            _state.value = _state.value.copy(preparing = false, error = first.reason)
             return
         }
 
         val items = ArrayList<MediaItem>(songs.size)
         for ((i, s) in songs.withIndex()) {
-            items.add(toMediaItem(s, if (i == startIndex) firstUrl else ""))
+            items.add(toMediaItem(s, if (i == startIndex) first.url else ""))
         }
         pendingQueue.clear()
         pendingQueue.addAll(songs)
@@ -194,17 +191,17 @@ object PlayerController {
         resolvingIndex = index
         _state.value = _state.value.copy(resolving = true)
         scope.launch {
-            val url = PlaybackResolver.url(song)
+            val result = PlaybackResolver.resolve(song)
             resolvingIndex = -1
             _state.value = _state.value.copy(resolving = false)
-            if (url.isEmpty()) {
-                _state.value = _state.value.copy(error = unavailableReason(song))
+            if (!result.ok) {
+                _state.value = _state.value.copy(error = result.reason)
                 return@launch
             }
             resolvedIds.add(song.key)
             val isCurrent = c.currentMediaItemIndex == index
             val position = if (isCurrent) c.currentPosition else 0L
-            c.replaceMediaItem(index, toMediaItem(song, url))
+            c.replaceMediaItem(index, toMediaItem(song, result.url))
             if (isCurrent) c.seekTo(index, position)
             c.prepare()
             c.play()
@@ -217,15 +214,15 @@ object PlayerController {
         val c = controller ?: return
         val song = pendingQueue.getOrNull(index) ?: return
         _state.value = _state.value.copy(resolving = true)
-        val url = PlaybackResolver.url(song)
+        val result = PlaybackResolver.resolve(song)
         _state.value = _state.value.copy(resolving = false)
-        if (url.isEmpty()) {
-            _state.value = _state.value.copy(error = unavailableReason(song))
+        if (!result.ok) {
+            _state.value = _state.value.copy(error = result.reason)
             return
         }
         val isCurrent = c.currentMediaItemIndex == index
         val position = if (isCurrent) c.currentPosition else 0L
-        c.replaceMediaItem(index, toMediaItem(song, url))
+        c.replaceMediaItem(index, toMediaItem(song, result.url))
         if (isCurrent) c.seekTo(index, position)
         c.prepare()
         c.play()
@@ -242,8 +239,6 @@ object PlayerController {
         pendingQueue.getOrNull(index)?.let { resolvedIds.remove(it.key) }
         resolveAndRetry(index)
     }
-
-    private fun unavailableReason(song: Song): String = PlaybackResolver.unavailableReason(song)
 
     private fun rememberRecent(song: Song) {
         runCatching {

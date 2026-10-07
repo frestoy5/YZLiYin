@@ -8,6 +8,7 @@ import top.aryun.yzliyin.core.AppGraph
 import top.aryun.yzliyin.core.model.Paged
 import top.aryun.yzliyin.core.model.Playlist
 import top.aryun.yzliyin.core.model.QrStatus
+import top.aryun.yzliyin.core.model.ResolveResult
 import top.aryun.yzliyin.core.model.Song
 import top.aryun.yzliyin.core.model.Source
 import top.aryun.yzliyin.util.NPLogger
@@ -25,6 +26,9 @@ object KugouApi {
 
     /** 酷狗「我喜欢」歌单在列表里的名字。 */
     private const val LIKES_NAME = "我喜欢"
+
+    /** 风控（需要安全验证）的业务错误码。 */
+    private const val SSA_ERRCODE = 20028
 
     private val client: KugouClient get() = AppGraph.kugou
     private val store get() = AppGraph.store
@@ -74,23 +78,45 @@ object KugouApi {
     // ---------- 播放 ----------
 
     /**
-     * 取播放链接。按 [QUALITY_LADDER] 逐个音质试探，返回第一个可用的直链，
-     * 全部失败返回空串。[albumAudioId] 允许为空（酷狗接受 0）。
+     * 取播放链接。按 [QUALITY_LADDER] 逐个音质试探，返回第一个可用的直链。
+     *
+     * `/v5/url` 的三种结果都实测确认过：
+     *  - `status=1` + `url` → 可播放；
+     *  - `status=2` + `fail_process` 含 `buy`（附 60s `hash_offset`）→ 付费专辑，未购买只给试听，此时直接放弃试探；
+     *  - `errcode=20028` → 触发风控，通常是设备尚未注册（dfid 无效）导致。
+     *
+     * [albumAudioId] 允许为空（酷狗接受 0）。
      */
-    suspend fun songUrl(hash: String, albumAudioId: String): String = withContext(Dispatchers.IO) {
-        if (hash.isBlank()) return@withContext ""
+    suspend fun songUrl(hash: String, albumAudioId: String): ResolveResult = withContext(Dispatchers.IO) {
+        if (hash.isBlank()) return@withContext ResolveResult("", "酷狗曲目缺少音频 hash")
         val albumId = albumAudioId.ifBlank { "0" }
+        var challenged = false
+
         for (quality in QUALITY_LADDER) {
-            val direct = runCatching {
-                val response = client.songUrl(hash, albumId, quality)
-                if (response.status != 200) return@runCatching ""
-                response.body.optJSONArray("url")?.optString(0).orEmpty()
-                    .ifBlank { response.body.optJSONArray("backupUrl")?.optString(0).orEmpty() }
-            }.getOrDefault("")
-            if (direct.isNotBlank()) return@withContext direct
+            val body = runCatching { client.songUrl(hash, albumId, quality).body }.getOrNull() ?: continue
+            val direct = body.optJSONArray("url")?.optString(0).orEmpty()
+                .ifBlank { body.optJSONArray("backupUrl")?.optString(0).orEmpty() }
+            if (direct.isNotBlank()) return@withContext ResolveResult(direct)
+
+            val failProcess = body.optJSONArray("fail_process")
+            val needsBuy = (0 until (failProcess?.length() ?: 0))
+                .any { failProcess?.optString(it) == "buy" } || body.has("hash_offset")
+            if (needsBuy) {
+                NPLogger.d(TAG, "取链被拒（付费专辑）：$hash")
+                return@withContext ResolveResult(
+                    "", "该歌曲在酷狗需要购买或开通会员，当前账号只能试听"
+                )
+            }
+            if (body.optInt("errcode") == SSA_ERRCODE) challenged = true
         }
-        NPLogger.w(TAG, "取链失败（全部音质不可用）：$hash")
-        ""
+
+        val reason = if (challenged) {
+            "酷狗要求安全验证，设备注册可能未完成，请稍后重试"
+        } else {
+            "获取酷狗播放链接失败（可能无版权）"
+        }
+        NPLogger.w(TAG, "取链失败：$hash（$reason）")
+        ResolveResult("", reason)
     }
 
     // ---------- 我的歌单 / 我喜欢 ----------
