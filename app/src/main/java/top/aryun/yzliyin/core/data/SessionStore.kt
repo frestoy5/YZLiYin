@@ -142,6 +142,14 @@ class SessionStore(context: Context) {
         get() = prefs.getBoolean(KEY_AUTO_PLAY_NEXT, true)
         set(value) = prefs.edit { putBoolean(KEY_AUTO_PLAY_NEXT, value) }
 
+    /**
+     * 当前源取不到播放链接时，是否自动去其它源按歌名+歌手找同一首。
+     * 顺序固定为 网易云 → 酷狗 → 哔哩哔哩，从当前源之后接着找。
+     */
+    var autoSourceFallback: Boolean
+        get() = prefs.getBoolean(KEY_AUTO_SOURCE_FALLBACK, true)
+        set(value) = prefs.edit { putBoolean(KEY_AUTO_SOURCE_FALLBACK, value) }
+
     /** 播放页歌词是否自动滚动到当前行。 */
     var lyricAutoScroll: Boolean
         get() = prefs.getBoolean(KEY_LYRIC_AUTO_SCROLL, true)
@@ -168,6 +176,7 @@ class SessionStore(context: Context) {
 
         private const val KEY_PLAY_QUALITY = "play_quality"
         private const val KEY_AUTO_PLAY_NEXT = "auto_play_next"
+        private const val KEY_AUTO_SOURCE_FALLBACK = "auto_source_fallback"
         private const val KEY_LYRIC_AUTO_SCROLL = "lyric_auto_scroll"
         private const val KEY_AUDIO_EFFECT = "audio_effect"
     }

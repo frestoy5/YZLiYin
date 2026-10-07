@@ -79,6 +79,7 @@ fun SettingsScreen(nav: NavController) {
     var tip by remember { mutableStateOf<String?>(null) }
     var quality by remember { mutableStateOf(store.playQuality) }
     var autoPlay by remember { mutableStateOf(store.autoPlayNext) }
+    var autoSourceFallback by remember { mutableStateOf(store.autoSourceFallback) }
     var lyricScroll by remember { mutableStateOf(store.lyricAutoScroll) }
     var effect by remember { mutableStateOf(store.audioEffect) }
     var cacheSize by remember { mutableStateOf("") }
@@ -231,6 +232,15 @@ fun SettingsScreen(nav: NavController) {
             onCheckedChange = {
                 autoPlay = it
                 store.autoPlayNext = it
+            },
+        )
+        SwitchRow(
+            title = "自动找音源",
+            desc = "当前源放不出来时，按 网易云 → 酷狗 → 哔哩哔哩 的顺序去别的源找同一首歌（按歌名、歌手、时长匹配）",
+            checked = autoSourceFallback,
+            onCheckedChange = {
+                autoSourceFallback = it
+                store.autoSourceFallback = it
             },
         )
         SwitchRow(
