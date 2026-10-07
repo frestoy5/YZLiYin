@@ -367,6 +367,32 @@ class KugouClient(private val context: Context) {
         encryptKey = true,
     )
 
+    /**
+     * 当前登录用户信息，返回 `body.data`。
+     * `p` 用无填充 RSA 加密 `{clienttime, token}`，字段名酷狗未公开文档，交由上层容错解析。
+     */
+    suspend fun userDetail(): KugouResponse {
+        val userid = jar["userid"].orEmpty().ifBlank { "0" }
+        val token = jar["token"].orEmpty()
+        val now = System.currentTimeMillis() / 1000
+        val p = KugouCrypto.rsaEncryptRaw(
+            JsonUtil.toJson(linkedMapOf<String, Any?>("clienttime" to now, "token" to token))
+                .toByteArray(Charsets.UTF_8),
+        )
+        return execute(
+            path = "/v3/get_my_info",
+            params = mapOf("plat" to 1),
+            data = JSONObject().apply {
+                put("visit_time", now)
+                put("userid", userid)
+                put("usertype", 1)
+                put("p", p)
+            },
+            method = "POST",
+            headers = mapOf("x-router" to "usercenter.kugou.com"),
+        )
+    }
+
     /** 当前用户的歌单列表（含「我喜欢」系统歌单），返回 `body.data.info`。 */
     suspend fun userPlaylists(page: Int, pageSize: Int): KugouResponse {
         val userid = jar["userid"].orEmpty().ifBlank { "0" }

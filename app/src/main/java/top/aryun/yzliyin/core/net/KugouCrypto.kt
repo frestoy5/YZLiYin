@@ -3,6 +3,7 @@ package top.aryun.yzliyin.core.net
 import java.math.BigInteger
 import java.security.KeyFactory
 import java.security.MessageDigest
+import java.security.interfaces.RSAPublicKey
 import java.security.spec.X509EncodedKeySpec
 import javax.crypto.Cipher
 import javax.crypto.spec.IvParameterSpec
@@ -83,6 +84,27 @@ internal object KugouCrypto {
         val cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding")
         cipher.init(Cipher.ENCRYPT_MODE, pub)
         return cipher.doFinal(data).joinToString("") { "%02x".format(it) }
+    }
+
+    /**
+     * 无填充 RSA 加密（`BigInteger.modPow` 直接做），返回定长十六进制密文。
+     * 用户信息等接口的 `p`/`pk` 参数用这种（见 SDK `Crypto.android.kt`）：
+     * 结果按模长左补零，多出的前导零字节则裁掉。
+     */
+    fun rsaEncryptRaw(data: ByteArray): String {
+        val keyBytes = Base64.decode(PUBLIC_KEY_PEM, Base64.DEFAULT)
+        val pub = KeyFactory.getInstance("RSA").generatePublic(X509EncodedKeySpec(keyBytes)) as RSAPublicKey
+        val encrypted = BigInteger(1, data).modPow(pub.publicExponent, pub.modulus)
+        val keyLength = (pub.modulus.bitLength() + 7) / 8
+        val raw = encrypted.toByteArray()
+        val padded = when {
+            raw.size < keyLength -> ByteArray(keyLength).also {
+                System.arraycopy(raw, 0, it, keyLength - raw.size, raw.size)
+            }
+            raw.size > keyLength -> raw.copyOfRange(raw.size - keyLength, raw.size)
+            else -> raw
+        }
+        return padded.joinToString("") { "%02x".format(it) }
     }
 
     /** mid = 十进制大整数形式的 MD5(guid)。 */

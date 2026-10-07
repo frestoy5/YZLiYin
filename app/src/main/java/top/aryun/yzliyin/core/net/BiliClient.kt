@@ -63,6 +63,8 @@ data class BiliQrSession(val key: String, val url: String)
 
 data class BiliQrCheck(val code: Int, val message: String, val cookies: Map<String, String>)
 
+data class BiliProfile(val name: String, val avatar: String, val mid: Long)
+
 /**
  * B 站接口传输层。
  *
@@ -342,6 +344,24 @@ class BiliClient {
             val data = executeJson(NAV_URL.toHttpUrl()).requireData("nav")
             data.optBoolean("isLogin", false) && data.optLong("mid", 0L) > 0L
         }.getOrDefault(false)
+    }
+
+    /** 当前账号的昵称与头像（`nav` 接口顺带返回，未登录返回 null）。 */
+    suspend fun userProfile(): BiliProfile? = withContext(Dispatchers.IO) {
+        if (!isLoggedIn()) return@withContext null
+        runCatching {
+            val data = executeJson(NAV_URL.toHttpUrl()).optJSONObject("data")
+                ?: return@runCatching null
+            if (!data.optBoolean("isLogin", false)) return@runCatching null
+            BiliProfile(
+                name = data.optString("uname"),
+                avatar = httpsUrl(data.optString("face")),
+                mid = data.optLong("mid"),
+            )
+        }.getOrElse {
+            NPLogger.w(TAG, "获取用户信息失败：${it.message}")
+            null
+        }
     }
 
     suspend fun qrGenerate(): BiliQrSession = withContext(Dispatchers.IO) {

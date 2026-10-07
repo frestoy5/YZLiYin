@@ -35,6 +35,41 @@ object KugouApi {
 
     val isLoggedIn: Boolean get() = client.isLoggedIn()
 
+    /**
+     * 拉取当前账号的昵称与头像并落库（酷狗不公开字段名，这里按候选键容错解析）。
+     * 解析不到时保留既有值，返回是否拿到了昵称。
+     */
+    suspend fun refreshProfile(): Boolean = withContext(Dispatchers.IO) {
+        if (!client.isLoggedIn()) return@withContext false
+        runCatching {
+            val data = client.userDetail().body.optJSONObject("data")
+                ?: return@runCatching false
+            val nested = data.optJSONObject("info")
+            val name = data.firstString("nickname", "nick_name", "username", "user_name", "name")
+                .ifBlank { nested?.firstString("nickname", "nick_name", "name").orEmpty() }
+            val avatar = data.firstString("pic", "user_pic", "avatar", "headimg", "head_img", "img")
+                .ifBlank {
+                    nested?.firstString("pic", "user_pic", "avatar", "headimg", "head_img", "img").orEmpty()
+                }
+                .replace("/{size}/", "/")
+                .replace("{size}", "")
+            if (name.isNotBlank()) store.saveDisplayName(Source.KUGOU, name)
+            if (avatar.isNotBlank()) store.saveAvatar(Source.KUGOU, avatar)
+            NPLogger.d(
+                TAG,
+                "用户信息：name=${name.ifBlank { "(未识别)" }} avatar=${avatar.isNotBlank()} " +
+                    "dataKeys=${data.keys().asSequence().toList()}",
+            )
+            name.isNotBlank()
+        }.getOrElse {
+            NPLogger.w(TAG, "获取用户信息失败：${it.message}")
+            false
+        }
+    }
+
+    private fun JSONObject.firstString(vararg keys: String): String =
+        keys.firstNotNullOfOrNull { key -> optString(key).takeIf { it.isNotBlank() } }.orEmpty()
+
     // ---------- 搜索 ----------
 
     suspend fun searchSongs(keyword: String, page: Int = 1, pageSize: Int = 30): Paged<Song> =

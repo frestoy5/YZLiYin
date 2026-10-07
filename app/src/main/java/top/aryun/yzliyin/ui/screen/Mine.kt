@@ -77,9 +77,13 @@ fun MineScreen(nav: NavController) {
     var neteasePlaylists by remember { mutableStateOf<List<Playlist>>(emptyList()) }
     var kugouLikes by remember { mutableStateOf<Playlist?>(null) }
     var kugouPlaylists by remember { mutableStateOf<List<Playlist>>(emptyList()) }
+    var kugouName by remember { mutableStateOf(store.displayName(Source.KUGOU)) }
+    var kugouAvatar by remember { mutableStateOf(store.avatar(Source.KUGOU)) }
     var biliLikes by remember { mutableStateOf<Playlist?>(null) }
     var biliCreated by remember { mutableStateOf<List<Playlist>>(emptyList()) }
     var biliCollected by remember { mutableStateOf<List<Playlist>>(emptyList()) }
+    var biliName by remember { mutableStateOf(store.displayName(Source.BILIBILI)) }
+    var biliAvatar by remember { mutableStateOf(store.avatar(Source.BILIBILI)) }
 
     var tip by remember { mutableStateOf<String?>(null) }
     var refreshKey by remember { mutableStateOf(0) }
@@ -106,6 +110,10 @@ fun MineScreen(nav: NavController) {
         }
 
         if (kugouLoggedIn) {
+            // 昵称与头像需要单独拉，扫码响应里没有；拉不到就沿用已存的值
+            KugouApi.refreshProfile()
+            kugouName = store.displayName(Source.KUGOU)
+            kugouAvatar = store.avatar(Source.KUGOU)
             kugouLikes = KugouApi.likesPlaylist()
             kugouPlaylists = KugouApi.userPlaylists().filterNot { KugouApi.isLikesName(it.name) }
         } else {
@@ -114,6 +122,9 @@ fun MineScreen(nav: NavController) {
         }
 
         if (biliLoggedIn) {
+            BiliApi.refreshProfile()
+            biliName = store.displayName(Source.BILIBILI)
+            biliAvatar = store.avatar(Source.BILIBILI)
             biliLikes = BiliApi.likesPlaylist()
             val created = BiliApi.createdFolders()
             biliCreated = created.filterNot { it.id == biliLikes?.id }
@@ -216,75 +227,7 @@ fun MineScreen(nav: NavController) {
             )
         }
 
-        // ===== 酷狗音乐 =====
-        item {
-            AccountCard(
-                title = "酷狗音乐",
-                avatar = null,
-                name = store.displayName(Source.KUGOU).takeIf { kugouLoggedIn && it.isNotEmpty() },
-                loggedIn = kugouLoggedIn,
-                statusText = {
-                    if (kugouLoggedIn) {
-                        store.displayName(Source.KUGOU).ifBlank { "已登录" } + " · 酷狗账号"
-                    } else "未登录（登录后可同步「我喜欢」与歌单）"
-                },
-                actions = {
-                    if (kugouLoggedIn) {
-                        TextButton(onClick = {
-                            KugouApi.logout()
-                            kugouLoggedIn = false
-                            kugouLikes = null
-                            kugouPlaylists = emptyList()
-                        }) { Text("退出", color = MaterialTheme.colorScheme.error) }
-                    } else {
-                        FilledTonalButton(onClick = {
-                            nav.navigate(Routes.login(Routes.LOGIN_KUGOU_QR)) { launchSingleTop = true }
-                        }) { Text("扫码登录") }
-                    }
-                },
-            )
-        }
-        if (kugouLoggedIn) {
-            likesEntry(kugouLikes, Source.KUGOU, nav)
-            playlistGroup("我的歌单", kugouPlaylists, nav)
-        }
-
-        // ===== 哔哩哔哩 =====
-        item {
-            AccountCard(
-                title = "哔哩哔哩",
-                avatar = null,
-                name = store.displayName(Source.BILIBILI).takeIf { biliLoggedIn && it.isNotEmpty() },
-                loggedIn = biliLoggedIn,
-                statusText = {
-                    if (biliLoggedIn) {
-                        store.displayName(Source.BILIBILI).ifBlank { "已登录" } + " · 播放视频的音频轨"
-                    } else "未登录（登录后可同步收藏夹与「我喜欢」）"
-                },
-                actions = {
-                    if (biliLoggedIn) {
-                        TextButton(onClick = {
-                            BiliApi.logout()
-                            biliLoggedIn = false
-                            biliLikes = null
-                            biliCreated = emptyList()
-                            biliCollected = emptyList()
-                        }) { Text("退出", color = MaterialTheme.colorScheme.error) }
-                    } else {
-                        FilledTonalButton(onClick = {
-                            nav.navigate(Routes.login(Routes.LOGIN_BILIBILI_QR)) { launchSingleTop = true }
-                        }) { Text("扫码登录") }
-                    }
-                },
-            )
-        }
-        if (biliLoggedIn) {
-            likesEntry(biliLikes, Source.BILIBILI, nav)
-            playlistGroup("创建的收藏夹", biliCreated, nav)
-            playlistGroup("订阅的收藏夹", biliCollected, nav)
-        }
-
-        // ===== 网易云歌单 =====
+        // ===== 网易云歌单（紧跟在网易云账号卡片之后） =====
         item {
             SectionHeader(
                 title = if (loggedIn) "我的歌单" else "推荐歌单",
@@ -324,6 +267,78 @@ fun MineScreen(nav: NavController) {
                 }
                 if (pair.size == 1) Spacer(Modifier.weight(1f))
             }
+        }
+
+        // ===== 酷狗音乐 =====
+        item {
+            AccountCard(
+                title = "酷狗音乐",
+                avatar = kugouAvatar.takeIf { kugouLoggedIn && it.isNotEmpty() },
+                name = kugouName.takeIf { kugouLoggedIn && it.isNotEmpty() },
+                loggedIn = kugouLoggedIn,
+                statusText = {
+                    if (kugouLoggedIn) {
+                        kugouName.ifBlank { "已登录" } + " · 酷狗账号"
+                    } else "未登录（登录后可同步「我喜欢」与歌单）"
+                },
+                actions = {
+                    if (kugouLoggedIn) {
+                        TextButton(onClick = {
+                            KugouApi.logout()
+                            kugouLoggedIn = false
+                            kugouName = ""
+                            kugouAvatar = ""
+                            kugouLikes = null
+                            kugouPlaylists = emptyList()
+                        }) { Text("退出", color = MaterialTheme.colorScheme.error) }
+                    } else {
+                        FilledTonalButton(onClick = {
+                            nav.navigate(Routes.login(Routes.LOGIN_KUGOU_QR)) { launchSingleTop = true }
+                        }) { Text("扫码登录") }
+                    }
+                },
+            )
+        }
+        if (kugouLoggedIn) {
+            likesEntry(kugouLikes, Source.KUGOU, nav)
+            playlistGroup("我的歌单", kugouPlaylists, nav)
+        }
+
+        // ===== 哔哩哔哩 =====
+        item {
+            AccountCard(
+                title = "哔哩哔哩",
+                avatar = biliAvatar.takeIf { biliLoggedIn && it.isNotEmpty() },
+                name = biliName.takeIf { biliLoggedIn && it.isNotEmpty() },
+                loggedIn = biliLoggedIn,
+                statusText = {
+                    if (biliLoggedIn) {
+                        biliName.ifBlank { "已登录" } + " · 播放视频的音频轨"
+                    } else "未登录（登录后可同步收藏夹与「我喜欢」）"
+                },
+                actions = {
+                    if (biliLoggedIn) {
+                        TextButton(onClick = {
+                            BiliApi.logout()
+                            biliLoggedIn = false
+                            biliName = ""
+                            biliAvatar = ""
+                            biliLikes = null
+                            biliCreated = emptyList()
+                            biliCollected = emptyList()
+                        }) { Text("退出", color = MaterialTheme.colorScheme.error) }
+                    } else {
+                        FilledTonalButton(onClick = {
+                            nav.navigate(Routes.login(Routes.LOGIN_BILIBILI_QR)) { launchSingleTop = true }
+                        }) { Text("扫码登录") }
+                    }
+                },
+            )
+        }
+        if (biliLoggedIn) {
+            likesEntry(biliLikes, Source.BILIBILI, nav)
+            playlistGroup("创建的收藏夹", biliCreated, nav)
+            playlistGroup("订阅的收藏夹", biliCollected, nav)
         }
 
         item {

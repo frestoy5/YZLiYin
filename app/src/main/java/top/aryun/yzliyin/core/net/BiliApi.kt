@@ -33,6 +33,15 @@ object BiliApi {
         client.seed(store.cookieMap(Source.BILIBILI))
     }
 
+    /** 拉取昵称与头像并落库，返回是否成功。 */
+    suspend fun refreshProfile(): Boolean = withContext(Dispatchers.IO) {
+        val profile = client.userProfile() ?: return@withContext false
+        if (profile.name.isNotBlank()) store.saveDisplayName(Source.BILIBILI, profile.name)
+        if (profile.avatar.isNotBlank()) store.saveAvatar(Source.BILIBILI, profile.avatar)
+        NPLogger.d(TAG, "用户信息：name=${profile.name.ifBlank { "(空)" }} mid=${profile.mid}")
+        profile.name.isNotBlank()
+    }
+
     /** 校验登录是否还有效。 */
     suspend fun validateLogin(): Boolean = withContext(Dispatchers.IO) { client.validateLogin() }
 
@@ -180,8 +189,8 @@ object BiliApi {
             when (result.code) {
                 0 -> {
                     store.saveCookies(Source.BILIBILI, client.cookies())
-                    store.saveDisplayName(Source.BILIBILI, "B 站用户")
-                    QrStatus.Success(store.displayName(Source.BILIBILI))
+                    // 昵称与头像随后的 refreshProfile() 拉取，这里不写占位值
+                    QrStatus.Success(store.displayName(Source.BILIBILI).ifBlank { "B 站账号" })
                 }
                 86090 -> QrStatus.Scanned
                 86038 -> QrStatus.Failed("二维码已过期，请刷新")
