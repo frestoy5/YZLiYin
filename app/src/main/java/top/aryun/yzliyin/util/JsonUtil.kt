@@ -24,7 +24,7 @@ package top.aryun.yzliyin.util
  */
 
 internal object JsonUtil {
-    fun toJson(map: Map<String, Any>): String {
+    fun toJson(map: Map<String, Any?>): String {
         return toJsonObject(map)
     }
 

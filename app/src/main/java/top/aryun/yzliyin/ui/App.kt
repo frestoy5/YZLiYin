@@ -1,5 +1,6 @@
 package top.aryun.yzliyin.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,6 +12,7 @@ import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Text
@@ -25,6 +27,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import top.aryun.yzliyin.core.model.Source
 import top.aryun.yzliyin.ui.components.MiniPlayer
 import top.aryun.yzliyin.ui.screen.AlbumScreen
 import top.aryun.yzliyin.ui.screen.ArtistScreen
@@ -48,16 +51,19 @@ object Routes {
     const val SETTINGS = "settings"
     const val DAILY = "daily"
 
-    /** 登录页：login/{method}，method 见下方四个常量。 */
+    /** 登录页：login/{method}，method 见下方常量。 */
     const val LOGIN = "login/{method}"
     fun login(method: String) = "login/$method"
 
     const val LOGIN_NETEASE_WEB = "netease_web"
     const val LOGIN_NETEASE_CAPTCHA = "netease_captcha"
     const val LOGIN_NETEASE_QR = "netease_qr"
+    const val LOGIN_KUGOU_QR = "kugou_qr"
+    const val LOGIN_BILIBILI_QR = "bilibili_qr"
 
-    const val PLAYLIST = "playlist/{id}"
-    fun playlist(id: String) = "playlist/$id"
+    /** 歌单/收藏夹详情带源标识，各源的同一数字 id 不会互相串。 */
+    const val PLAYLIST = "playlist/{source}/{id}"
+    fun playlist(source: Source, id: String) = "playlist/${source.id}/$id"
 
     const val ARTIST = "artist/{id}"
     fun artist(id: String) = "artist/$id"
@@ -93,7 +99,12 @@ fun App() {
     val route = backStackEntry?.destination?.route
     val showBar = route in topLevel
 
-    Box(Modifier.fillMaxSize()) {
+    // 根容器显式铺底色：各页面自身不画背景，否则浅色模式下会透出窗口底色（历史上恒为深色）
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+    ) {
         NavHost(
             navController = nav,
             startDestination = Routes.HOME,
@@ -106,7 +117,11 @@ fun App() {
 
             composable(Routes.DAILY) { SearchScreen(nav, initialTab = 0) }
             composable(Routes.PLAYLIST) { entry ->
-                PlaylistDetailScreen(nav, entry.arguments?.getString("id").orEmpty())
+                PlaylistDetailScreen(
+                    nav,
+                    id = entry.arguments?.getString("id").orEmpty(),
+                    source = Source.fromId(entry.arguments?.getString("source").orEmpty()),
+                )
             }
             composable(Routes.ARTIST) { entry ->
                 ArtistScreen(nav, entry.arguments?.getString("id").orEmpty())

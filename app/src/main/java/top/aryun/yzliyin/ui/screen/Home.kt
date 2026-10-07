@@ -277,7 +277,7 @@ fun HomeScreen(nav: NavController) {
                     Column(
                         Modifier
                             .width(132.dp)
-                            .clickable { nav.navigate(Routes.playlist(p.id)) },
+                            .clickable { nav.navigate(Routes.playlist(p.source, p.id)) },
                     ) {
                         Box(
                             Modifier

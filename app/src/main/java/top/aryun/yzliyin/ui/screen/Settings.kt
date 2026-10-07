@@ -45,8 +45,18 @@ import top.aryun.yzliyin.core.AppGraph
 import top.aryun.yzliyin.core.net.NeteaseApi
 import top.aryun.yzliyin.player.PlayerController
 import top.aryun.yzliyin.ui.Routes
+import top.aryun.yzliyin.ui.theme.AppTheme
 
 private data class Quality(val id: String, val label: String)
+
+private data class Appearance(val id: String, val label: String)
+
+/** 外观模式选项，id 与 [AppTheme] 常量一致并持久化到 SessionStore。 */
+private val appearances = listOf(
+    Appearance(AppTheme.SYSTEM, "跟随系统"),
+    Appearance(AppTheme.LIGHT, "白天"),
+    Appearance(AppTheme.DARK, "黑夜"),
+)
 
 private val qualities = listOf(
     Quality("standard", "标准"),
@@ -58,7 +68,6 @@ private val qualities = listOf(
 
 /**
  * 设置页（网易云风格）：账号 + 音质 + 播放行为 + 缓存 + 关于。
- * 已移除 API 地址、音源切换与「自动转B站」开关。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -95,6 +104,31 @@ fun SettingsScreen(nav: NavController) {
                 }
             },
         )
+
+        // ===== 外观 =====
+        SectionTitle("外观")
+        Text(
+            "白天 / 黑夜可随时切换，也可跟随手机的深色模式",
+            Modifier.padding(horizontal = 16.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            appearances.forEach { a ->
+                FilterChip(
+                    selected = AppTheme.mode == a.id,
+                    onClick = { AppTheme.applyMode(a.id) },
+                    label = { Text(a.label) },
+                )
+            }
+        }
+
+        HorizontalDivider(Modifier.padding(vertical = 14.dp))
 
         // ===== 账号 =====
         SectionTitle("账号")
@@ -261,7 +295,7 @@ fun SettingsScreen(nav: NavController) {
         SectionTitle("关于")
         InfoRow("应用", "音之理音 1.0.0")
         InfoRow("包名", "top.aryun.yzliyin")
-        InfoRow("数据源", "网易云音乐官方接口")
+        InfoRow("数据源", "网易云音乐 · 酷狗音乐 · 哔哩哔哩")
         InfoRow("技术栈", "Jetpack Compose · Material 3 · Media3")
         InfoRow("开源许可", "参考项目 NeriPlayer（GPLv3），保留原版权声明")
 

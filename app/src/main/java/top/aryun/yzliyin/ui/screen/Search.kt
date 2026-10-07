@@ -60,6 +60,9 @@ import top.aryun.yzliyin.core.model.Album
 import top.aryun.yzliyin.core.model.Artist
 import top.aryun.yzliyin.core.model.Playlist
 import top.aryun.yzliyin.core.model.Song
+import top.aryun.yzliyin.core.model.Source
+import top.aryun.yzliyin.core.net.BiliApi
+import top.aryun.yzliyin.core.net.KugouApi
 import top.aryun.yzliyin.core.net.NeteaseApi
 import top.aryun.yzliyin.player.PlayerController
 import top.aryun.yzliyin.ui.Routes
@@ -84,6 +87,7 @@ fun SearchScreen(nav: NavController, initialTab: Int = 0) {
 
     var query by remember { mutableStateOf("") }
     var submitted by remember { mutableStateOf("") }
+    var source by remember { mutableStateOf(Source.NETEASE) }
     var tab by remember { mutableIntStateOf(initialTab.coerceIn(0, catalogTabs.size - 1)) }
     var songs by remember { mutableStateOf<List<Song>>(emptyList()) }
     var playlists by remember { mutableStateOf<List<Playlist>>(emptyList()) }
@@ -106,26 +110,30 @@ fun SearchScreen(nav: NavController, initialTab: Int = 0) {
         }
     }
 
-    LaunchedEffect(query) {
+    LaunchedEffect(query, source) {
         suggests = emptyList()
-        if (query.isBlank() || query == submitted) return@LaunchedEffect
+        if (source != Source.NETEASE || query.isBlank() || query == submitted) return@LaunchedEffect
         kotlinx.coroutines.delay(250)
         if (query.isNotBlank() && query != submitted) {
             suggests = runCatching { NeteaseApi.searchSuggest(query) }.getOrDefault(emptyList())
         }
     }
 
-    LaunchedEffect(submitted, tab) {
+    LaunchedEffect(submitted, tab, source) {
         songs = emptyList(); playlists = emptyList(); artists = emptyList(); albums = emptyList()
         error = null
         if (submitted.isBlank()) return@LaunchedEffect
         searching = true
         runCatching {
-            when (tab) {
-                0 -> songs = NeteaseApi.searchSongs(submitted).items
-                1 -> playlists = NeteaseApi.searchPlaylists(submitted).items
-                2 -> artists = NeteaseApi.searchArtists(submitted).items
-                else -> albums = NeteaseApi.searchAlbums(submitted).items
+            when (source) {
+                Source.NETEASE -> when (tab) {
+                    0 -> songs = NeteaseApi.searchSongs(submitted).items
+                    1 -> playlists = NeteaseApi.searchPlaylists(submitted).items
+                    2 -> artists = NeteaseApi.searchArtists(submitted).items
+                    else -> albums = NeteaseApi.searchAlbums(submitted).items
+                }
+                Source.KUGOU -> songs = KugouApi.searchSongs(submitted).items
+                Source.BILIBILI -> songs = BiliApi.searchSongs(submitted).items
             }
         }.onFailure { error = it.message ?: "搜索失败" }
         searching = false
@@ -165,7 +173,24 @@ fun SearchScreen(nav: NavController, initialTab: Int = 0) {
             },
         )
 
-        // 数据源仅网易云音乐
+        // 数据源切换：酷狗 / B 站只提供歌曲搜索，切过去时回到「歌曲」页签
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Source.entries.forEach { s ->
+                FilterChip(
+                    selected = source == s,
+                    onClick = {
+                        source = s
+                        if (s != Source.NETEASE) tab = 0
+                    },
+                    label = { Text(s.label) },
+                )
+            }
+        }
 
         // 已提交且未改动关键词 → 展示结果；否则展示热搜/猜你想搜
         val browsing = submitted.isEmpty() || query != submitted
@@ -175,7 +200,7 @@ fun SearchScreen(nav: NavController, initialTab: Int = 0) {
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                if (suggests.isNotEmpty()) {
+                if (source == Source.NETEASE && suggests.isNotEmpty()) {
                     item { Text("猜你想搜", style = MaterialTheme.typography.titleSmall) }
                     items(suggests) { s ->
                         Row(
@@ -193,7 +218,7 @@ fun SearchScreen(nav: NavController, initialTab: Int = 0) {
                             Text(s, style = MaterialTheme.typography.bodyLarge)
                         }
                     }
-                } else if (hotWords.isNotEmpty()) {
+                } else if (source == Source.NETEASE && hotWords.isNotEmpty()) {
                     item { Text("热门搜索", style = MaterialTheme.typography.titleSmall) }
                     item {
                         FlowRow(
@@ -206,18 +231,31 @@ fun SearchScreen(nav: NavController, initialTab: Int = 0) {
                         }
                     }
                 }
-                if (suggests.isEmpty() && hotWords.isEmpty()) {
+                if (source != Source.NETEASE) {
+                    item {
+                        Text(
+                            "在${source.label}中搜索歌曲",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                } else if (suggests.isEmpty() && hotWords.isEmpty()) {
                     item { Text("输入关键词开始搜索", color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
             }
         } else {
-            PrimaryTabRow(selectedTabIndex = tab) {
-                tabs.forEachIndexed { i, name ->
-                    Tab(
-                        selected = tab == i,
-                        onClick = { tab = i },
-                        text = { Text(name) },
-                    )
+            if (source == Source.NETEASE) {
+                PrimaryTabRow(selectedTabIndex = tab) {
+                    tabs.forEachIndexed { i, name ->
+                        Tab(
+                            selected = tab == i,
+                            onClick = { tab = i },
+                            text = { Text(name) },
+                        )
+                    }
+                }
+            } else {
+                PrimaryTabRow(selectedTabIndex = 0) {
+                    Tab(selected = true, onClick = {}, text = { Text(catalogTabs[0]) })
                 }
             }
 
@@ -253,7 +291,7 @@ fun SearchScreen(nav: NavController, initialTab: Int = 0) {
                         1 -> {
                             if (playlists.isEmpty() && error == null) emptyItem()
                             items(playlists, key = { it.id }) { p ->
-                                PlaylistRow(p) { nav.navigate(Routes.playlist(p.id)) }
+                                PlaylistRow(p) { nav.navigate(Routes.playlist(p.source, p.id)) }
                             }
                         }
                         2 -> {

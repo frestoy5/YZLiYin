@@ -67,6 +67,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.aryun.yzliyin.core.AppGraph
+import top.aryun.yzliyin.core.net.BiliApi
+import top.aryun.yzliyin.core.net.KugouApi
 import top.aryun.yzliyin.core.net.NeteaseApi
 import top.aryun.yzliyin.core.net.NeteaseQrLoginClient
 import top.aryun.yzliyin.core.net.NeteaseQrLoginSession
@@ -79,8 +81,8 @@ import top.aryun.yzliyin.ui.Routes
  *  - `netease_web`     网易云网页登录（WebView 桌面 UA → MUSIC_U）
  *  - `netease_captcha` 网易云验证码登录
  *  - `netease_qr`      网易云扫码登录（移植自 NeriPlayer）
- *
- * 酷狗与哔哩哔哩登录入口已按需求移除，数据源仅网易云音乐。
+ *  - `kugou_qr`        酷狗扫码登录
+ *  - `bilibili_qr`     B 站扫码登录
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -92,6 +94,8 @@ fun LoginScreen(nav: NavController, method: String = Routes.LOGIN_NETEASE_WEB) {
                     when (method) {
                         Routes.LOGIN_NETEASE_CAPTCHA -> "验证码登录"
                         Routes.LOGIN_NETEASE_WEB -> "网易云登录"
+                        Routes.LOGIN_KUGOU_QR -> "酷狗登录"
+                        Routes.LOGIN_BILIBILI_QR -> "B 站登录"
                         else -> "扫码登录"
                     },
                     fontWeight = FontWeight.Bold,
@@ -107,6 +111,8 @@ fun LoginScreen(nav: NavController, method: String = Routes.LOGIN_NETEASE_WEB) {
         when (method) {
             Routes.LOGIN_NETEASE_WEB -> NeteaseWebLoginContent(nav)
             Routes.LOGIN_NETEASE_CAPTCHA -> NeteaseCaptchaLoginContent(onDone = { nav.popBackStack() })
+            Routes.LOGIN_KUGOU_QR -> KugouQrLoginContent(onDone = { nav.popBackStack() })
+            Routes.LOGIN_BILIBILI_QR -> BiliQrLoginContent(onDone = { nav.popBackStack() })
             else -> NeteaseQrLoginContent(onDone = { nav.popBackStack() })
         }
     }
@@ -398,18 +404,23 @@ private fun NeteaseCaptchaLoginContent(onDone: () -> Unit) {
     }
 }
 
-// ================= 网易云扫码登录 =================
+// ================= 扫码登录（三源共用） =================
 
 /**
- * 网易云扫码登录：移植自 NeriPlayer 的 NeteaseQrLoginActivity。
- * 二维码内容为 session.qrContent，1.5s 轮询一次，确认（803）后落库 Cookie 并同步账号信息。
+ * 扫码登录通用壳：拉二维码内容 → 渲染 → 1.5s 轮询，成功或失败即停止。
+ * 各源的差异都在 [createContent] 与 [check] 里；[check] 自行完成落库等副作用。
  */
 @Composable
-private fun NeteaseQrLoginContent(onDone: () -> Unit) {
-    val context = LocalContext.current
+private fun QrLoginContent(
+    title: String,
+    subtitle: String,
+    waitingText: String,
+    scannedText: String,
+    createContent: suspend () -> String,
+    check: suspend () -> QrStatus,
+    onDone: () -> Unit,
+) {
     val scope = rememberCoroutineScope()
-    val client = remember { NeteaseQrLoginClient(context) }
-    var session by remember { mutableStateOf<NeteaseQrLoginSession?>(null) }
     var qrBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var loading by remember { mutableStateOf(true) }
     var status by remember { mutableStateOf<QrStatus>(QrStatus.Waiting) }
@@ -419,17 +430,15 @@ private fun NeteaseQrLoginContent(onDone: () -> Unit) {
     suspend fun refresh() {
         loading = true
         status = QrStatus.Waiting
-        session = null
         qrBitmap = null
-        client.reset()
-        runCatching { withContext(Dispatchers.IO) { client.createSession() } }
-            .onSuccess { s ->
-                session = s
-                qrBitmap = runCatching {
-                    withContext(Dispatchers.Default) { createQrBitmap(s.qrContent, qrSizePx) }
-                }.getOrNull()
-            }
+        val content = runCatching { createContent() }
             .onFailure { status = QrStatus.Failed(it.message ?: "二维码获取失败") }
+            .getOrDefault("")
+        if (content.isNotBlank()) {
+            qrBitmap = runCatching {
+                withContext(Dispatchers.Default) { createQrBitmap(content, qrSizePx) }
+            }.getOrNull()
+        }
         loading = false
         tick++
     }
@@ -437,41 +446,23 @@ private fun NeteaseQrLoginContent(onDone: () -> Unit) {
     LaunchedEffect(Unit) { refresh() }
 
     LaunchedEffect(tick) {
-        val s = session ?: return@LaunchedEffect
-        // 轮询：801 等待扫码 / 802 已扫待确认 / 803 成功 / 800 过期
+        if (tick == 0L) return@LaunchedEffect
         repeat(120) {
-            val check = runCatching {
-                withContext(Dispatchers.IO) { client.checkLogin(s) }
-            }.getOrElse { status = QrStatus.Failed(it.message ?: "轮询失败"); return@LaunchedEffect }
-            when (check.code) {
-                803 -> {
-                    val cookies = check.cookies
-                    if (cookies["MUSIC_U"].isNullOrBlank()) {
-                        status = QrStatus.Failed("登录确认但 Cookie 不完整，请重试")
-                        return@LaunchedEffect
-                    }
-                    AppGraph.store.saveNeteaseCookies(cookies)
-                    NeteaseApi.syncCookies()
-                    runCatching { NeteaseApi.refreshAccount() }
-                    status = QrStatus.Success(
-                        nickname = AppGraph.store.neteaseName,
-                    )
+            val next = runCatching { check() }
+                .getOrElse {
+                    status = QrStatus.Failed(it.message ?: "轮询失败")
+                    return@LaunchedEffect
+                }
+            status = next
+            when (next) {
+                is QrStatus.Success -> {
                     delay(400)
                     onDone()
                     return@LaunchedEffect
                 }
-                802 -> status = QrStatus.Scanned
-                801 -> status = QrStatus.Waiting
-                800 -> {
-                    status = QrStatus.Failed("二维码已过期，请刷新")
-                    return@LaunchedEffect
-                }
-                else -> {
-                    status = QrStatus.Failed(check.message.ifBlank { "code=${check.code}" })
-                    return@LaunchedEffect
-                }
+                is QrStatus.Failed -> return@LaunchedEffect
+                else -> delay(1500)
             }
-            delay(1500)
         }
     }
 
@@ -483,9 +474,9 @@ private fun NeteaseQrLoginContent(onDone: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text("使用网易云音乐 App 扫描二维码", style = MaterialTheme.typography.titleMedium)
+        Text(title, style = MaterialTheme.typography.titleMedium)
         Text(
-            "登录后可播放会员歌曲、获取账号曲库",
+            subtitle,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -522,14 +513,14 @@ private fun NeteaseQrLoginContent(onDone: () -> Unit) {
             }
         }
 
-        val text = when (val s = status) {
-            is QrStatus.Waiting -> "请打开网易云音乐 App 扫码"
-            is QrStatus.Scanned -> "已扫描，请在手机上确认登录"
+        val statusText = when (val s = status) {
+            is QrStatus.Waiting -> waitingText
+            is QrStatus.Scanned -> scannedText
             is QrStatus.Failed -> s.reason
             is QrStatus.Success -> "登录成功"
         }
         Text(
-            text,
+            statusText,
             color = when (status) {
                 is QrStatus.Failed -> MaterialTheme.colorScheme.error
                 else -> MaterialTheme.colorScheme.primary
@@ -545,6 +536,89 @@ private fun NeteaseQrLoginContent(onDone: () -> Unit) {
             }
         }
     }
+}
+
+/** 网易云扫码登录：移植自 NeriPlayer 的 NeteaseQrLoginActivity，确认（803）后落库 Cookie。 */
+@Composable
+private fun NeteaseQrLoginContent(onDone: () -> Unit) {
+    val context = LocalContext.current
+    val client = remember { NeteaseQrLoginClient(context) }
+    var session by remember { mutableStateOf<NeteaseQrLoginSession?>(null) }
+
+    QrLoginContent(
+        title = "使用网易云音乐 App 扫描二维码",
+        subtitle = "登录后可播放会员歌曲、获取账号曲库",
+        waitingText = "请打开网易云音乐 App 扫码",
+        scannedText = "已扫描，请在手机上确认登录",
+        createContent = {
+            client.reset()
+            val created = withContext(Dispatchers.IO) { client.createSession() }
+            session = created
+            created.qrContent
+        },
+        check = {
+            val current = session
+            if (current == null) {
+                QrStatus.Waiting
+            } else {
+                val result = withContext(Dispatchers.IO) { client.checkLogin(current) }
+                when (result.code) {
+                    803 -> {
+                        val cookies = result.cookies
+                        if (cookies["MUSIC_U"].isNullOrBlank()) {
+                            QrStatus.Failed("登录确认但 Cookie 不完整，请重试")
+                        } else {
+                            AppGraph.store.saveNeteaseCookies(cookies)
+                            NeteaseApi.syncCookies()
+                            runCatching { NeteaseApi.refreshAccount() }
+                            QrStatus.Success(AppGraph.store.neteaseName)
+                        }
+                    }
+                    802 -> QrStatus.Scanned
+                    801 -> QrStatus.Waiting
+                    800 -> QrStatus.Failed("二维码已过期，请刷新")
+                    else -> QrStatus.Failed(result.message.ifBlank { "code=${result.code}" })
+                }
+            }
+        },
+        onDone = onDone,
+    )
+}
+
+private const val KUGOU_QR_URL_PREFIX = "https://h5.kugou.com/apps/loginQRCode/html/index.html?qrcode="
+
+/** 酷狗扫码登录。 */
+@Composable
+private fun KugouQrLoginContent(onDone: () -> Unit) {
+    var key by remember { mutableStateOf("") }
+
+    QrLoginContent(
+        title = "使用酷狗音乐 App 扫描二维码",
+        subtitle = "登录后可同步「我喜欢」与歌单",
+        waitingText = "请打开酷狗音乐 App 扫码",
+        scannedText = "已扫码，请在手机上确认登录",
+        createContent = {
+            val created = KugouApi.createQrKey()
+            key = created
+            if (created.isBlank()) "" else KUGOU_QR_URL_PREFIX + created
+        },
+        check = { if (key.isBlank()) QrStatus.Waiting else KugouApi.checkQr(key) },
+        onDone = onDone,
+    )
+}
+
+/** B 站扫码登录（`checkQr` 内部使用最近一次申请到的 qrcode_key）。 */
+@Composable
+private fun BiliQrLoginContent(onDone: () -> Unit) {
+    QrLoginContent(
+        title = "使用哔哩哔哩 App 扫描二维码",
+        subtitle = "登录后可同步收藏夹与「我喜欢」",
+        waitingText = "请打开哔哩哔哩 App 扫码",
+        scannedText = "已扫描，请在手机上确认登录",
+        createContent = { BiliApi.createQrContent() },
+        check = { BiliApi.checkQr() },
+        onDone = onDone,
+    )
 }
 
 /** 用 zxing 生成二维码位图（内容取 session.qrContent）。 */

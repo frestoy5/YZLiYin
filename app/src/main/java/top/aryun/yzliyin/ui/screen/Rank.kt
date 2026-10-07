@@ -206,7 +206,7 @@ fun RankScreen(nav: NavController) {
                     Column(
                         Modifier
                             .weight(1f)
-                            .clickable { nav.navigate(Routes.playlist(p.id)) },
+                            .clickable { nav.navigate(Routes.playlist(p.source, p.id)) },
                     ) {
                         Box(
                             Modifier

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="window_background">#FF0E0F13</color>
+    <!-- 浅色窗口底色（深色见 values-night/colors.xml），用于首帧与 Compose 之前的过渡 -->
+    <color name="window_background">#FFF7F8FC</color>
     <color name="brand_primary">#FF3A6BFF</color>
     <color name="brand_secondary">#FF7C5CFF</color>
     <color name="ic_launcher_background">#FF101728</color>

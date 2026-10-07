@@ -1,6 +1,16 @@
 package top.aryun.yzliyin.core.model
 
-/** 统一歌曲模型（数据源仅网易云音乐，[id] 即网易云歌曲 id）。 */
+/**
+ * 统一歌曲模型。
+ *
+ * [id] 是**该源自己的**歌曲 id（网易云数字 id / 酷狗音频 hash / B 站 bvid），
+ * 跨源不保证唯一，凡用作集合键或去重键的地方一律用 [key]。
+ *
+ * [playId] / [playSubId] 存放取链所需的源特有参数：
+ *  - 酷狗：[playId] = 音频 FileHash，[playSubId] = album_audio_id
+ *  - B 站：[playId] = bvid，[playSubId] = cid
+ *  - 网易云：留空，直接用 [id]
+ */
 data class Song(
     val id: String,
     val name: String,
@@ -12,7 +22,13 @@ data class Song(
     val durationMs: Long = 0L,
     /** 该曲在网易云是否需要会员（fee=1/4）。 */
     val vip: Boolean = false,
-)
+    val source: Source = Source.NETEASE,
+    val playId: String = "",
+    val playSubId: String = "",
+) {
+    /** 跨源唯一的稳定键，用于队列去重、已取链集合与列表 key。 */
+    val key: String get() = source.id + ":" + id
+}
 
 data class Album(
     val id: String,
@@ -43,7 +59,10 @@ data class Playlist(
     val playCount: Long = 0,
     val songCount: Int = 0,
     val tags: List<String> = emptyList(),
-)
+    val source: Source = Source.NETEASE,
+) {
+    val key: String get() = source.id + ":" + id
+}
 
 data class Rank(
     val id: String,

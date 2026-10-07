@@ -19,7 +19,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import top.aryun.yzliyin.core.AppGraph
 import top.aryun.yzliyin.core.model.Song
-import top.aryun.yzliyin.core.net.NeteaseApi
 
 /** 当前播放状态，供 UI 观察。 */
 data class PlayState(
@@ -53,7 +52,7 @@ object PlayerController {
     private var positionJob: Job? = null
     private var resolvingIndex = -1
 
-    /** 已成功写入播放 URL 的曲目 id（避免重复取链）。 */
+    /** 已成功写入播放 URL 的曲目（跨源唯一键，避免重复取链）。 */
     private val resolvedIds = HashSet<String>()
 
     fun init(context: Context) {
@@ -159,7 +158,7 @@ object PlayerController {
         }
 
         _state.value = _state.value.copy(resolving = true)
-        val firstUrl = NeteaseApi.songUrl(songs[startIndex].id)
+        val firstUrl = PlaybackResolver.url(songs[startIndex])
         _state.value = _state.value.copy(resolving = false)
         if (firstUrl.isEmpty()) {
             _state.value = _state.value.copy(
@@ -176,7 +175,7 @@ object PlayerController {
         pendingQueue.clear()
         pendingQueue.addAll(songs)
         resolvedIds.clear()
-        resolvedIds.add(songs[startIndex].id)
+        resolvedIds.add(songs[startIndex].key)
         c.setMediaItems(items, startIndex, 0L)
         c.prepare()
         c.play()
@@ -191,18 +190,18 @@ object PlayerController {
         if (index < 0 || index >= pendingQueue.size || index == resolvingIndex) return
         val c = controller ?: return
         val song = pendingQueue[index]
-        if (song.id in resolvedIds) return
+        if (song.key in resolvedIds) return
         resolvingIndex = index
         _state.value = _state.value.copy(resolving = true)
         scope.launch {
-            val url = NeteaseApi.songUrl(song.id)
+            val url = PlaybackResolver.url(song)
             resolvingIndex = -1
             _state.value = _state.value.copy(resolving = false)
             if (url.isEmpty()) {
                 _state.value = _state.value.copy(error = unavailableReason(song))
                 return@launch
             }
-            resolvedIds.add(song.id)
+            resolvedIds.add(song.key)
             val isCurrent = c.currentMediaItemIndex == index
             val position = if (isCurrent) c.currentPosition else 0L
             c.replaceMediaItem(index, toMediaItem(song, url))
@@ -218,7 +217,7 @@ object PlayerController {
         val c = controller ?: return
         val song = pendingQueue.getOrNull(index) ?: return
         _state.value = _state.value.copy(resolving = true)
-        val url = NeteaseApi.songUrl(song.id)
+        val url = PlaybackResolver.url(song)
         _state.value = _state.value.copy(resolving = false)
         if (url.isEmpty()) {
             _state.value = _state.value.copy(error = unavailableReason(song))
@@ -230,7 +229,7 @@ object PlayerController {
         if (isCurrent) c.seekTo(index, position)
         c.prepare()
         c.play()
-        resolvedIds.add(song.id)
+        resolvedIds.add(song.key)
         _state.value = _state.value.copy(error = null)
     }
 
@@ -240,17 +239,16 @@ object PlayerController {
         val index = c.currentMediaItemIndex
         if (index < 0) return
         resolvingIndex = -1
-        pendingQueue.getOrNull(index)?.let { resolvedIds.remove(it.id) }
+        pendingQueue.getOrNull(index)?.let { resolvedIds.remove(it.key) }
         resolveAndRetry(index)
     }
 
-    private fun unavailableReason(song: Song): String =
-        if (song.vip) "该歌曲需要网易云会员，当前账号无权限" else "获取播放链接失败，请稍后重试"
+    private fun unavailableReason(song: Song): String = PlaybackResolver.unavailableReason(song)
 
     private fun rememberRecent(song: Song) {
         runCatching {
             val store = AppGraph.store
-            val ids = song.id + "," + store.recentSongIds
+            val ids = song.key + "," + store.recentSongIds
             store.recentSongIds = ids.split(",").distinct().take(30).joinToString(",")
         }
     }
@@ -263,7 +261,7 @@ object PlayerController {
             .setArtworkUri(s.cover.takeIf { it.isNotBlank() }?.let { android.net.Uri.parse(it) })
             .build()
         return MediaItem.Builder()
-            .setMediaId(s.id)
+            .setMediaId(s.key)
             .setUri(url)
             .setMediaMetadata(meta)
             .build()

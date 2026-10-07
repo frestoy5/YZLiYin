@@ -17,11 +17,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -53,49 +54,84 @@ import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 import top.aryun.yzliyin.core.AppGraph
 import top.aryun.yzliyin.core.model.Playlist
+import top.aryun.yzliyin.core.model.Source
+import top.aryun.yzliyin.core.net.BiliApi
+import top.aryun.yzliyin.core.net.KugouApi
 import top.aryun.yzliyin.core.net.NeteaseApi
 import top.aryun.yzliyin.ui.Routes
 import top.aryun.yzliyin.ui.components.SectionHeader
 
 /**
- * 「我的」：网易云账号卡片 + **我的歌单**（登录后同步用户歌单；
- * 未登录时展示推荐歌单并提示登录）。
+ * 「我的」：三个数据源各一张账号卡片，登录后展示该源的「我喜欢」与歌单/收藏夹
+ * （网易云为我的歌单、酷狗为用户歌单、B 站为创建的与订阅的收藏夹）。
  */
 @Composable
 fun MineScreen(nav: NavController) {
     val store = AppGraph.store
     val scope = rememberCoroutineScope()
 
-    var neteaseLoggedIn by remember { mutableStateOf(store.isNeteaseLoggedIn) }
-    var playlists by remember { mutableStateOf<List<Playlist>>(emptyList()) }
+    var loggedIn by remember { mutableStateOf(store.isNeteaseLoggedIn) }
+    var kugouLoggedIn by remember { mutableStateOf(store.isLoggedIn(Source.KUGOU)) }
+    var biliLoggedIn by remember { mutableStateOf(store.isLoggedIn(Source.BILIBILI)) }
+
+    var neteasePlaylists by remember { mutableStateOf<List<Playlist>>(emptyList()) }
+    var kugouLikes by remember { mutableStateOf<Playlist?>(null) }
+    var kugouPlaylists by remember { mutableStateOf<List<Playlist>>(emptyList()) }
+    var biliLikes by remember { mutableStateOf<Playlist?>(null) }
+    var biliCreated by remember { mutableStateOf<List<Playlist>>(emptyList()) }
+    var biliCollected by remember { mutableStateOf<List<Playlist>>(emptyList()) }
+
     var tip by remember { mutableStateOf<String?>(null) }
     var refreshKey by remember { mutableStateOf(0) }
 
     suspend fun reload() {
-        neteaseLoggedIn = store.isNeteaseLoggedIn
-        val logged = store.isNeteaseLoggedIn
-        if (logged) {
+        loggedIn = store.isNeteaseLoggedIn
+        kugouLoggedIn = store.isLoggedIn(Source.KUGOU)
+        biliLoggedIn = store.isLoggedIn(Source.BILIBILI)
+
+        if (loggedIn) {
             val mine = runCatching { NeteaseApi.userPlaylists() }.getOrDefault(emptyList())
             if (mine.isNotEmpty()) {
-                playlists = mine
+                neteasePlaylists = mine
                 tip = null
-                return
+            } else {
+                tip = "暂未取到你的歌单，已展示推荐歌单"
+                neteasePlaylists = runCatching { NeteaseApi.recommendedPlaylists(12) }
+                    .getOrDefault(emptyList())
             }
-            tip = "暂未取到你的歌单，已展示推荐歌单"
         } else {
             tip = "登录网易云账号即可同步你的歌单"
+            neteasePlaylists = runCatching { NeteaseApi.recommendedPlaylists(12) }
+                .getOrDefault(emptyList())
         }
-        playlists = runCatching { NeteaseApi.recommendedPlaylists(12) }.getOrDefault(emptyList())
+
+        if (kugouLoggedIn) {
+            kugouLikes = KugouApi.likesPlaylist()
+            kugouPlaylists = KugouApi.userPlaylists().filterNot { KugouApi.isLikesName(it.name) }
+        } else {
+            kugouLikes = null
+            kugouPlaylists = emptyList()
+        }
+
+        if (biliLoggedIn) {
+            biliLikes = BiliApi.likesPlaylist()
+            val created = BiliApi.createdFolders()
+            biliCreated = created.filterNot { it.id == biliLikes?.id }
+            biliCollected = BiliApi.collectedFolders()
+        } else {
+            biliLikes = null
+            biliCreated = emptyList()
+            biliCollected = emptyList()
+        }
     }
 
     LaunchedEffect(refreshKey) { reload() }
 
-    // 每次进入/回到前台刷新一次登录态、资料与歌单
+    // 每次进入/回到前台刷新一次登录态、资料与各源列表
     val lifecycleOwner = LocalLifecycleOwner.current
     androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
-                neteaseLoggedIn = store.isNeteaseLoggedIn
                 if (store.isNeteaseLoggedIn) {
                     scope.launch { runCatching { NeteaseApi.refreshAccount() } }
                 }
@@ -128,15 +164,15 @@ fun MineScreen(nav: NavController) {
             }
         }
 
-        // ===== 网易云音乐账号 =====
+        // ===== 网易云音乐 =====
         item {
             AccountCard(
                 title = "网易云音乐",
-                avatar = store.neteaseAvatar.takeIf { neteaseLoggedIn && it.isNotEmpty() },
-                name = store.neteaseName.takeIf { neteaseLoggedIn && it.isNotEmpty() },
-                loggedIn = neteaseLoggedIn,
+                avatar = store.neteaseAvatar.takeIf { loggedIn && it.isNotEmpty() },
+                name = store.neteaseName.takeIf { loggedIn && it.isNotEmpty() },
+                loggedIn = loggedIn,
                 statusText = {
-                    if (neteaseLoggedIn) {
+                    if (loggedIn) {
                         buildString {
                             append(store.neteaseName.ifBlank { "已登录" })
                             if (store.neteaseVip) append(" · 黑胶VIP") else append(" · 网易云账号")
@@ -144,18 +180,18 @@ fun MineScreen(nav: NavController) {
                     } else "未登录（登录后可同步歌单、播放会员歌曲）"
                 },
                 actions = {
-                    if (neteaseLoggedIn) {
+                    if (loggedIn) {
                         OutlinedButton(onClick = {
                             NeteaseApi.logout()
-                            neteaseLoggedIn = false
-                            playlists = emptyList()
+                            loggedIn = false
+                            neteasePlaylists = emptyList()
                             refreshKey++
                             nav.navigate(Routes.login(Routes.LOGIN_NETEASE_WEB)) { launchSingleTop = true }
                         }) { Text("切换账号") }
                         TextButton(onClick = {
                             NeteaseApi.logout()
-                            neteaseLoggedIn = false
-                            playlists = emptyList()
+                            loggedIn = false
+                            neteasePlaylists = emptyList()
                             refreshKey++
                         }) { Text("退出", color = MaterialTheme.colorScheme.error) }
                     } else {
@@ -180,10 +216,78 @@ fun MineScreen(nav: NavController) {
             )
         }
 
-        // ===== 我的歌单 =====
+        // ===== 酷狗音乐 =====
+        item {
+            AccountCard(
+                title = "酷狗音乐",
+                avatar = null,
+                name = store.displayName(Source.KUGOU).takeIf { kugouLoggedIn && it.isNotEmpty() },
+                loggedIn = kugouLoggedIn,
+                statusText = {
+                    if (kugouLoggedIn) {
+                        store.displayName(Source.KUGOU).ifBlank { "已登录" } + " · 酷狗账号"
+                    } else "未登录（登录后可同步「我喜欢」与歌单）"
+                },
+                actions = {
+                    if (kugouLoggedIn) {
+                        TextButton(onClick = {
+                            KugouApi.logout()
+                            kugouLoggedIn = false
+                            kugouLikes = null
+                            kugouPlaylists = emptyList()
+                        }) { Text("退出", color = MaterialTheme.colorScheme.error) }
+                    } else {
+                        FilledTonalButton(onClick = {
+                            nav.navigate(Routes.login(Routes.LOGIN_KUGOU_QR)) { launchSingleTop = true }
+                        }) { Text("扫码登录") }
+                    }
+                },
+            )
+        }
+        if (kugouLoggedIn) {
+            likesEntry(kugouLikes, Source.KUGOU, nav)
+            playlistGroup("我的歌单", kugouPlaylists, nav)
+        }
+
+        // ===== 哔哩哔哩 =====
+        item {
+            AccountCard(
+                title = "哔哩哔哩",
+                avatar = null,
+                name = store.displayName(Source.BILIBILI).takeIf { biliLoggedIn && it.isNotEmpty() },
+                loggedIn = biliLoggedIn,
+                statusText = {
+                    if (biliLoggedIn) {
+                        store.displayName(Source.BILIBILI).ifBlank { "已登录" } + " · 播放视频的音频轨"
+                    } else "未登录（登录后可同步收藏夹与「我喜欢」）"
+                },
+                actions = {
+                    if (biliLoggedIn) {
+                        TextButton(onClick = {
+                            BiliApi.logout()
+                            biliLoggedIn = false
+                            biliLikes = null
+                            biliCreated = emptyList()
+                            biliCollected = emptyList()
+                        }) { Text("退出", color = MaterialTheme.colorScheme.error) }
+                    } else {
+                        FilledTonalButton(onClick = {
+                            nav.navigate(Routes.login(Routes.LOGIN_BILIBILI_QR)) { launchSingleTop = true }
+                        }) { Text("扫码登录") }
+                    }
+                },
+            )
+        }
+        if (biliLoggedIn) {
+            likesEntry(biliLikes, Source.BILIBILI, nav)
+            playlistGroup("创建的收藏夹", biliCreated, nav)
+            playlistGroup("订阅的收藏夹", biliCollected, nav)
+        }
+
+        // ===== 网易云歌单 =====
         item {
             SectionHeader(
-                title = if (neteaseLoggedIn) "我的歌单" else "推荐歌单",
+                title = if (loggedIn) "我的歌单" else "推荐歌单",
                 action = "刷新",
                 onAction = { refreshKey++ },
             )
@@ -197,7 +301,7 @@ fun MineScreen(nav: NavController) {
             }
         }
 
-        if (playlists.isEmpty()) {
+        if (neteasePlaylists.isEmpty()) {
             item {
                 Text(
                     "加载中…",
@@ -208,7 +312,7 @@ fun MineScreen(nav: NavController) {
             }
         }
 
-        items(playlists.chunked(2), key = { it.first().id }) { pair ->
+        items(neteasePlaylists.chunked(2), key = { it.first().key }) { pair ->
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -216,7 +320,7 @@ fun MineScreen(nav: NavController) {
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 pair.forEach { p ->
-                    PlaylistCard(p, Modifier.weight(1f)) { nav.navigate(Routes.playlist(p.id)) }
+                    PlaylistCard(p, Modifier.weight(1f)) { nav.navigate(Routes.playlist(p.source, p.id)) }
                 }
                 if (pair.size == 1) Spacer(Modifier.weight(1f))
             }
@@ -231,6 +335,65 @@ fun MineScreen(nav: NavController) {
                     .clip(RoundedCornerShape(14.dp))
                     .clickable { nav.navigate(Routes.SETTINGS) },
             )
+        }
+    }
+}
+
+/** 「我喜欢」入口；该源没有对应列表时给出说明而不是留空。 */
+private fun LazyListScope.likesEntry(
+    likes: Playlist?,
+    source: Source,
+    nav: NavController,
+) {
+    item {
+        SectionHeader(title = "我喜欢")
+        ListItem(
+            headlineContent = { Text(likes?.name ?: "我喜欢") },
+            supportingContent = {
+                Text(
+                    when {
+                        likes == null && source == Source.KUGOU -> "未在酷狗账号里找到「我喜欢」歌单"
+                        likes == null -> "未找到可用的收藏夹"
+                        likes.songCount > 0 -> "${likes.songCount} 首"
+                        else -> source.label
+                    },
+                )
+            },
+            leadingContent = {
+                Icon(
+                    Icons.Filled.Favorite,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            },
+            modifier = Modifier
+                .padding(horizontal = 16.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .clickable(enabled = likes != null) {
+                    likes?.let { nav.navigate(Routes.playlist(it.source, it.id)) }
+                },
+        )
+    }
+}
+
+private fun LazyListScope.playlistGroup(
+    title: String,
+    playlists: List<Playlist>,
+    nav: NavController,
+) {
+    if (playlists.isEmpty()) return
+    item { SectionHeader(title = title) }
+    items(playlists.chunked(2), key = { it.first().key }) { pair ->
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            pair.forEach { p ->
+                PlaylistCard(p, Modifier.weight(1f)) { nav.navigate(Routes.playlist(p.source, p.id)) }
+            }
+            if (pair.size == 1) Spacer(Modifier.weight(1f))
         }
     }
 }

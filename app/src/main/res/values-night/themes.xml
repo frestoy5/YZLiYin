@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 浅色（白天）：与 ui/theme/Color.kt 的 DayBackground 保持一致 -->
-    <style name="Theme.YZLiYin" parent="android:Theme.Material.Light.NoActionBar">
+    <!-- 深色模式：与 ui/theme/Color.kt 的 NightBackground 保持一致 -->
+    <style name="Theme.YZLiYin" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/window_background</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
-        <item name="android:windowLightStatusBar">true</item>
-        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
         <item name="android:forceDarkAllowed">false</item>
     </style>
 </resources>

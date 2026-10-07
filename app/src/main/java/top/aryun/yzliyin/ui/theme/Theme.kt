@@ -1,5 +1,7 @@
 package top.aryun.yzliyin.ui.theme
 
+import android.app.Activity
+import android.graphics.drawable.ColorDrawable
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
@@ -9,11 +11,48 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
+import top.aryun.yzliyin.core.AppGraph
+
+/**
+ * 外观模式：跟随系统 / 强制白天 / 强制黑夜。
+ *
+ * 设置页写入后立即生效并持久化到 [AppGraph.store]，主题色板、窗口底色与
+ * 状态栏图标统一从这里取值，避免三处各自判断导致颜色不一致。
+ */
+object AppTheme {
+    const val SYSTEM = "system"
+    const val LIGHT = "light"
+    const val DARK = "dark"
+
+    /** 当前模式（Compose 可观察）。AppGraph 在 Application.onCreate 中先于界面初始化。 */
+    var mode: String by mutableStateOf(AppGraph.store.themeMode)
+        private set
+
+    fun applyMode(value: String) {
+        mode = value
+        AppGraph.store.themeMode = value
+    }
+
+    /** 是否为深色：手动选择优先，跟随系统时取手机的深色开关。 */
+    @Composable
+    fun isDark(): Boolean = when (mode) {
+        LIGHT -> false
+        DARK -> true
+        else -> isSystemInDarkTheme()
+    }
+}
 
 private val DarkColors = darkColorScheme(
     primary = BrandBlue,
@@ -81,7 +120,7 @@ private val AppTypography = Typography(
 
 @Composable
 fun YZLiYinTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = AppTheme.isDark(),
     content: @Composable () -> Unit,
 ) {
     // Material You：Android 12+ 跟随壁纸动态取色，低版本回退到标准 M3 色板
@@ -95,6 +134,21 @@ fun YZLiYinTheme(
 
         darkTheme -> DarkColors
         else -> LightColors
+    }
+
+    // 状态栏/导航栏图标与窗口底色跟随主题。
+    // manifest 声明了 uiMode 配置变更由 Activity 自行处理（不重建），XML 主题资源不会重新解析，
+    // 因此这里必须按当前色板同步，否则关掉系统深色后窗口底色与图标仍停留在深色。
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as? Activity)?.window ?: return@SideEffect
+            window.setBackgroundDrawable(ColorDrawable(colorScheme.background.toArgb()))
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = !darkTheme
+                isAppearanceLightNavigationBars = !darkTheme
+            }
+        }
     }
 
     MaterialTheme(
