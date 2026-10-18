@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("org.jetbrains.kotlin.plugin.serialization")
 }
 
 android {
@@ -98,6 +99,8 @@ dependencies {
     // 网络
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    // 一起听协议层的 JSON 编解码（与 NeriPlayer-LTW 服务端协议字段一一对应）
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
     // 网易云接口的 Brotli 响应解码（移植自 NeriPlayer）
     implementation("org.brotli:dec:0.1.2")
     // 网易云扫码登录的二维码生成

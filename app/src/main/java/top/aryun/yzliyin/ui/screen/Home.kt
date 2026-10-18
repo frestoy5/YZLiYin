@@ -1,5 +1,6 @@
 package top.aryun.yzliyin.ui.screen
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,10 +19,16 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalIconButton
@@ -39,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -50,10 +58,14 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import top.aryun.yzliyin.core.model.Playlist
 import top.aryun.yzliyin.core.model.Song
+import top.aryun.yzliyin.core.net.NetworkStatus
 import top.aryun.yzliyin.core.net.NeteaseApi
 import top.aryun.yzliyin.player.PlayerController
 import top.aryun.yzliyin.ui.Routes
 import top.aryun.yzliyin.ui.components.SectionHeader
+import top.aryun.yzliyin.ui.theme.BrandAmber
+import top.aryun.yzliyin.ui.theme.BrandAqua
+import top.aryun.yzliyin.ui.theme.BrandRose
 
 /** 网易云热歌榜（最新热度）。 */
 private const val HOT_RANK_ID = "3778678"
@@ -71,7 +83,11 @@ fun HomeScreen(nav: NavController) {
     var refreshKey by remember { mutableStateOf(0) }
     var loading by remember { mutableStateOf(true) }
 
-    LaunchedEffect(Unit) {
+    // 首次进入与右上角「刷新」共用同一条加载链路：四块内容一起重拉，
+    // 拉不到就保留上一次的结果，免得刷新一次失败就把整页清空。
+    LaunchedEffect(refreshKey) {
+        if (refreshKey == 0) loading = true
+        NetworkStatus.refresh()
         kotlinx.coroutines.coroutineScope {
             val h = async { NeteaseApi.hotSearch() }
             val hs = async {
@@ -79,17 +95,15 @@ fun HomeScreen(nav: NavController) {
                     .getOrDefault(emptyList())
             }
             val n = async { runCatching { NeteaseApi.newSongs(12) }.getOrDefault(emptyList()) }
-            hots = h.await()
-            hotSongs = hs.await()
-            fresh = n.await()
+            val p = async {
+                runCatching { NeteaseApi.recommendedPlaylists(limit = 10) }.getOrDefault(emptyList())
+            }
+            h.await().takeIf { it.isNotEmpty() }?.let { hots = it }
+            hs.await().takeIf { it.isNotEmpty() }?.let { hotSongs = it }
+            n.await().takeIf { it.isNotEmpty() }?.let { fresh = it }
+            p.await().takeIf { it.isNotEmpty() }?.let { playlists = it }
         }
         loading = false
-    }
-
-    LaunchedEffect(refreshKey) {
-        playlists = runCatching {
-            NeteaseApi.recommendedPlaylists(limit = 10)
-        }.getOrDefault(emptyList())
     }
 
     fun play(songs: List<Song>, index: Int) {
@@ -117,15 +131,28 @@ fun HomeScreen(nav: NavController) {
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                 )
+                Spacer(Modifier.width(10.dp))
+                NetworkBadge()
                 Spacer(Modifier.weight(1f))
-                FilledTonalIconButton(onClick = {
-                    nav.navigate(Routes.SEARCH) {
-                        popUpTo(Routes.HOME) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                }) {
-                    Icon(Icons.Filled.Search, contentDescription = "搜索")
+                // 刷新时图标转圈；转完（loading 复位）即停，期间不接受连点
+                val spin by rememberInfiniteTransition(label = "refresh").animateFloat(
+                    initialValue = 0f,
+                    targetValue = 360f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(900, easing = LinearEasing),
+                        repeatMode = RepeatMode.Restart,
+                    ),
+                    label = "refreshRotation",
+                )
+                FilledTonalIconButton(
+                    onClick = { refreshKey++ },
+                    enabled = !loading,
+                ) {
+                    Icon(
+                        Icons.Rounded.Refresh,
+                        contentDescription = "刷新",
+                        modifier = Modifier.rotate(if (loading) spin else 0f),
+                    )
                 }
             }
         }
@@ -160,7 +187,7 @@ fun HomeScreen(nav: NavController) {
                     onAction = { play(hotSongs, 0) },
                 )
                 Text(
-                    "网易云热歌榜 · 实时热度",
+                    "全网实时热度 · 每 10 分钟更新",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp),
@@ -321,5 +348,39 @@ fun HomeScreen(nav: NavController) {
                 )
             }
         }
+    }
+}
+
+/** 首页标题旁的网络状态徽标：延迟 + 等级（优秀 / 中等 / 未连接）。 */
+@Composable
+private fun NetworkBadge() {
+    val level = NetworkStatus.level
+    val latency = NetworkStatus.latencyMs
+    val color = when (level) {
+        NetworkStatus.Level.GOOD -> BrandAqua
+        NetworkStatus.Level.FAIR -> BrandAmber
+        NetworkStatus.Level.OFFLINE -> BrandRose
+        NetworkStatus.Level.CHECKING -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val text = when (level) {
+        NetworkStatus.Level.GOOD -> "${latency ?: 0}ms · 优秀"
+        NetworkStatus.Level.FAIR -> "${latency ?: 0}ms · 中等"
+        NetworkStatus.Level.OFFLINE -> "未连接"
+        NetworkStatus.Level.CHECKING -> "检测中…"
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(color),
+        )
+        Spacer(Modifier.width(5.dp))
+        Text(
+            text,
+            style = MaterialTheme.typography.labelMedium,
+            color = color,
+            maxLines = 1,
+        )
     }
 }

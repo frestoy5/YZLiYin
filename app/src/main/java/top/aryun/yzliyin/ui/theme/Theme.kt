@@ -11,6 +11,7 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -18,18 +19,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import top.aryun.yzliyin.core.AppGraph
 
 /**
- * 外观模式：跟随系统 / 强制白天 / 强制黑夜。
+ * 外观与尺寸：跟随系统 / 强制白天 / 强制黑夜，以及界面大小、字体大小倍数。
  *
- * 设置页写入后立即生效并持久化到 [AppGraph.store]，主题色板、窗口底色与
- * 状态栏图标统一从这里取值，避免三处各自判断导致颜色不一致。
+ * 设置页写入后立即生效并持久化到 [AppGraph.store]，主题色板、窗口底色、
+ * 状态栏图标与根 Density 统一从这里取值，避免各处各自判断导致不一致。
  */
 object AppTheme {
     const val SYSTEM = "system"
@@ -40,9 +43,30 @@ object AppTheme {
     var mode: String by mutableStateOf(AppGraph.store.themeMode)
         private set
 
+    /**
+     * 界面大小倍数（dp 尺寸整体缩放），持久化到 [AppGraph.store]。
+     * 改动后整棵 Compose 树按新 Density 重排，无需重启。
+     */
+    var uiScale: Float by mutableStateOf(AppGraph.store.uiScale)
+        private set
+
+    /** 字体大小倍数（sp → px 的换算缩放），只影响字号。 */
+    var fontScale: Float by mutableStateOf(AppGraph.store.fontScale)
+        private set
+
     fun applyMode(value: String) {
         mode = value
         AppGraph.store.themeMode = value
+    }
+
+    fun applyUiScale(value: Float) {
+        uiScale = value
+        AppGraph.store.uiScale = value
+    }
+
+    fun applyFontScale(value: Float) {
+        fontScale = value
+        AppGraph.store.fontScale = value
     }
 
     /** 是否为深色：手动选择优先，跟随系统时取手机的深色开关。 */
@@ -136,6 +160,15 @@ fun YZLiYinTheme(
         else -> LightColors
     }
 
+    // 设置 → 主题：界面大小改 dp 换算（所有控件一起放大缩小），
+    // 字体大小改 sp 换算（在系统字号的基础上再乘一个倍数，只动文字）。
+    // 两项都在根上换 Density，各页面无需感知，改完立即重排。
+    val baseDensity = LocalDensity.current
+    val appDensity = Density(
+        density = baseDensity.density * AppTheme.uiScale,
+        fontScale = baseDensity.fontScale * AppTheme.fontScale,
+    )
+
     // 状态栏/导航栏图标与窗口底色跟随主题。
     // manifest 声明了 uiMode 配置变更由 Activity 自行处理（不重建），XML 主题资源不会重新解析，
     // 因此这里必须按当前色板同步，否则关掉系统深色后窗口底色与图标仍停留在深色。
@@ -151,9 +184,11 @@ fun YZLiYinTheme(
         }
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = AppTypography,
-        content = content,
-    )
+    CompositionLocalProvider(LocalDensity provides appDensity) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = AppTypography,
+            content = content,
+        )
+    }
 }

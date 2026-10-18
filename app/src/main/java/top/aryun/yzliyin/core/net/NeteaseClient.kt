@@ -396,13 +396,6 @@ class NeteaseClient {
         return request(url, params, CryptoMode.WEAPI, "POST", usePersistedCookies = false)
     }
 
-    /** 所有官方榜单（`/api/toplist`）。 */
-    @Throws(IOException::class)
-    fun getToplists(): String {
-        val url = "https://music.163.com/api/toplist"
-        return request(url, emptyMap(), CryptoMode.API, "POST", usePersistedCookies = true)
-    }
-
     /** 推荐新歌（`/weapi/personalized/newsong`，result[].song 为 v1 字段）。 */
     @Throws(IOException::class)
     fun getPersonalizedNewsongs(limit: Int = 12): String {

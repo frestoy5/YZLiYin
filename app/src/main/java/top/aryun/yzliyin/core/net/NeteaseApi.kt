@@ -5,6 +5,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import top.aryun.yzliyin.core.AppGraph
+import top.aryun.yzliyin.core.data.JsonCodecs
 import top.aryun.yzliyin.core.model.Album
 import top.aryun.yzliyin.core.model.Artist
 import top.aryun.yzliyin.core.model.Comment
@@ -12,9 +13,9 @@ import top.aryun.yzliyin.core.model.LyricLine
 import top.aryun.yzliyin.core.model.Paged
 import top.aryun.yzliyin.core.model.Parsers
 import top.aryun.yzliyin.core.model.Playlist
-import top.aryun.yzliyin.core.model.Rank
 import top.aryun.yzliyin.core.model.ResolveResult
 import top.aryun.yzliyin.core.model.Song
+import top.aryun.yzliyin.util.isDirectUrl
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -116,36 +117,10 @@ object NeteaseApi {
         }.getOrDefault(emptyList())
     }
 
-    // ================= 榜单 / 歌单 =================
-
-    /** 官方全部榜单（`/api/toplist`）。 */
-    suspend fun toplists(): List<Rank> = withContext(Dispatchers.IO) {
-        runCatching {
-            val root = JSONObject(client.getToplists())
-            val list = root.optJSONArray("list") ?: return@runCatching emptyList()
-            val out = ArrayList<Rank>(list.length())
-            for (i in 0 until list.length()) {
-                val o = list.optJSONObject(i) ?: continue
-                out.add(
-                    Rank(
-                        id = o.optString("id"),
-                        name = o.optString("name"),
-                        cover = o.optString("coverImgUrl"),
-                        updateFrequency = o.optString("updateFrequency"),
-                        intro = o.optString("description"),
-                        tag = o.optString("tag").ifBlank { o.optString("ToplistType") },
-                    )
-                )
-            }
-            out
-        }.getOrDefault(emptyList())
-    }
-
-    /** 按 id 从榜单列表里取一条（找不到则返回空）。 */
-    suspend fun rankInfo(id: String): Rank? = toplists().firstOrNull { it.id == id }
+    // ================= 歌单 =================
 
     /**
-     * 歌单/榜单详情。
+     * 歌单详情。
      *
      * 底层用 `/api/v6/playlist/detail`（n=1 时 tracks 截断但 trackIds 完整），
      * 因此只取元信息，曲目请用 [playlistTracks]。
@@ -218,12 +193,16 @@ object NeteaseApi {
         return out
     }
 
-    /** 推荐歌单（`/weapi/personalized/playlist`）。 */
+    /** 推荐歌单（`/weapi/personalized/playlist`）；取不到（离线）时回退上次缓存。 */
     suspend fun recommendedPlaylists(limit: Int = 10): List<Playlist> = withContext(Dispatchers.IO) {
+        val key = "netease_recommended_$limit"
         runCatching {
             val root = JSONObject(client.getRecommendedPlaylists(limit = limit))
             parsePlaylists(root.optJSONArray("result"))
         }.getOrDefault(emptyList())
+            .takeIf { it.isNotEmpty() }
+            ?.also { store.cachePut(key, JsonCodecs.playlistsToJson(it)) }
+            ?: JsonCodecs.playlistsFromJson(store.cacheGet(key))
     }
 
     /** 推荐新歌（`/weapi/personalized/newsong`，result[].song 为 v1 字段）。 */
@@ -240,14 +219,19 @@ object NeteaseApi {
         }.getOrDefault(emptyList())
     }
 
-    /** 当前登录用户的歌单（`/api/user/playlist`）。 */
+    /** 当前登录用户的歌单（`/api/user/playlist`）；离线时回退上次缓存。 */
     suspend fun userPlaylists(page: Int = 1, pageSize: Int = 30): List<Playlist> =
         withContext(Dispatchers.IO) {
-            val uid = currentUserId() ?: return@withContext emptyList()
+            val key = "netease_user_playlists_$page"
+            val uid = currentUserId()
+                ?: return@withContext JsonCodecs.playlistsFromJson(store.cacheGet(key))
             runCatching {
                 val raw = client.getUserPlaylists(uid, offset = (page - 1) * pageSize, limit = pageSize)
                 parsePlaylists(JSONObject(raw).optJSONArray("playlist"))
             }.getOrDefault(emptyList())
+                .takeIf { it.isNotEmpty() }
+                ?.also { store.cachePut(key, JsonCodecs.playlistsToJson(it)) }
+                ?: JsonCodecs.playlistsFromJson(store.cacheGet(key))
         }
 
     /** 取当前登录用户 id（失败返回 null）。 */
@@ -319,9 +303,11 @@ object NeteaseApi {
                 .getOrElse { client.getSongUrl(id) }
             val first = JSONObject(raw).optJSONArray("data")?.optJSONObject(0)
                 ?: return@withContext ResolveResult("", "获取播放链接失败，请稍后重试")
+            // 无版权曲目这里下发的是 JSON null，optString 会给出字符串 "null"，
+            // 必须按“是不是真的 http 直链”判，不能只判非空
             val url = first.optString("url")
-            if (url.isBlank()) {
-                return@withContext ResolveResult("", "获取播放链接失败，请稍后重试")
+            if (!isDirectUrl(url)) {
+                return@withContext ResolveResult("", "该歌曲暂无版权，无法获取播放链接")
             }
             val trial = !first.isNull("freeTrialInfo") ||
                 (first.optInt("payed", -1) == 0 &&
@@ -338,7 +324,12 @@ object NeteaseApi {
 
     // ================= 歌词 =================
 
-    /** `/song/lyric/v1` → LRC 文本。 */
+    /**
+     * `/song/lyric/v1` → LRC 文本。
+     *
+     * 客户端已带 `tv=1`（译文）、`ytv=1`（逐字译文），响应里的 `tlyric` / `ytlric`
+     * 就是**中文译文**，一并解析后按时间戳并回原文行，见 [Parsers.mergeTranslation]。
+     */
     suspend fun lyric(songId: String): List<LyricLine> = withContext(Dispatchers.IO) {
         runCatching {
             val id = songId.toLongOrNull() ?: return@withContext emptyList()
@@ -346,7 +337,15 @@ object NeteaseApi {
             if (root.optInt("code", 200) != 200) return@withContext emptyList()
             val lrc = root.optJSONObject("lrc")?.optString("lyric").orEmpty()
             if (lrc.isBlank()) return@withContext emptyList()
-            Parsers.parseLrc(lrc)
+
+            val translated = listOfNotNull(
+                root.optJSONObject("tlyric")?.optString("lyric").orEmpty().ifBlank { null },
+                root.optJSONObject("ytlric")?.optString("lyric").orEmpty().ifBlank { null },
+            ).firstNotNullOfOrNull { text ->
+                runCatching { Parsers.parseLrc(text) }.getOrNull()?.takeIf { it.isNotEmpty() }
+            }.orEmpty()
+
+            Parsers.mergeTranslation(Parsers.parseLrc(lrc), translated)
         }.getOrDefault(emptyList())
     }
 
@@ -490,12 +489,14 @@ object NeteaseApi {
             if (name.isBlank()) continue
             val artists = o.optJSONArray("artists") ?: o.optJSONArray("ar")
             val album = o.optJSONObject("album") ?: o.optJSONObject("al")
+            val artistIds = artists?.ids().orEmpty()
             out.add(
                 Song(
                     id = id,
                     name = name,
                     artist = joinNames(artists),
-                    artistId = artists?.optJSONObject(0)?.optString("id").orEmpty(),
+                    artistId = artistIds.firstOrNull().orEmpty(),
+                    artistIds = artistIds,
                     albumId = album?.optString("id").orEmpty(),
                     albumName = album?.optString("name").orEmpty(),
                     cover = (album?.optString("picUrl") ?: "").ifBlank { album?.optString("blurPicUrl") ?: "" },
@@ -590,5 +591,21 @@ object NeteaseApi {
             sb.append(n)
         }
         return sb.toString()
+    }
+
+    /**
+     * 合作歌手的 id 列表，顺序与 [joinNames] 拼出来的名字一一对应。
+     * 判空标准与 [joinNames] 保持一致（以**名字**是否为空为准），
+     * 否则某个歌手缺名字时两边会错位，点「乙」会跳到「丙」的主页。
+     */
+    private fun JSONArray?.ids(): List<String> {
+        this ?: return emptyList()
+        val out = ArrayList<String>(length())
+        for (i in 0 until length()) {
+            val o = optJSONObject(i) ?: continue
+            if (o.optString("name").isEmpty()) continue
+            out.add(o.optString("id"))
+        }
+        return out
     }
 }

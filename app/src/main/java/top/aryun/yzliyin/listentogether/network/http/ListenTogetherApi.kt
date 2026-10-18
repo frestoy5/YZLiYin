@@ -1,0 +1,215 @@
+package top.aryun.yzliyin.listentogether.network.http
+
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
+import top.aryun.yzliyin.listentogether.protocol.ListenTogetherControlResponse
+import top.aryun.yzliyin.listentogether.protocol.ListenTogetherCreateRoomRequest
+import top.aryun.yzliyin.listentogether.protocol.ListenTogetherEvent
+import top.aryun.yzliyin.listentogether.protocol.ListenTogetherInitialSnapshot
+import top.aryun.yzliyin.listentogether.protocol.ListenTogetherJoinRoomRequest
+import top.aryun.yzliyin.listentogether.protocol.ListenTogetherLeaveRoomRequest
+import top.aryun.yzliyin.listentogether.protocol.ListenTogetherLeaveRoomResponse
+import top.aryun.yzliyin.listentogether.protocol.ListenTogetherRoomResponse
+import top.aryun.yzliyin.listentogether.protocol.ListenTogetherStateResponse
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.ResponseBody
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.io.IOException
+
+private const val LISTEN_TOGETHER_MAX_HTTP_RESPONSE_BYTES = 2L * 1024L * 1024L
+
+data class ListenTogetherServerTestResult(
+    val ok: Boolean,
+    val message: String
+)
+
+class ListenTogetherApi(
+    private val okHttpClient: OkHttpClient
+) {
+    private val json = Json {
+        encodeDefaults = true
+        ignoreUnknownKeys = true
+        explicitNulls = false
+    }
+
+    suspend fun createRoom(
+        baseUrl: String,
+        userUuid: String,
+        nickname: String,
+        initialSnapshot: ListenTogetherInitialSnapshot
+    ): ListenTogetherRoomResponse {
+        return post(
+            url = "${baseUrl.normalizeBaseUrl()}/api/rooms",
+            body = ListenTogetherCreateRoomRequest(
+                userUuid = userUuid,
+                nickname = nickname,
+                initialSnapshot = initialSnapshot
+            )
+        )
+    }
+
+    suspend fun joinRoom(
+        baseUrl: String,
+        roomId: String,
+        userUuid: String,
+        nickname: String,
+        memberSecret: String? = null,
+        joinSecret: String? = null,
+        bearerToken: String? = null
+    ): ListenTogetherRoomResponse {
+        return post(
+            url = "${baseUrl.normalizeBaseUrl()}/api/rooms/$roomId/join",
+            body = ListenTogetherJoinRoomRequest(
+                userUuid = userUuid,
+                nickname = nickname,
+                memberSecret = memberSecret,
+                joinSecret = joinSecret
+            ),
+            bearerToken = bearerToken
+        )
+    }
+
+    suspend fun getRoomState(
+        baseUrl: String,
+        roomId: String,
+        bearerToken: String? = null
+    ): ListenTogetherStateResponse {
+        return get(
+            url = "${baseUrl.normalizeBaseUrl()}/api/rooms/$roomId/state",
+            bearerToken = bearerToken
+        )
+    }
+
+    suspend fun leaveRoom(
+        baseUrl: String,
+        roomId: String,
+        token: String
+    ): ListenTogetherLeaveRoomResponse {
+        return post(
+            url = "${baseUrl.normalizeBaseUrl()}/api/rooms/$roomId/leave",
+            body = ListenTogetherLeaveRoomRequest,
+            bearerToken = token
+        )
+    }
+
+    suspend fun sendControlEvent(
+        baseUrl: String,
+        roomId: String,
+        token: String,
+        event: ListenTogetherEvent
+    ): ListenTogetherControlResponse {
+        return post(
+            url = "${baseUrl.normalizeBaseUrl()}/api/rooms/$roomId/control",
+            body = event,
+            bearerToken = token
+        )
+    }
+
+    suspend fun testServerAvailability(baseUrl: String): ListenTogetherServerTestResult = withContext(Dispatchers.IO) {
+        val normalizedBaseUrl = baseUrl.normalizedHttpBaseUrlOrNull()
+            ?: return@withContext ListenTogetherServerTestResult(
+                ok = false,
+                message = "invalid_base_url"
+            )
+        val request = Request.Builder()
+            .url("$normalizedBaseUrl/healthz")
+            .get()
+            .build()
+        runCatching {
+            okHttpClient.newCall(request).execute().use { response ->
+                val body = response.body.limitedString()
+                val looksLikeListenTogetherService = body.contains(
+                    "neriplayer-listen-together-worker",
+                    ignoreCase = true
+                )
+                if (looksLikeListenTogetherService) {
+                    ListenTogetherServerTestResult(
+                        ok = true,
+                        message = "reachable"
+                    )
+                } else {
+                    ListenTogetherServerTestResult(
+                        ok = false,
+                        message = "invalid_response"
+                    )
+                }
+            }
+        }.getOrElse {
+            ListenTogetherServerTestResult(
+                ok = false,
+                message = it.message ?: it.javaClass.simpleName
+            )
+        }
+    }
+
+    private suspend inline fun <reified T> get(
+        url: String,
+        bearerToken: String? = null
+    ): T = withContext(Dispatchers.IO) {
+        val requestBuilder = Request.Builder()
+            .url(url)
+            .get()
+        bearerToken?.takeIf { it.isNotBlank() }?.let {
+            requestBuilder.header("Authorization", "Bearer $it")
+        }
+        val request = requestBuilder.build()
+        okHttpClient.newCall(request).execute().use { response ->
+            val body = response.body.limitedString()
+            if (!response.isSuccessful) {
+                throw IOException("ListenTogether GET failed (${response.code}): $body")
+            }
+            json.decodeFromString(body)
+        }
+    }
+
+    private suspend inline fun <reified RequestBodyT, reified ResponseT> post(
+        url: String,
+        body: RequestBodyT,
+        bearerToken: String? = null
+    ): ResponseT = withContext(Dispatchers.IO) {
+        val requestBuilder = Request.Builder()
+            .url(url)
+            .post(
+                json.encodeToString(body)
+                    .toRequestBody("application/json; charset=utf-8".toMediaType())
+            )
+        bearerToken?.takeIf { it.isNotBlank() }?.let {
+            requestBuilder.header("Authorization", "Bearer $it")
+        }
+        okHttpClient.newCall(requestBuilder.build()).execute().use { response ->
+            val responseBody = response.body.limitedString()
+            if (!response.isSuccessful) {
+                throw IOException("ListenTogether POST failed (${response.code}): $responseBody")
+            }
+            json.decodeFromString(responseBody)
+        }
+    }
+}
+
+/** 读取响应体（OkHttp 4.x 的 body 可为空，空体按空串处理）。 */
+private fun ResponseBody?.limitedString(): String {
+    if (this == null) return ""
+    val contentLength = contentLength()
+    if (contentLength > LISTEN_TOGETHER_MAX_HTTP_RESPONSE_BYTES) {
+        throw IOException("ListenTogether response too large: $contentLength bytes")
+    }
+    val bytes = byteStream().use { input ->
+        val output = java.io.ByteArrayOutputStream()
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        var total = 0L
+        while (true) {
+            val read = input.read(buffer)
+            if (read == -1) break
+            total += read
+            if (total > LISTEN_TOGETHER_MAX_HTTP_RESPONSE_BYTES) {
+                throw IOException("ListenTogether response too large: $total bytes")
+            }
+            output.write(buffer, 0, read)
+        }
+        output.toByteArray()
+    }
+    return bytes.toString(contentType()?.charset(Charsets.UTF_8) ?: Charsets.UTF_8)
+}

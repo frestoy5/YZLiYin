@@ -1,17 +1,22 @@
 package top.aryun.yzliyin.core.net
 
+import android.util.Base64
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import top.aryun.yzliyin.core.AppGraph
+import top.aryun.yzliyin.core.data.JsonCodecs
+import top.aryun.yzliyin.core.model.LyricLine
 import top.aryun.yzliyin.core.model.Paged
+import top.aryun.yzliyin.core.model.Parsers
 import top.aryun.yzliyin.core.model.Playlist
 import top.aryun.yzliyin.core.model.QrStatus
 import top.aryun.yzliyin.core.model.ResolveResult
 import top.aryun.yzliyin.core.model.Song
 import top.aryun.yzliyin.core.model.Source
 import top.aryun.yzliyin.util.NPLogger
+import top.aryun.yzliyin.util.isDirectUrl
 
 /**
  * 酷狗音乐门面，与 [NeteaseApi] 同一套约定：
@@ -26,6 +31,9 @@ object KugouApi {
 
     /** 酷狗「我喜欢」歌单在列表里的名字。 */
     private const val LIKES_NAME = "我喜欢"
+
+    /** 用户歌单离线缓存键。 */
+    private const val CACHE_USER_PLAYLISTS = "kugou_user_playlists"
 
     /** 风控（需要安全验证）的业务错误码。 */
     private const val SSA_ERRCODE = 20028
@@ -127,11 +135,18 @@ object KugouApi {
         val albumId = albumAudioId.ifBlank { "0" }
         var challenged = false
 
-        for (quality in QUALITY_LADDER) {
+        // 设置里指定了音质就先试它，失败再按阶梯回退
+        val preferred = store.kugouQuality
+        val ladder = if (preferred == "auto") QUALITY_LADDER
+        else listOf(preferred) + QUALITY_LADDER.filter { it != preferred }
+
+        for (quality in ladder) {
             val body = runCatching { client.songUrl(hash, albumId, quality).body }.getOrNull() ?: continue
-            val direct = body.optJSONArray("url")?.optString(0).orEmpty()
-                .ifBlank { body.optJSONArray("backupUrl")?.optString(0).orEmpty() }
-            if (direct.isNotBlank()) return@withContext ResolveResult(direct)
+            val direct = body.optJSONArray("url")?.optString(0).orEmpty().trim()
+                .ifBlank { body.optJSONArray("backupUrl")?.optString(0).orEmpty().trim() }
+            // 无版权/未购买时 url 可能是 JSON null，optString 给出的是字符串 "null"，
+            // 只判非空会把它当有效直链传下去，下载时直接闪退
+            if (isDirectUrl(direct)) return@withContext ResolveResult(direct)
 
             val failProcess = body.optJSONArray("fail_process")
             val needsBuy = (0 until (failProcess?.length() ?: 0))
@@ -154,11 +169,65 @@ object KugouApi {
         ResolveResult("", reason)
     }
 
+    // ---------- 歌词 ----------
+
+    /**
+     * 酷狗歌词：`krcs` 检索候选 → `lyrics/download` 下载明文 LRC（公开接口，无需登录）。
+     * 检索带上 hash 与时长提高匹配度；无候选或下载失败时返回空列表。
+     */
+    suspend fun lyric(song: Song): List<LyricLine> = withContext(Dispatchers.IO) {
+        runCatching {
+            val keyword = listOf(song.name, song.artist)
+                .filter { it.isNotBlank() }
+                .joinToString(" ")
+            if (keyword.isBlank()) return@runCatching emptyList()
+
+            val search = client.lyricSearch(
+                keyword = keyword,
+                hash = song.playId.ifEmpty { song.id },
+                durationMs = song.durationMs,
+            ).body
+            val candidates = search.optJSONArray("candidates")
+                ?: search.optJSONObject("data")?.optJSONArray("candidates")
+                ?: JSONArray()
+            val best = (0 until candidates.length())
+                .mapNotNull { candidates.optJSONObject(it) }
+                .firstOrNull {
+                    it.optString("id").isNotBlank() && it.optString("accesskey").isNotBlank()
+                }
+                ?: return@runCatching emptyList()
+
+            val id = best.optString("id")
+            val accessKey = best.optString("accesskey")
+
+            val download = client.lyricDownload(id, accessKey).body
+            val content = download.optString("content")
+            if (content.isBlank()) return@runCatching emptyList()
+            val original =
+                Parsers.parseLrc(String(Base64.decode(content, Base64.DEFAULT), Charsets.UTF_8))
+
+            // 中文译文不在明文 LRC 里，只在 KRC 的 language 标签中，单独拉一次；
+            // 拿不到就只显示原文，不影响主流程。
+            val translated = runCatching {
+                val krc = client.lyricDownloadKrc(id, accessKey).body.optString("content")
+                if (krc.isBlank()) null else KugouKrc.translationLrc(krc)
+            }.getOrNull()
+                ?.let { runCatching { Parsers.parseLrc(it) }.getOrNull() }
+                .orEmpty()
+
+            Parsers.mergeTranslation(original, translated)
+        }.getOrElse {
+            NPLogger.w(TAG, "获取歌词失败：${it.message}")
+            emptyList()
+        }
+    }
+
     // ---------- 我的歌单 / 我喜欢 ----------
 
     /**
      * 用户歌单（含系统「我喜欢」）。
      * 返回值里「我喜欢」带 [Playlist.name]，调用方据 [isLikesName] 区分。
+     * 取不到（离线）时回退上次缓存。
      */
     suspend fun userPlaylists(): List<Playlist> = withContext(Dispatchers.IO) {
         runCatching {
@@ -188,6 +257,9 @@ object KugouApi {
             NPLogger.w(TAG, "获取用户歌单失败：${it.message}")
             emptyList()
         }
+            .takeIf { it.isNotEmpty() }
+            ?.also { store.cachePut(CACHE_USER_PLAYLISTS, JsonCodecs.playlistsToJson(it)) }
+            ?: JsonCodecs.playlistsFromJson(store.cacheGet(CACHE_USER_PLAYLISTS))
     }
 
     /** 歌单名是否为酷狗的系统「我喜欢」。 */

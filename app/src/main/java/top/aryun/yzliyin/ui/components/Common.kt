@@ -1,7 +1,9 @@
 package top.aryun.yzliyin.ui.components
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -107,7 +110,8 @@ fun SectionHeader(
     }
 }
 
-/** 歌曲列表行 */
+/** 歌曲列表行（支持选中态与长按进入多选）。 */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SongRow(
     song: Song,
@@ -115,16 +119,26 @@ fun SongRow(
     modifier: Modifier = Modifier,
     index: Int? = null,
     playing: Boolean = false,
+    selecting: Boolean = false,
+    selected: Boolean = false,
+    onLongClick: (() -> Unit)? = null,
     trailing: @Composable (() -> Unit)? = null,
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .background(
+                if (selected) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent,
+            )
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (index != null) {
+        if (selecting) {
+            Checkbox(checked = selected, onCheckedChange = null)
+            Spacer(Modifier.width(4.dp))
+        }
+        if (index != null && !selecting) {
             Text(
                 text = index.toString(),
                 style = MaterialTheme.typography.titleMedium,

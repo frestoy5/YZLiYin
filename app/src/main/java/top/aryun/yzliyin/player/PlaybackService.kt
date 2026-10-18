@@ -1,5 +1,6 @@
 package top.aryun.yzliyin.player
 
+import android.content.Context
 import android.content.Intent
 import android.media.audiofx.LoudnessEnhancer
 import androidx.media3.common.AudioAttributes
@@ -13,7 +14,10 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import androidx.media3.session.SessionResult
 import top.aryun.yzliyin.core.AppGraph
+import top.aryun.yzliyin.core.model.Source
+import top.aryun.yzliyin.util.NPLogger
 
 /**
  * 播放服务（Media3 MediaSessionService）。
@@ -29,6 +33,7 @@ class PlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
+        instance = this
 
         val audioAttributes = AudioAttributes.Builder()
             .setUsage(C.USAGE_MEDIA)
@@ -59,14 +64,36 @@ class PlaybackService : MediaSessionService() {
         })
         syncEffect(exo)
 
-        mediaSession = MediaSession.Builder(this, exo).build()
+        mediaSession = MediaSession.Builder(this, exo)
+            .setCallback(object : MediaSession.Callback {
+                /**
+                 * 播放命令（来自应用内 MediaController、通知栏、系统媒体键）在执行前询问一次。
+                 * 一起听听众端在房主关闭成员控制时借此拦截本地操作；其余情况保持默认放行。
+                 */
+                override fun onPlayerCommandRequest(
+                    session: MediaSession,
+                    controller: MediaSession.ControllerInfo,
+                    playerCommand: Int
+                ): Int {
+                    return if (PlayerController.shouldAcceptPlayerCommand(playerCommand)) {
+                        SessionResult.RESULT_SUCCESS
+                    } else {
+                        SessionResult.RESULT_ERROR_INVALID_STATE
+                    }
+                }
+            })
+            .build()
     }
 
-    /** 依据设置开/关低频增强音效（media3 底层为 ExoPlayer 的音频会话）。 */
+    /** 依据当前曲目所属源的开/关设置，切换低频增强音效（媒体会话的音频会话）。 */
     private fun syncEffect(exo: ExoPlayer) {
         val sid = exo.audioSessionId
         if (sid == C.AUDIO_SESSION_ID_UNSET || sid <= 0) return
-        val want = runCatching { AppGraph.store.audioEffect }.getOrDefault(false)
+        val want = runCatching {
+            val mediaId = exo.currentMediaItem?.mediaId.orEmpty()
+            mediaId.isNotBlank() &&
+                AppGraph.store.effectEnabled(Source.fromId(mediaId.substringBefore(":")))
+        }.getOrDefault(false)
         if (want) {
             val cur = loudness
             if (cur != null) {
@@ -85,6 +112,11 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
+    /** 设置变化后立即重算音效（不必等播放器事件）。 */
+    fun refreshEffect() {
+        player?.let { syncEffect(it) }
+    }
+
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = mediaSession
 
     override fun onTaskRemoved(rootIntent: Intent?) {
@@ -95,6 +127,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        if (instance === this) instance = null
         loudness?.let { runCatching { it.setEnabled(false); it.release() } }
         loudness = null
         mediaSession?.run {
@@ -106,9 +139,39 @@ class PlaybackService : MediaSessionService() {
         super.onDestroy()
     }
 
-    private companion object {
+    companion object {
+        /** 当前服务实例（同进程），设置页切换音效时用它即时刷新。 */
+        @Volatile
+        var instance: PlaybackService? = null
+            private set
+
+        /** 播放服务是否已在运行（一起听进房时用它判断是否需要拉起保活）。 */
+        fun isReadyForPassiveLocalPlaybackSync(): Boolean = instance != null
+
+        /**
+         * 一起听进房时拉起播放服务，让进程与媒体会话在后台存活。
+         *
+         * 只用普通 startService（App 在前台时可用）；不强制前台化，避免在无播放时
+         * 因 startForegroundService 的 5 秒限期而崩溃。失败由调用方兜底。
+         */
+        fun startSyncService(context: Context, source: String, forceForeground: Boolean) {
+            NPLogger.d(
+                "PlaybackService",
+                "startSyncService(): source=$source, forceForeground=$forceForeground"
+            )
+            runCatching {
+                context.startService(Intent(context, PlaybackService::class.java))
+            }.onFailure { error ->
+                NPLogger.w(
+                    "PlaybackService",
+                    "startSyncService(): failed, source=$source, error=${error.message}",
+                    error
+                )
+            }
+        }
+
         /** 低频增强强度（毫贝）。 */
-        const val EFFECT_GAIN_mB = 600
+        private const val EFFECT_GAIN_mB = 600
 
         /** B 站音视频 CDN 域名后缀。 */
         val BILI_CDN_HOSTS = listOf(

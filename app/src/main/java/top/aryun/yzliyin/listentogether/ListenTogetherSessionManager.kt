@@ -1,0 +1,3569 @@
+package top.aryun.yzliyin.listentogether
+
+import android.os.Looper
+import android.os.SystemClock
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+
+import top.aryun.yzliyin.core.AppGraph
+import top.aryun.yzliyin.player.PlaybackCommand
+import top.aryun.yzliyin.player.PlaybackCommandSource
+import top.aryun.yzliyin.listentogether.player.ListenTogetherPlayer
+import top.aryun.yzliyin.listentogether.player.hasUsableListenTogetherLocalDirectStream
+import top.aryun.yzliyin.core.model.Song
+import top.aryun.yzliyin.player.PlaybackService
+import top.aryun.yzliyin.util.NPLogger
+import top.aryun.yzliyin.listentogether.compat.buildTrackFinishedLegacyFallbackEvent
+import top.aryun.yzliyin.listentogether.compat.buildListenTogetherLegacyQueueMutationFallback
+import top.aryun.yzliyin.listentogether.compat.isListenTogetherQueueMutationCompatibilityError
+import top.aryun.yzliyin.listentogether.compat.isListenTogetherMemberControlTargetCurrent
+import top.aryun.yzliyin.listentogether.compat.isListenTogetherPendingMemberControlSatisfied
+import top.aryun.yzliyin.listentogether.compat.isUnsupportedTrackFinishedEventError
+import top.aryun.yzliyin.listentogether.compat.shouldSuppressListenerControlWhileAwaitingStream
+import top.aryun.yzliyin.listentogether.control.ListenTogetherEventFactory
+import top.aryun.yzliyin.listentogether.control.buildListenTogetherForwardedControlSyntheticState
+import top.aryun.yzliyin.listentogether.control.controlledPlaybackCommandTypes
+import top.aryun.yzliyin.listentogether.control.controllerHeartbeatRecoveryTypes
+import top.aryun.yzliyin.listentogether.control.nextListenTogetherEventId
+import top.aryun.yzliyin.listentogether.control.passivePositionUpdateTypes
+import top.aryun.yzliyin.listentogether.control.requestControlEventTypes
+import top.aryun.yzliyin.listentogether.control.trackBoundRequestControlEventTypes
+import top.aryun.yzliyin.listentogether.invite.resolveListenTogetherBaseUrl
+import top.aryun.yzliyin.listentogether.lifecycle.cancelListenTogetherBackgroundJobs
+import top.aryun.yzliyin.listentogether.mapping.toListenTogetherTrackOrNull
+import top.aryun.yzliyin.listentogether.mapping.toSong
+import top.aryun.yzliyin.listentogether.mapping.withStreamUrls
+import top.aryun.yzliyin.listentogether.network.http.ListenTogetherApi
+import top.aryun.yzliyin.listentogether.network.reconnect.LISTEN_TOGETHER_MAX_RECONNECT_ATTEMPTS
+import top.aryun.yzliyin.listentogether.network.reconnect.isTerminalListenTogetherReconnectError
+import top.aryun.yzliyin.listentogether.network.reconnect.listenTogetherReconnectDelayMs
+import top.aryun.yzliyin.listentogether.network.ws.ListenTogetherWebSocketClient
+import top.aryun.yzliyin.listentogether.network.ws.LISTEN_TOGETHER_SOCKET_RESPONSE_TIMEOUT_MS
+import top.aryun.yzliyin.listentogether.network.ws.buildListenTogetherWsUrl
+import top.aryun.yzliyin.listentogether.network.ws.redactListenTogetherWsUrlForLog
+import top.aryun.yzliyin.listentogether.network.ws.shouldReconnectListenTogetherSocket
+import top.aryun.yzliyin.listentogether.playback.currentStableKey
+import top.aryun.yzliyin.listentogether.playback.currentTrack
+import top.aryun.yzliyin.listentogether.playback.authoritativeStreamUrlsForCurrentTrack
+import top.aryun.yzliyin.listentogether.playback.expectedPositionMs
+import top.aryun.yzliyin.listentogether.playback.isShareableForListenTogether
+import top.aryun.yzliyin.listentogether.playback.isListenTogetherQueueUpdateCause
+import top.aryun.yzliyin.listentogether.playback.ListenTogetherListenerStallRecovery
+import top.aryun.yzliyin.listentogether.playback.LISTEN_TOGETHER_LISTENER_SAFETY_RESUME_CAUSE
+import top.aryun.yzliyin.listentogether.playback.ListenTogetherPlayerStateApplier
+import top.aryun.yzliyin.listentogether.playback.ListenTogetherPlayerStateApplierConfig
+import top.aryun.yzliyin.listentogether.playback.ListenTogetherAuthoritativeStreamAvailability
+import top.aryun.yzliyin.listentogether.playback.ListenTogetherSoftSyncRecheckAction
+import top.aryun.yzliyin.listentogether.playback.normalizedDirectStreamUrl
+import top.aryun.yzliyin.listentogether.playback.requestedStableKey
+import top.aryun.yzliyin.listentogether.playback.resolveListenTogetherSoftSyncPlaybackRate
+import top.aryun.yzliyin.listentogether.playback.resolveListenTogetherSoftSyncRecheckAction
+import top.aryun.yzliyin.listentogether.playback.sameTrackAs
+import top.aryun.yzliyin.listentogether.playback.shouldWaitForListenTogetherAuthoritativeStreamPlayback
+import top.aryun.yzliyin.listentogether.playback.shouldRequestListenTogetherControllerLink
+import top.aryun.yzliyin.listentogether.playback.shouldDeferControllerLinkResolution
+import top.aryun.yzliyin.listentogether.playback.shouldPublishControllerLinkUnavailable
+import top.aryun.yzliyin.listentogether.playback.shouldRetryControllerLinkResolution
+import top.aryun.yzliyin.listentogether.playback.targetSongItem
+import top.aryun.yzliyin.listentogether.playback.toShareableQueueSnapshot
+import top.aryun.yzliyin.listentogether.protocol.ListenTogetherCause
+import top.aryun.yzliyin.listentogether.protocol.ListenTogetherConnectionState
+import top.aryun.yzliyin.listentogether.protocol.ListenTogetherControlResponse
+import top.aryun.yzliyin.listentogether.protocol.ListenTogetherEvent
+import top.aryun.yzliyin.listentogether.protocol.ListenTogetherInitialSnapshot
+import top.aryun.yzliyin.listentogether.protocol.ListenTogetherPlaybackState
+import top.aryun.yzliyin.listentogether.protocol.ListenTogetherRoomResponse
+import top.aryun.yzliyin.listentogether.protocol.ListenTogetherRoomSettings
+import top.aryun.yzliyin.listentogether.protocol.ListenTogetherRoomState
+import top.aryun.yzliyin.listentogether.protocol.ListenTogetherRoomStatuses
+import top.aryun.yzliyin.listentogether.protocol.ListenTogetherSessionState
+import top.aryun.yzliyin.listentogether.protocol.ListenTogetherSocketEnvelope
+import top.aryun.yzliyin.listentogether.protocol.ListenTogetherStateResponse
+import top.aryun.yzliyin.listentogether.protocol.ListenTogetherTrack
+import top.aryun.yzliyin.listentogether.session.AcceptedRoomState
+import top.aryun.yzliyin.listentogether.session.LISTEN_TOGETHER_PAUSED_HEARTBEAT_INTERVAL_MS
+import top.aryun.yzliyin.listentogether.session.LISTEN_TOGETHER_PLAYING_HEARTBEAT_INTERVAL_MS
+import top.aryun.yzliyin.listentogether.session.ListenTogetherBackgroundKeepAlive
+import top.aryun.yzliyin.listentogether.session.ListenTogetherForwardedRequestDeduper
+import top.aryun.yzliyin.listentogether.session.ListenTogetherControlOutbox
+import top.aryun.yzliyin.listentogether.session.ListenTogetherForegroundRecoveryAction
+import top.aryun.yzliyin.listentogether.session.ListenTogetherMembershipCredential
+import top.aryun.yzliyin.listentogether.session.ListenTogetherRecentEventTracker
+import top.aryun.yzliyin.listentogether.session.PendingMemberControlRequest
+import top.aryun.yzliyin.listentogether.session.PendingTrackFinishedLegacyFallback
+import top.aryun.yzliyin.listentogether.session.RoomStateSource
+import top.aryun.yzliyin.listentogether.session.latestListenTogetherAcceptedRoomVersion
+import top.aryun.yzliyin.listentogether.session.normalized
+import top.aryun.yzliyin.listentogether.session.resolveListenTogetherControlBlockReason
+import top.aryun.yzliyin.listentogether.session.resolveListenTogetherHeartbeatIntervalMs
+import top.aryun.yzliyin.listentogether.session.resolveListenTogetherForegroundRecoveryAction
+import top.aryun.yzliyin.listentogether.session.resolveReusableListenTogetherMembershipCredential
+import top.aryun.yzliyin.listentogether.session.resolveListenTogetherRoomNotice
+import top.aryun.yzliyin.listentogether.session.shouldApplyListenTogetherClosedRoomPause
+import top.aryun.yzliyin.listentogether.session.shouldAutoPauseListenTogetherForMemberChange
+import top.aryun.yzliyin.listentogether.session.shouldHoldListenTogetherBackgroundKeepAlive
+import top.aryun.yzliyin.listentogether.session.isNormalListenTogetherRoomClosureReason
+import top.aryun.yzliyin.listentogether.session.shouldReconnectListenTogetherForegroundSocket
+import top.aryun.yzliyin.listentogether.session.shouldShowListenTogetherControllerReconnectedNotice
+import top.aryun.yzliyin.listentogether.session.isCurrentListenTogetherCoalescedControlJob
+import top.aryun.yzliyin.listentogether.session.normalizeListenTogetherRoomClosureReason
+import top.aryun.yzliyin.listentogether.session.resolveListenTogetherSessionRole
+import top.aryun.yzliyin.listentogether.session.retriedAt
+import top.aryun.yzliyin.listentogether.session.shouldApplyListenTogetherRoomStateToPlayer
+import top.aryun.yzliyin.listentogether.session.shouldDropListenTogetherControllerLocalEcho
+import top.aryun.yzliyin.listentogether.session.shouldDeferListenTogetherIncomingStateForLocalTrackFinish
+import top.aryun.yzliyin.listentogether.session.shouldIgnoreListenTogetherIncomingState
+import top.aryun.yzliyin.listentogether.session.shouldAcceptListenTogetherAuthoritativeQueueUpdate
+import top.aryun.yzliyin.listentogether.session.shouldRejectForwardedListenTogetherMemberControl
+import top.aryun.yzliyin.listentogether.session.shouldRepairListenTogetherListenerState
+import top.aryun.yzliyin.listentogether.session.toMembershipCredentialOrNull
+import top.aryun.yzliyin.listentogether.validation.requireValidListenTogetherNickname
+import top.aryun.yzliyin.listentogether.validation.requireValidListenTogetherJoinSecret
+import top.aryun.yzliyin.listentogether.validation.requireValidListenTogetherRoomCreation
+import top.aryun.yzliyin.listentogether.validation.requireValidListenTogetherRoomId
+import top.aryun.yzliyin.listentogether.validation.requireValidListenTogetherUserUuid
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
+import kotlin.math.abs
+
+class ListenTogetherSessionManager(
+    private val api: ListenTogetherApi,
+    private val webSocketClient: ListenTogetherWebSocketClient
+) {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var heartbeatJob: Job? = null
+    private var socketKeepAliveJob: Job? = null
+    @Volatile
+    private var reconnectJob: Job? = null
+    private var membershipRecoveryJob: Job? = null
+    private var syncWatchdogJob: Job? = null
+    private var foregroundSocketProbeJob: Job? = null
+    private var softSyncRateRecheckJob: Job? = null
+    private val roomStateLock = Any()
+    // 串行化重连生命周期的 check-then-act, 避免 onClosed/onFailure 并发触发多条 WS
+    private val connectionLock = Any()
+
+    @Volatile
+    private var started = false
+
+    private val recentEventTracker = ListenTogetherRecentEventTracker()
+    private val localControlOutbox = ListenTogetherControlOutbox()
+    @Volatile
+    private var lastOutboundSyncAtMs: Long = 0L
+    @Volatile
+    private var lastRequestedLinkStableKey: String? = null
+    @Volatile
+    private var lastRequestedLinkAtElapsedMs: Long = 0L
+    @Volatile
+    private var lastAppliedRoomVersion: Long = -1L
+    @Volatile
+    private var lastControllerLocalControlAtElapsedMs: Long = 0L
+    @Volatile
+    private var reconnectEnabled = false
+    @Volatile
+    private var applicationInForeground = true
+    @Volatile
+    private var retainedMembershipCredential: ListenTogetherMembershipCredential? = null
+    private val reconnectAttempt = AtomicInteger(0)
+    private val forwardedRequestDeduper = ListenTogetherForwardedRequestDeduper()
+    @Volatile
+    private var pendingStateRefreshAfterReconnect = false
+    @Volatile
+    private var awaitingTrackFinishStableKey: String? = null
+    @Volatile
+    private var pendingTrackFinishedLegacyFallback: PendingTrackFinishedLegacyFallback? = null
+    @Volatile
+    private var pendingMemberControlRequest: PendingMemberControlRequest? = null
+    private val coalescedControlLock = Any()
+    private val pendingCoalescedControlEvents = mutableMapOf<String, PendingCoalescedControlEvent>()
+    private val coalescedControlJobs = mutableMapOf<String, Job>()
+    @Volatile
+    private var lastListenerStateRefreshAtElapsedMs: Long = 0L
+    @Volatile
+    private var lastWebSocketMessageAtElapsedMs: Long = 0L
+    @Volatile
+    private var pendingRoomRepairVersion: Long = -1L
+    @Volatile
+    private var activeRoomIdForStateAcceptance: String? = null
+    @Volatile
+    private var controllerLinkResolveStableKey: String? = null
+    @Volatile
+    private var controllerLinkResolveJob: Job? = null
+    private val controllerLinkAvailability = ListenTogetherAuthoritativeStreamAvailability()
+    @Volatile
+    private var pingSentAtWallMs: Long = 0L
+    @Volatile
+    private var pingSentAtElapsedMs: Long = 0L
+    @Volatile
+    private var estimatedServerClockOffsetMs: Long = 0L
+    @Volatile
+    private var clockSyncPingSupported: Boolean? = null
+    @Volatile
+    private var observedControllerOffline = false
+    @Volatile
+    private var webSocketConnectingAtElapsedMs: Long = 0L
+
+    private val clientInstanceId = UUID.randomUUID().toString()
+    private val clientSequence = AtomicLong(0L)
+
+    private data class PendingCoalescedControlEvent(
+        val event: ListenTogetherEvent,
+        val roomId: String?
+    )
+
+    private val _sessionState = MutableStateFlow(ListenTogetherSessionState())
+    val sessionState: StateFlow<ListenTogetherSessionState> = _sessionState.asStateFlow()
+
+    private val _roomState = MutableStateFlow<ListenTogetherRoomState?>(null)
+    val roomState: StateFlow<ListenTogetherRoomState?> = _roomState.asStateFlow()
+
+    private val listenerStallRecovery = ListenTogetherListenerStallRecovery(
+        stallTimeoutMs = LISTENER_PLAYBACK_STALL_TIMEOUT_MS,
+        recoveryCooldownMs = LISTENER_PLAYBACK_STALL_RECOVERY_COOLDOWN_MS
+    )
+
+    private val eventFactory = ListenTogetherEventFactory(
+        roomStateProvider = { _roomState.value },
+        isControllerProvider = { isCurrentUserController() },
+        eventIdFactory = ::nextEventId,
+        clientInstanceIdProvider = { clientInstanceId },
+        clientSequenceFactory = ::nextClientSequence,
+        localPlaybackStateNameProvider = ::currentLocalPlaybackStateName,
+        localTransportActiveProvider = ::isLocalPlaybackTransportActive
+    )
+
+    private val playerStateApplier = ListenTogetherPlayerStateApplier(
+        config = ListenTogetherPlayerStateApplierConfig(
+            tag = TAG,
+            trackSwitchForceSyncMs = TRACK_SWITCH_FORCE_SYNC_MS,
+            heartbeatDriftForceSyncMs = HEARTBEAT_DRIFT_FORCE_SYNC_MS,
+            playingDriftForceSyncMs = PLAYING_DRIFT_FORCE_SYNC_MS,
+            pausedDriftForceSyncMs = PAUSED_DRIFT_FORCE_SYNC_MS,
+            softSyncMinDriftMs = SOFT_SYNC_MIN_DRIFT_MS,
+            softSyncFastDriftMs = SOFT_SYNC_FAST_DRIFT_MS,
+            trackSwitchGracePeriodMs = TRACK_SWITCH_GRACE_PERIOD_MS,
+            zeroPositionRollbackGuardMs = UNEXPECTED_ZERO_POSITION_ROLLBACK_GUARD_MS
+        ),
+        roomStateProvider = { _roomState.value },
+        isControllerProvider = { isCurrentUserController() },
+        serverClockOffsetProvider = { estimatedServerClockOffsetMs }
+    )
+
+    init {
+        start()
+    }
+
+    fun start() {
+        if (started) return
+        started = true
+        NPLogger.d(TAG, "start(): subscribe playbackCommandFlow")
+        scope.launch {
+            ListenTogetherPlayer.playbackCommandFlow.collectLatest(::handleLocalPlaybackCommand)
+        }
+        scope.launch {
+            ListenTogetherPlayer.currentMediaUrlFlow.collectLatest(::handleResolvedStreamUrlChanged)
+        }
+    }
+
+    suspend fun createRoom(
+        baseUrl: String,
+        userUuid: String,
+        nickname: String,
+        queue: List<Song>,
+        currentIndex: Int,
+        positionMs: Long,
+        isPlaying: Boolean,
+        roomSettings: ListenTogetherRoomSettings = ListenTogetherRoomSettings(),
+        currentSong: Song? = queue.getOrNull(currentIndex)
+    ): ListenTogetherRoomResponse {
+        val validatedUserUuid = requireValidListenTogetherUserUuid(userUuid)
+        val validatedNickname = requireValidListenTogetherNickname(nickname)
+        requireValidListenTogetherRoomCreation(queue, currentIndex, currentSong)
+        val (queueTracks, resolvedCurrentIndex) = queue.toShareableQueueSnapshot(
+            currentIndex = currentIndex,
+            roomSettings = roomSettings,
+            includeResolvedStreamUrl = false
+        )
+        // 音之理音使用播放器原生随机播放，没有可分享的随机还原队列
+        val shuffleRestoreQueue: List<ListenTogetherTrack>? = null
+        NPLogger.d(
+            TAG,
+            "createRoom(): baseUrl=$baseUrl, userUuid=$validatedUserUuid, nickname=$validatedNickname, queueSize=${queue.size}, shareableQueueSize=${queueTracks.size}, shuffleRestoreQueueSize=${shuffleRestoreQueue?.size ?: 0}, currentIndex=$currentIndex, resolvedCurrentIndex=$resolvedCurrentIndex, isPlaying=$isPlaying, positionMs=$positionMs"
+        )
+        val initialSnapshot = ListenTogetherInitialSnapshot(
+            queue = queueTracks,
+            currentIndex = resolvedCurrentIndex,
+            track = queueTracks.getOrNull(resolvedCurrentIndex),
+            settings = roomSettings.normalized(),
+            isPlaying = isPlaying,
+            positionMs = positionMs.coerceAtLeast(0L),
+            repeatMode = ListenTogetherPlayer.repeatModeFlow.value,
+            shuffleEnabled = ListenTogetherPlayer.shuffleModeFlow.value,
+            shuffleRestoreQueue = shuffleRestoreQueue
+        )
+        val response = api.createRoom(
+            baseUrl = baseUrl,
+            userUuid = validatedUserUuid,
+            nickname = validatedNickname,
+            initialSnapshot = initialSnapshot
+        )
+        updateSession(baseUrl, response)
+        NPLogger.d(
+            TAG,
+            "createRoom(): ok=${response.ok}, roomId=${response.roomId}, role=${response.role}, wsUrl=${response.wsUrl.redactListenTogetherWsUrlForLog()}"
+        )
+        return response
+    }
+
+    suspend fun joinRoom(
+        baseUrl: String,
+        roomId: String,
+        userUuid: String,
+        nickname: String,
+        memberSecret: String? = null,
+        joinSecret: String? = null
+    ): ListenTogetherRoomResponse {
+        val validatedRoomId = requireValidListenTogetherRoomId(roomId)
+        val validatedUserUuid = requireValidListenTogetherUserUuid(userUuid)
+        val validatedNickname = requireValidListenTogetherNickname(nickname)
+        NPLogger.d(TAG, "joinRoom(): baseUrl=$baseUrl, roomId=$validatedRoomId, userUuid=$validatedUserUuid, nickname=$validatedNickname")
+        val previousSession = _sessionState.value
+        val reusableCredential = resolveReusableListenTogetherMembershipCredential(
+            activeSession = previousSession,
+            retainedCredential = retainedMembershipCredential,
+            baseUrl = baseUrl,
+            roomId = validatedRoomId,
+            userUuid = validatedUserUuid
+        )
+        val resolvedMemberSecret = memberSecret ?: reusableCredential?.memberSecret
+        val explicitJoinSecret = joinSecret
+            ?.takeIf { it.isNotBlank() }
+            ?.let(::requireValidListenTogetherJoinSecret)
+        val resolvedJoinSecret = explicitJoinSecret ?: reusableCredential?.joinSecret
+        val hasReusableMembership = !resolvedMemberSecret.isNullOrBlank() ||
+            !reusableCredential?.token.isNullOrBlank()
+        val validatedJoinSecret = if (hasReusableMembership) {
+            resolvedJoinSecret
+        } else {
+            requireValidListenTogetherJoinSecret(resolvedJoinSecret)
+        }
+        val response = api.joinRoom(
+            baseUrl = baseUrl,
+            roomId = validatedRoomId,
+            userUuid = validatedUserUuid,
+            nickname = validatedNickname,
+            memberSecret = resolvedMemberSecret,
+            joinSecret = validatedJoinSecret,
+            bearerToken = reusableCredential?.token
+        )
+        updateSession(baseUrl, response)
+        NPLogger.d(
+            TAG,
+            "joinRoom(): ok=${response.ok}, roomId=${response.roomId}, role=${response.role}, wsUrl=${response.wsUrl.redactListenTogetherWsUrlForLog()}"
+        )
+        return response
+    }
+
+    suspend fun refreshRoomState(
+        baseUrl: String,
+        roomId: String,
+        causeType: String? = null
+    ): ListenTogetherStateResponse {
+        val validatedRoomId = requireValidListenTogetherRoomId(roomId)
+        NPLogger.d(TAG, "refreshRoomState(): baseUrl=$baseUrl, roomId=$validatedRoomId")
+        val sentAtElapsedMs = SystemClock.elapsedRealtime()
+        val sentAtWallMs = System.currentTimeMillis()
+        val session = _sessionState.value
+        val bearerToken = session.takeIf {
+            it.baseUrl.equals(baseUrl, ignoreCase = true) &&
+                it.roomId.equals(validatedRoomId, ignoreCase = true)
+        }?.token
+        val response = api.getRoomState(
+            baseUrl = baseUrl,
+            roomId = validatedRoomId,
+            bearerToken = bearerToken
+        )
+        updateServerClockOffsetFromRoundTrip(
+            serverNowMs = response.serverNowMs,
+            sentAtWallMs = sentAtWallMs,
+            sentAtElapsedMs = sentAtElapsedMs,
+            reason = "http_state"
+        )
+        response.state?.let {
+            val accepted = acceptRoomState(
+                state = it,
+                expectedPositionMs = response.expectedPositionMs,
+                source = RoomStateSource.HTTP_REFRESH
+            )
+            if (accepted != null && !isCurrentUserController()) {
+                applyRoomStateToPlayer(
+                    accepted.state,
+                    causeType = causeType,
+                    expectedPositionMs = accepted.expectedPositionMs
+                )
+                maybeRequestControllerLink(accepted.state, "refresh_room_state")
+            }
+        }
+        NPLogger.d(
+            TAG,
+            "refreshRoomState(): ok=${response.ok}, version=${response.state?.version}, expectedPositionMs=${response.expectedPositionMs}"
+        )
+        return response
+    }
+
+    fun resumeListenerAfterSafetyPause() {
+        val snapshot = _sessionState.value
+        val baseUrl = snapshot.baseUrl
+        val roomId = snapshot.roomId
+        if (
+            baseUrl.isNullOrBlank() ||
+            roomId.isNullOrBlank() ||
+            isCurrentUserController(snapshot)
+        ) {
+            ListenTogetherPlayer.retryListenTogetherSafetyPauseResume()
+            return
+        }
+        scope.launch {
+            runCatching {
+                refreshRoomState(
+                    baseUrl = baseUrl,
+                    roomId = roomId
+                )
+            }.onSuccess { response ->
+                if (response.ok && response.state != null) {
+                    mainScope.launch {
+                        val currentSession = _sessionState.value
+                        if (
+                            currentSession.roomId != roomId ||
+                            isCurrentUserController(currentSession)
+                        ) {
+                            ListenTogetherPlayer.clearListenTogetherSafetyPause()
+                            return@launch
+                        }
+                        val latestRoomState = _roomState.value
+                        val stateToApply = latestRoomState
+                            ?.takeIf { it.roomId == roomId }
+                            ?: response.state
+                        val expectedPositionMs = response.expectedPositionMs
+                            .takeIf { stateToApply.version == response.state.version }
+                        val applied = playerStateApplier.apply(
+                            state = stateToApply,
+                            causeType = LISTEN_TOGETHER_LISTENER_SAFETY_RESUME_CAUSE,
+                            expectedPositionMs = expectedPositionMs
+                        )
+                        reconcileListenTogetherSoftSyncRateRecheck()
+                        if (applied) {
+                            ListenTogetherPlayer.completeListenTogetherSafetyPauseResume()
+                            NPLogger.d(
+                                TAG,
+                                "resumeListenerAfterSafetyPause(): synchronized roomId=$roomId, version=${stateToApply.version}"
+                            )
+                        } else {
+                            ListenTogetherPlayer.retryListenTogetherSafetyPauseResume()
+                        }
+                    }
+                    return@onSuccess
+                }
+                ListenTogetherPlayer.retryListenTogetherSafetyPauseResume()
+                _sessionState.value = _sessionState.value.copy(
+                    lastError = response.error ?: "listener_safety_resume_state_unavailable"
+                )
+            }.onFailure { error ->
+                ListenTogetherPlayer.retryListenTogetherSafetyPauseResume()
+                val message = error.message ?: error.javaClass.simpleName
+                NPLogger.w(
+                    TAG,
+                    "resumeListenerAfterSafetyPause(): state refresh failed, roomId=$roomId, error=$message",
+                    error
+                )
+                _sessionState.value = _sessionState.value.copy(lastError = message)
+            }
+        }
+    }
+
+    fun connectWebSocket() {
+        reconnectEnabled = true
+        reconnectJob?.cancel()
+        reconnectJob = null
+        val wsUrl = _sessionState.value.wsUrl ?: return
+        webSocketConnectingAtElapsedMs = SystemClock.elapsedRealtime()
+        ensureListenTogetherForegroundService("connect_websocket")
+        NPLogger.d(TAG, "connectWebSocket(): wsUrl=${wsUrl.redactListenTogetherWsUrlForLog()}")
+        _sessionState.value = _sessionState.value.copy(
+            connectionState = ListenTogetherConnectionState.CONNECTING,
+            lastError = null
+        )
+        webSocketClient.connect(
+            wsUrl = wsUrl,
+            listener = object : ListenTogetherWebSocketClient.Listener {
+                override fun onOpen() {
+                    NPLogger.d(TAG, "websocket.onOpen()")
+                    if (!reconnectEnabled || activeRoomIdForStateAcceptance.isNullOrBlank()) {
+                        webSocketConnectingAtElapsedMs = 0L
+                        NPLogger.d(TAG, "websocket.onOpen(): drop inactive session")
+                        webSocketClient.disconnect(code = 1000, reason = "inactive_session")
+                        return
+                    }
+                    webSocketConnectingAtElapsedMs = 0L
+                    lastWebSocketMessageAtElapsedMs = SystemClock.elapsedRealtime()
+                    val shouldRefreshState = pendingStateRefreshAfterReconnect
+                    resetReconnectAttempt()
+                    reconnectJob?.cancel()
+                    reconnectJob = null
+                    _sessionState.value = _sessionState.value.copy(
+                        connectionState = ListenTogetherConnectionState.CONNECTED,
+                        lastError = null
+                    )
+                    updateBackgroundKeepAlive("socket_open")
+                    startSocketKeepAlive()
+                    startHeartbeat()
+                    startSyncWatchdog()
+                    cancelForegroundSocketProbe()
+                    pendingStateRefreshAfterReconnect = false
+                    replayPendingLocalControlEvents()
+                    if (shouldRefreshState) {
+                        scope.launch {
+                            refreshRoomStateAfterReconnect("socket_open")
+                        }
+                    }
+                    _roomState.value?.let { currentState ->
+                        maybeRequestControllerLink(currentState, "socket_open")
+                    }
+                    maybePublishControllerCurrentLink("socket_open")
+                    publishControllerHeartbeatIfNeeded(force = true, reason = "socket_open")
+                }
+
+                override fun onMessage(message: ListenTogetherSocketEnvelope) {
+                    if (!recordWebSocketMessage(message)) {
+                        NPLogger.d(
+                            TAG,
+                            "websocket.onMessage(): drop inactive room, roomId=${message.roomId ?: message.state?.roomId}"
+                        )
+                        return
+                    }
+                    NPLogger.d(
+                        TAG,
+                        "websocket.onMessage(): type=${message.type}, roomId=${message.roomId ?: message.state?.roomId}, version=${message.version ?: message.state?.version}, causedBy=${message.causedBy?.type}:${message.causedBy?.eventId}, ok=${message.ok}, message=${message.message}, resultError=${message.result?.error}"
+                    )
+                    if (message.type != "pong" && message.type != "np_pong") {
+                        updateServerClockOffsetFromServerMessage(
+                            serverNowMs = message.nowMs ?: message.result?.applied?.nowMs,
+                            reason = message.type
+                        )
+                    }
+                    when (message.type) {
+                        "welcome",
+                        "room_state_updated" -> handleSocketRoomState(message)
+                        "link_requested" -> handleLinkRequested(message)
+                        "member_control_requested" -> handleMemberControlRequested(message)
+                        "room_suspended" -> handleRoomSuspended(message)
+                        "room_resumed" -> handleRoomResumed(message)
+                        "room_closed" -> handleRoomClosed(message)
+                        "control_result",
+                        "ack" -> {
+                            val error = message.result?.error
+                            val applied = message.result?.applied
+                            val appliedCause = applied?.causedBy
+                            val appliedCauseType = appliedCause?.type
+                            val acknowledgedEventId = appliedCause?.eventId
+                                ?: message.causedBy?.eventId
+                            if (error.isNullOrBlank() && message.ok != false) {
+                                localControlOutbox.acknowledge(acknowledgedEventId)
+                            }
+                            if (error.isNullOrBlank() && message.ok != false && appliedCauseType == "TRACK_FINISHED") {
+                                pendingTrackFinishedLegacyFallback = null
+                            }
+                            applied?.let { appliedEvent ->
+                                val appliedState = appliedEvent.state
+                                val appliedEventCause = appliedEvent.causedBy
+                                val shouldApplyCommittedState = appliedEventCause?.let { cause ->
+                                    when (cause.type) {
+                                        "UPDATE_SETTINGS" -> true
+                                        "TRACK_FINISHED" -> {
+                                            cause.userUuid == _sessionState.value.userUuid
+                                        }
+                                        else -> {
+                                            cause.type?.startsWith("REQUEST_") == true &&
+                                                cause.userUuid == _sessionState.value.userUuid
+                                        }
+                                    }
+                                } == true
+                                if (
+                                    error.isNullOrBlank() &&
+                                    appliedState != null &&
+                                    appliedEventCause != null &&
+                                    shouldApplyCommittedState
+                                ) {
+                                    NPLogger.d(
+                                        TAG,
+                                        "websocket.controlResult(): apply committed state locally, type=${appliedEventCause.type}, version=${appliedEvent.version}"
+                                    )
+                                    val previousState = _roomState.value
+                                    val accepted = acceptRoomState(
+                                        state = appliedState,
+                                        expectedPositionMs = appliedEvent.expectedPositionMs,
+                                        source = RoomStateSource.WEB_SOCKET_CONTROL_RESULT,
+                                        cause = appliedEventCause
+                                    )
+                                    if (accepted != null) {
+                                        maybePublishControllerLinkAfterAudioSharingEnabled(
+                                            previousState = previousState,
+                                            currentState = accepted.state,
+                                            reason = "control_result:${appliedEventCause.type}"
+                                        )
+                                    }
+                                    if (accepted != null && appliedEventCause.type == "TRACK_FINISHED") {
+                                        awaitingTrackFinishStableKey = null
+                                    }
+                                    if (accepted != null && !isCurrentUserController()) {
+                                        applyRoomStateToPlayer(
+                                            accepted.state,
+                                            appliedEventCause.type,
+                                            accepted.expectedPositionMs
+                                        )
+                                    }
+                                }
+                            }
+                            if (!error.isNullOrBlank() || message.ok == false) {
+                                val resolvedError = error
+                                    ?: message.message
+                                    ?: "control event rejected"
+                                if (
+                                    trySendQueueMutationLegacyFallback(
+                                        errorMessage = resolvedError,
+                                        eventId = acknowledgedEventId
+                                    )
+                                ) {
+                                    return
+                                }
+                                if (handleUnsupportedClockSyncPingError(resolvedError)) {
+                                    return
+                                }
+                                if (trySendTrackFinishedLegacyFallback(resolvedError)) {
+                                    return
+                                }
+                                NPLogger.w(TAG, "websocket.controlResult(): $resolvedError")
+                                _sessionState.value = _sessionState.value.copy(lastError = resolvedError)
+                                if (handleTerminalReconnectFailure(resolvedError, "control_result")) {
+                                    return
+                                }
+                                maybeRecoverFromFatalMembershipError(
+                                    errorMessage = resolvedError,
+                                    reason = "control_result"
+                                )
+                            }
+                        }
+
+                        "error" -> {
+                            val resolvedError = message.message ?: "socket error"
+                            if (handleUnsupportedClockSyncPingError(resolvedError)) {
+                                return
+                            }
+                            NPLogger.w(TAG, "websocket.error(): $resolvedError")
+                            _sessionState.value = _sessionState.value.copy(lastError = resolvedError)
+                            if (handleTerminalReconnectFailure(resolvedError, "socket_error")) {
+                                return
+                            }
+                            maybeRecoverFromFatalMembershipError(
+                                errorMessage = resolvedError,
+                                reason = "socket_error"
+                            )
+                        }
+
+                        "pong",
+                        "np_pong" -> {
+                            if (message.type == "np_pong") {
+                                clockSyncPingSupported = true
+                            }
+                            _sessionState.value = _sessionState.value.copy(lastError = null)
+                            val serverNowMs = message.nowMs
+                            updateServerClockOffsetFromPong(
+                                serverNowMs = serverNowMs,
+                                echoedSentAtElapsedMs = message.t
+                            )
+                        }
+                    }
+                }
+
+                override fun onClosed(code: Int, reason: String) {
+                    webSocketConnectingAtElapsedMs = 0L
+                    stopHeartbeat()
+                    stopSocketKeepAlive()
+                    NPLogger.w(TAG, "websocket.onClosed(): code=$code, reason=$reason")
+                    _sessionState.value = _sessionState.value.copy(
+                        connectionState = ListenTogetherConnectionState.DISCONNECTED,
+                        lastError = reason.takeIf { it.isNotBlank() }
+                    )
+                    if (handleTerminalReconnectFailure(reason, "socket_closed:$code")) {
+                        return
+                    }
+                    scheduleReconnect("closed:$code:${reason.ifBlank { "unknown" }}")
+                }
+
+                override fun onFailure(error: Throwable) {
+                    webSocketConnectingAtElapsedMs = 0L
+                    stopHeartbeat()
+                    stopSocketKeepAlive()
+                    NPLogger.e(TAG, "websocket.onFailure(): ${error.message}", error)
+                    _sessionState.value = _sessionState.value.copy(
+                        connectionState = ListenTogetherConnectionState.DISCONNECTED,
+                        lastError = error.message ?: error.javaClass.simpleName
+                    )
+                    if (handleTerminalReconnectFailure(error.message, "socket_failure")) {
+                        return
+                    }
+                    scheduleReconnect("failure:${error.message ?: error.javaClass.simpleName}")
+                }
+
+                override fun onProtocolError(rawText: String, error: Throwable) {
+                    NPLogger.w(
+                        "NERI-ListenTogether",
+                        "WebSocket protocol decode failed: ${error.message}, raw=${rawText.take(512)}"
+                    )
+                    _sessionState.value = _sessionState.value.copy(
+                        lastError = "Protocol: ${error.message ?: error.javaClass.simpleName}"
+                    )
+                }
+            }
+        )
+    }
+
+    fun disconnectWebSocket() {
+        clearCoalescedLocalControlEvents("disconnect")
+        reconnectEnabled = false
+        resetReconnectAttempt()
+        pendingStateRefreshAfterReconnect = false
+        cancelListenTogetherBackgroundJobs(reconnectJob, membershipRecoveryJob)
+        reconnectJob = null
+        membershipRecoveryJob = null
+        cancelControllerLinkResolve()
+        cancelForegroundSocketProbe()
+        stopListenTogetherSoftSyncRateRecheck()
+        stopHeartbeat()
+        stopSocketKeepAlive()
+        stopSyncWatchdog()
+        lastOutboundSyncAtMs = 0L
+        lastRequestedLinkStableKey = null
+        lastRequestedLinkAtElapsedMs = 0L
+        controllerLinkAvailability.clear()
+        synchronized(roomStateLock) {
+            lastAppliedRoomVersion = -1L
+            pendingRoomRepairVersion = -1L
+        }
+        lastControllerLocalControlAtElapsedMs = 0L
+        forwardedRequestDeduper.clear()
+        awaitingTrackFinishStableKey = null
+        pendingTrackFinishedLegacyFallback = null
+        pendingMemberControlRequest = null
+        lastListenerStateRefreshAtElapsedMs = 0L
+        lastWebSocketMessageAtElapsedMs = 0L
+        webSocketConnectingAtElapsedMs = 0L
+        pingSentAtWallMs = 0L
+        pingSentAtElapsedMs = 0L
+        estimatedServerClockOffsetMs = 0L
+        clockSyncPingSupported = null
+        resetListenerRecoveryState()
+        ListenTogetherBackgroundKeepAlive.release("disconnect")
+        ListenTogetherPlayer.resetListenTogetherSyncPlaybackRate()
+        NPLogger.d(TAG, "disconnectWebSocket()")
+        webSocketClient.disconnect()
+        _sessionState.value = _sessionState.value.copy(
+            connectionState = ListenTogetherConnectionState.DISCONNECTED,
+            roomNotice = null
+        )
+    }
+
+    fun onApplicationForegrounded() {
+        applicationInForeground = true
+        ListenTogetherBackgroundKeepAlive.release("foreground")
+        val snapshot = _sessionState.value
+        when (
+            resolveListenTogetherForegroundRecoveryAction(
+                connectionState = snapshot.connectionState,
+                roomId = snapshot.roomId,
+                wsUrl = snapshot.wsUrl,
+                reconnectEnabled = reconnectEnabled,
+                connectingSinceElapsedMs = webSocketConnectingAtElapsedMs,
+                nowElapsedMs = SystemClock.elapsedRealtime()
+            )
+        ) {
+            ListenTogetherForegroundRecoveryAction.NONE -> Unit
+            ListenTogetherForegroundRecoveryAction.CONNECT -> {
+                pendingStateRefreshAfterReconnect = true
+                ensureListenTogetherForegroundService("foreground_connect")
+                connectWebSocket()
+            }
+
+            ListenTogetherForegroundRecoveryAction.REFRESH_ROOM_STATE -> {
+                ensureListenTogetherForegroundService("foreground_refresh")
+                val probeStartedAtElapsedMs = SystemClock.elapsedRealtime()
+                if (!sendSocketKeepAlivePing()) {
+                    pendingStateRefreshAfterReconnect = true
+                    scheduleReconnect("foreground_ping_send_failed")
+                    return
+                }
+                scheduleForegroundSocketProbe(
+                    roomId = snapshot.roomId,
+                    probeStartedAtElapsedMs = probeStartedAtElapsedMs
+                )
+                if (isCurrentUserController(snapshot)) {
+                    publishControllerHeartbeatIfNeeded(
+                        force = true,
+                        reason = "foreground_refresh"
+                    )
+                }
+                scope.launch {
+                    refreshRoomStateAfterReconnect("foreground_refresh")
+                }
+            }
+        }
+    }
+
+    fun onApplicationBackgrounded() {
+        applicationInForeground = false
+        if (
+            shouldHoldListenTogetherBackgroundKeepAlive(
+                sessionActive = !_sessionState.value.roomId.isNullOrBlank(),
+                reconnectEnabled = reconnectEnabled,
+                applicationInForeground = applicationInForeground
+            )
+        ) {
+            ensureListenTogetherForegroundService("application_backgrounded")
+        }
+        updateBackgroundKeepAlive("application_backgrounded")
+    }
+
+    fun leaveRoom() {
+        clearCoalescedLocalControlEvents("leave")
+        localControlOutbox.clear()
+        val snapshot = _sessionState.value
+        val shouldAutoPause = shouldAutoPauseListenTogetherForMemberChange(
+            autoPauseOnMemberChange =
+                !snapshot.roomId.isNullOrBlank() &&
+                    (_roomState.value?.settings?.autoPauseOnMemberChange ?: true),
+            memberChangeType = "MEMBER_LEFT"
+        )
+        if (shouldAutoPause) {
+            ListenTogetherPlayer.pauseImpl(
+                forcePersist = true,
+                commandSource = PlaybackCommandSource.REMOTE_SYNC,
+                allowFadeOut = false,
+                debugReason = "listen_together_leave_room_auto_pause"
+            )
+        }
+        val leaveBaseUrl = snapshot.baseUrl
+        val leaveRoomId = snapshot.roomId
+        val leaveToken = snapshot.token
+        retainedMembershipCredential = null
+        reconnectEnabled = false
+        resetReconnectAttempt()
+        pendingStateRefreshAfterReconnect = false
+        cancelListenTogetherBackgroundJobs(reconnectJob, membershipRecoveryJob)
+        reconnectJob = null
+        membershipRecoveryJob = null
+        cancelControllerLinkResolve()
+        cancelForegroundSocketProbe()
+        stopListenTogetherSoftSyncRateRecheck()
+        if (
+            !leaveBaseUrl.isNullOrBlank() &&
+            !leaveRoomId.isNullOrBlank() &&
+            !leaveToken.isNullOrBlank()
+        ) {
+            scope.launch {
+                runCatching {
+                    api.leaveRoom(
+                        baseUrl = leaveBaseUrl,
+                        roomId = leaveRoomId,
+                        token = leaveToken
+                    )
+                }.onSuccess { response ->
+                    if (!response.ok) {
+                        NPLogger.w(
+                            TAG,
+                            "leaveRoom(): server rejected leave, roomId=$leaveRoomId, error=${response.error}"
+                        )
+                    }
+                }.onFailure { error ->
+                    NPLogger.w(
+                        TAG,
+                        "leaveRoom(): server notification failed, roomId=$leaveRoomId, error=${error.message}",
+                        error
+                    )
+                }
+            }
+        }
+        stopHeartbeat()
+        stopSocketKeepAlive()
+        stopSyncWatchdog()
+        lastOutboundSyncAtMs = 0L
+        lastRequestedLinkStableKey = null
+        lastRequestedLinkAtElapsedMs = 0L
+        controllerLinkAvailability.clear()
+        synchronized(roomStateLock) {
+            lastAppliedRoomVersion = -1L
+            pendingRoomRepairVersion = -1L
+            activeRoomIdForStateAcceptance = null
+            _roomState.value = null
+        }
+        lastControllerLocalControlAtElapsedMs = 0L
+        forwardedRequestDeduper.clear()
+        awaitingTrackFinishStableKey = null
+        pendingTrackFinishedLegacyFallback = null
+        pendingMemberControlRequest = null
+        lastListenerStateRefreshAtElapsedMs = 0L
+        lastWebSocketMessageAtElapsedMs = 0L
+        webSocketConnectingAtElapsedMs = 0L
+        clockSyncPingSupported = null
+        observedControllerOffline = false
+        resetListenerRecoveryState()
+        ListenTogetherBackgroundKeepAlive.release("leave")
+        ListenTogetherPlayer.clearListenTogetherSafetyPause()
+        ListenTogetherPlayer.resetListenTogetherSyncPlaybackRate()
+        NPLogger.d(TAG, "leaveRoom(): roomId=${snapshot.roomId}, role=${snapshot.role}")
+        webSocketClient.disconnect()
+        recentEventTracker.clear()
+        _sessionState.value = ListenTogetherSessionState(
+            baseUrl = snapshot.baseUrl,
+            userUuid = snapshot.userUuid,
+            nickname = snapshot.nickname,
+            connectionState = ListenTogetherConnectionState.DISCONNECTED
+        )
+    }
+
+    fun sendPing(): Boolean {
+        return sendSocketKeepAlivePing()
+    }
+
+    private fun sendSocketKeepAlivePing(): Boolean {
+        val sentAtElapsedMs = SystemClock.elapsedRealtime()
+        if (
+            pingSentAtElapsedMs <= 0L ||
+            lastWebSocketMessageAtElapsedMs > pingSentAtElapsedMs
+        ) {
+            pingSentAtElapsedMs = sentAtElapsedMs
+            pingSentAtWallMs = System.currentTimeMillis()
+        }
+        return if (clockSyncPingSupported == false) {
+            webSocketClient.sendLegacyPing()
+        } else {
+            webSocketClient.sendPing(sentAtElapsedMs)
+        }
+    }
+
+    private fun updateServerClockOffsetFromPong(
+        serverNowMs: Long?,
+        echoedSentAtElapsedMs: Long?
+    ) {
+        val nowElapsedMs = SystemClock.elapsedRealtime()
+        val nowWallMs = System.currentTimeMillis()
+        val echoedElapsedMs = echoedSentAtElapsedMs?.takeIf { it > 0L }
+        val sentAtElapsedMs = echoedElapsedMs ?: pingSentAtElapsedMs
+        val sentAtWallMs = when {
+            echoedElapsedMs != null -> nowWallMs - (nowElapsedMs - echoedElapsedMs)
+            else -> pingSentAtWallMs
+        }
+        updateServerClockOffsetFromRoundTrip(
+            serverNowMs = serverNowMs,
+            sentAtWallMs = sentAtWallMs,
+            sentAtElapsedMs = sentAtElapsedMs,
+            nowWallMs = nowWallMs,
+            nowElapsedMs = nowElapsedMs,
+            reason = "pong"
+        )
+    }
+
+    private fun updateServerClockOffsetFromServerMessage(
+        serverNowMs: Long?,
+        reason: String
+    ) {
+        updateServerClockOffsetFromRoundTrip(
+            serverNowMs = serverNowMs,
+            sentAtWallMs = 0L,
+            sentAtElapsedMs = 0L,
+            reason = reason
+        )
+    }
+
+    private fun updateServerClockOffsetFromRoundTrip(
+        serverNowMs: Long?,
+        sentAtWallMs: Long,
+        sentAtElapsedMs: Long,
+        nowWallMs: Long = System.currentTimeMillis(),
+        nowElapsedMs: Long = SystemClock.elapsedRealtime(),
+        reason: String
+    ) {
+        if (serverNowMs == null || serverNowMs <= 0L) return
+        val hasRoundTrip = sentAtWallMs > 0L && sentAtElapsedMs > 0L
+        val rtt = if (hasRoundTrip) nowElapsedMs - sentAtElapsedMs else 0L
+        if (rtt < 0L) return
+        if (rtt > CLOCK_SYNC_MAX_RTT_MS) {
+            NPLogger.w(TAG, "updateServerClockOffsetFromRoundTrip(): ignore stale sample, reason=$reason, rtt=$rtt")
+            return
+        }
+        val clientReferenceWallMs = if (hasRoundTrip) {
+            sentAtWallMs + rtt / 2
+        } else {
+            nowWallMs
+        }
+        val newOffset = serverNowMs - clientReferenceWallMs
+        val prev = estimatedServerClockOffsetMs
+        estimatedServerClockOffsetMs = when (prev) {
+            0L -> newOffset
+            else -> (prev * 7 + newOffset * 3) / 10
+        }
+        NPLogger.d(
+            TAG,
+            "updateServerClockOffsetFromRoundTrip(): reason=$reason, offset=$estimatedServerClockOffsetMs, sample=$newOffset, rtt=$rtt"
+        )
+    }
+
+    suspend fun sendControlEvent(event: ListenTogetherEvent): ListenTogetherControlResponse {
+        val snapshot = _sessionState.value
+        val baseUrl = snapshot.baseUrl
+        if (baseUrl.isNullOrBlank()) {
+            return ListenTogetherControlResponse(ok = false, error = "baseUrl missing")
+        }
+        val roomId = snapshot.roomId
+        if (roomId.isNullOrBlank()) {
+            return ListenTogetherControlResponse(ok = false, error = "roomId missing")
+        }
+        val token = snapshot.token
+        if (token.isNullOrBlank()) {
+            return ListenTogetherControlResponse(ok = false, error = "token missing")
+        }
+        return api.sendControlEvent(baseUrl, roomId, token, event)
+    }
+
+    fun sendControlEventOverWebSocket(event: ListenTogetherEvent): Boolean {
+        return webSocketClient.sendEvent(event)
+    }
+
+    fun updateRoomSettings(settings: ListenTogetherRoomSettings): ListenTogetherControlResponse {
+        val event = ListenTogetherEvent(
+            type = "UPDATE_SETTINGS",
+            eventId = nextEventId(),
+            clientTimeMs = System.currentTimeMillis(),
+            clientInstanceId = clientInstanceId,
+            clientSequence = nextClientSequence(),
+            roomSettings = settings.normalized()
+        )
+        markOutboundEvent(event.eventId)
+        noteOutboundSync()
+        return if (sendControlEventPureWebSocket(event, "update_settings")) {
+            ListenTogetherControlResponse(ok = true)
+        } else {
+            ListenTogetherControlResponse(ok = false, error = "websocket unavailable")
+        }
+    }
+
+    fun applyRoomStateToPlayer(
+        state: ListenTogetherRoomState,
+        causeType: String? = null,
+        expectedPositionMs: Long? = null
+    ) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            NPLogger.d(
+                TAG,
+                "applyRoomStateToPlayer(): repost to main thread, roomId=${state.roomId}, version=${state.version}, causeType=$causeType"
+            )
+            mainScope.launch {
+                applyRoomStateToPlayer(state, causeType, expectedPositionMs)
+            }
+            return
+        }
+        val currentState = _roomState.value
+        if (!shouldApplyListenTogetherRoomStateToPlayer(state, currentState)) {
+            NPLogger.d(
+                TAG,
+                "applyRoomStateToPlayer(): skip inactive or stale state, roomId=${state.roomId}, version=${state.version}, currentRoomId=${currentState?.roomId}, currentVersion=${currentState?.version}, causeType=$causeType"
+            )
+            return
+        }
+        playerStateApplier.apply(
+            state = state,
+            causeType = causeType,
+            expectedPositionMs = expectedPositionMs
+        )
+        reconcileListenTogetherSoftSyncRateRecheck()
+    }
+
+    internal fun isControllerAudioLinkUnavailable(
+        roomId: String?,
+        stableKey: String?
+    ): Boolean {
+        return controllerLinkAvailability.isUnavailable(roomId, stableKey)
+    }
+
+    fun buildSetTrackEvent(
+        queue: List<Song>,
+        currentIndex: Int,
+        positionMs: Long,
+        shouldPlay: Boolean
+    ): ListenTogetherEvent {
+        return eventFactory.buildSetTrackEvent(
+            queue = queue,
+            currentIndex = currentIndex,
+            positionMs = positionMs,
+            shouldPlay = shouldPlay
+        )
+    }
+
+    fun buildPlayEvent(positionMs: Long): ListenTogetherEvent = playbackSnapshotEvent("PLAY", positionMs)
+
+    fun buildPauseEvent(positionMs: Long): ListenTogetherEvent = playbackSnapshotEvent("PAUSE", positionMs)
+
+    fun buildSeekEvent(positionMs: Long): ListenTogetherEvent = playbackSnapshotEvent("SEEK", positionMs)
+
+    fun buildRequestPlayEvent(positionMs: Long): ListenTogetherEvent = playbackSnapshotEvent("REQUEST_PLAY", positionMs)
+
+    fun buildRequestPauseEvent(positionMs: Long): ListenTogetherEvent = playbackSnapshotEvent("REQUEST_PAUSE", positionMs)
+
+    fun buildRequestSeekEvent(positionMs: Long): ListenTogetherEvent = playbackSnapshotEvent("REQUEST_SEEK", positionMs)
+
+    fun buildPlaybackModeEvent(
+        repeatMode: Int,
+        shuffleEnabled: Boolean
+    ): ListenTogetherEvent {
+        return eventFactory.buildPlaybackModeEvent(
+            repeatMode = repeatMode,
+            shuffleEnabled = shuffleEnabled
+        )
+    }
+
+    fun buildHeartbeatEvent(
+        state: String,
+        positionMs: Long,
+        includeQueue: Boolean = true
+    ): ListenTogetherEvent {
+        return eventFactory.buildHeartbeatEvent(
+            state = state,
+            positionMs = positionMs,
+            includeQueue = includeQueue
+        )
+    }
+
+    fun buildRequestLinkEvent(
+        stableKey: String,
+        currentIndex: Int? = null,
+        track: ListenTogetherTrack? = null,
+        forceRefresh: Boolean = false
+    ): ListenTogetherEvent {
+        return eventFactory.buildRequestLinkEvent(
+            stableKey = stableKey,
+            currentIndex = currentIndex,
+            track = track,
+            forceRefresh = forceRefresh
+        )
+    }
+
+    fun buildLinkReadyEvent(
+        stableKey: String,
+        positionMs: Long,
+        streamUrlOverride: String? = null,
+        streamUrlsOverride: List<String> = emptyList()
+    ): ListenTogetherEvent? {
+        return eventFactory.buildLinkReadyEvent(
+            stableKey = stableKey,
+            positionMs = positionMs,
+            streamUrlOverride = streamUrlOverride,
+            streamUrlsOverride = streamUrlsOverride
+        )
+    }
+
+    fun buildLinkUnavailableEvent(stableKey: String): ListenTogetherEvent? {
+        return eventFactory.buildLinkUnavailableEvent(stableKey)
+    }
+
+    fun buildRequestSetTrackEvent(
+        queue: List<Song>,
+        currentIndex: Int,
+        positionMs: Long,
+        shouldPlay: Boolean
+    ): ListenTogetherEvent {
+        return buildSetTrackEvent(
+            queue = queue,
+            currentIndex = currentIndex,
+            positionMs = positionMs,
+            shouldPlay = shouldPlay
+        ).copy(type = "REQUEST_SET_TRACK")
+    }
+
+    private fun playbackSnapshotEvent(type: String, positionMs: Long): ListenTogetherEvent {
+        return when (type) {
+            "PLAY" -> eventFactory.buildPlayEvent(positionMs)
+            "PAUSE" -> eventFactory.buildPauseEvent(positionMs)
+            "SEEK" -> eventFactory.buildSeekEvent(positionMs)
+            "REQUEST_PLAY" -> eventFactory.buildRequestPlayEvent(positionMs)
+            "REQUEST_PAUSE" -> eventFactory.buildRequestPauseEvent(positionMs)
+            "REQUEST_SEEK" -> eventFactory.buildRequestSeekEvent(positionMs)
+            else -> error("Unsupported playback snapshot event type: $type")
+        }
+    }
+
+    private fun buildTrackFinishedEvent(
+        command: PlaybackCommand,
+        queue: List<Song>,
+        currentSong: Song?,
+        positionMs: Long
+    ): ListenTogetherEvent? {
+        return eventFactory.buildTrackFinishedEvent(
+            command = command,
+            queue = queue,
+            currentSong = currentSong,
+            positionMs = positionMs
+        )
+    }
+
+    private fun updateSession(baseUrl: String, response: ListenTogetherRoomResponse) {
+        val normalizedBaseUrl = resolveListenTogetherBaseUrl(baseUrl)
+        val previousSession = _sessionState.value
+        val nextUserUuid = response.userUuid ?: response.userId
+        val sessionChanged =
+            !previousSession.baseUrl.equals(normalizedBaseUrl, ignoreCase = true) ||
+                !previousSession.roomId.equals(response.roomId, ignoreCase = true) ||
+                (
+                    !previousSession.userUuid.isNullOrBlank() &&
+                        !nextUserUuid.isNullOrBlank() &&
+                        !previousSession.userUuid.equals(nextUserUuid, ignoreCase = true)
+                    )
+        if (
+            sessionChanged
+        ) {
+            clearCoalescedLocalControlEvents("session_changed")
+            localControlOutbox.clear()
+            cancelForegroundSocketProbe()
+            stopListenTogetherSoftSyncRateRecheck()
+            observedControllerOffline = false
+            webSocketConnectingAtElapsedMs = 0L
+            clockSyncPingSupported = null
+        }
+        val nextRoomId = response.roomId
+        if (!nextRoomId.isNullOrBlank()) {
+            synchronized(roomStateLock) {
+                if (nextRoomId != activeRoomIdForStateAcceptance) {
+                    lastAppliedRoomVersion = -1L
+                    pendingRoomRepairVersion = -1L
+                    _roomState.value = null
+                    controllerLinkAvailability.clear()
+                }
+                activeRoomIdForStateAcceptance = nextRoomId
+            }
+            lastListenerStateRefreshAtElapsedMs = 0L
+            lastWebSocketMessageAtElapsedMs = 0L
+        }
+        val resolvedWsUrl = response.wsUrl
+            ?.takeUnless { wsUrl ->
+                wsUrl.contains("://room.internal/", ignoreCase = true) ||
+                    wsUrl.contains("://room.internal?", ignoreCase = true) ||
+                    wsUrl.contains("://room.internal:", ignoreCase = true)
+            }
+            ?: run {
+                val roomId = response.roomId
+                val token = response.token
+                if (!roomId.isNullOrBlank() && !token.isNullOrBlank()) {
+                    buildListenTogetherWsUrl(normalizedBaseUrl, roomId, token)
+                } else {
+                    null
+                }
+            }
+        NPLogger.d(
+            TAG,
+            "updateSession(): roomId=${response.roomId}, role=${response.role}, tokenPresent=${!response.token.isNullOrBlank()}, wsUrl=${resolvedWsUrl.redactListenTogetherWsUrlForLog()}"
+        )
+        _sessionState.value = _sessionState.value.copy(
+            baseUrl = normalizedBaseUrl,
+            roomId = response.roomId,
+            userUuid = nextUserUuid,
+            nickname = response.nickname,
+            role = resolveListenTogetherSessionRole(
+                sessionUserId = response.userUuid ?: response.userId,
+                fallbackRole = response.role,
+                state = response.state
+            ),
+            token = response.token,
+            memberSecret = response.memberSecret ?: previousSession.memberSecret.takeIf {
+                previousSession.roomId.equals(response.roomId, ignoreCase = true) &&
+                    previousSession.userUuid.equals(
+                    response.userUuid ?: response.userId,
+                        ignoreCase = true
+                    )
+            },
+            joinSecret = response.joinSecret ?: previousSession.joinSecret.takeIf {
+                previousSession.roomId.equals(response.roomId, ignoreCase = true)
+            },
+            wsUrl = resolvedWsUrl,
+            lastError = response.error,
+            roomNotice = null
+        )
+        _sessionState.value.toMembershipCredentialOrNull()?.let { credential ->
+            retainedMembershipCredential = credential
+        }
+        response.state?.let {
+            val accepted = acceptRoomState(
+                state = it,
+                expectedPositionMs = null,
+                source = RoomStateSource.HTTP_SESSION_UPDATE
+            ) ?: return@let
+            applyRoomStateToPlayer(
+                accepted.state,
+                causeType = resolveListenTogetherJoinAutoPauseCause(
+                    autoPauseOnJoin = response.autoPauseOnJoin,
+                    role = _sessionState.value.role,
+                    state = accepted.state
+                )
+            )
+        }
+    }
+
+    private fun acceptRoomState(
+        state: ListenTogetherRoomState,
+        expectedPositionMs: Long?,
+        source: RoomStateSource,
+        cause: ListenTogetherCause? = null
+    ): AcceptedRoomState? {
+        val accepted = synchronized(roomStateLock) {
+            val activeRoomId = activeRoomIdForStateAcceptance
+            if (activeRoomId.isNullOrBlank() || activeRoomId != state.roomId) {
+                NPLogger.d(
+                    TAG,
+                    "acceptRoomState(): drop inactive room source=${source.logName}, roomId=${state.roomId}, activeRoomId=$activeRoomId, version=${state.version}"
+                )
+                return@synchronized null
+            }
+            val currentState = _roomState.value
+            val latestVersion = latestAcceptedRoomVersion(currentState)
+            if (state.version < latestVersion) {
+                NPLogger.d(
+                    TAG,
+                    "acceptRoomState(): drop stale source=${source.logName}, roomId=${state.roomId}, version=${state.version}, latest=$latestVersion"
+                )
+                return@synchronized null
+            }
+            val acceptsAuthoritativeQueueUpdate =
+                shouldAcceptListenTogetherAuthoritativeQueueUpdate(
+                    cause = cause,
+                    candidateState = state,
+                    currentState = currentState
+                )
+            if (
+                shouldDropControllerLocalEcho(state, cause, latestVersion) &&
+                !acceptsAuthoritativeQueueUpdate
+            ) {
+                NPLogger.d(
+                    TAG,
+                    "acceptRoomState(): drop controller echo source=${source.logName}, roomId=${state.roomId}, version=${state.version}, latest=$latestVersion, causedBy=${cause?.type}:${cause?.eventId}"
+                )
+                return@synchronized null
+            }
+            if (currentState != null && state.version == latestVersion) {
+                lastAppliedRoomVersion = maxOf(lastAppliedRoomVersion, currentState.version)
+                clearRoomRepairIfSatisfied(state.version, source)
+                updateRoomPositionSupplement(currentState, expectedPositionMs, source)
+                return@synchronized AcceptedRoomState(
+                    state = currentState,
+                    expectedPositionMs = expectedPositionMs
+                )
+            }
+            commitRoomState(state, expectedPositionMs, source)
+            clearRoomRepairIfSatisfied(state.version, source)
+            AcceptedRoomState(
+                state = state,
+                expectedPositionMs = expectedPositionMs
+            )
+        }
+        val causedByEventId = cause?.eventId?.takeIf { it.isNotBlank() }
+        if (causedByEventId != null && pendingMemberControlRequest?.event?.eventId == causedByEventId) {
+            pendingMemberControlRequest = null
+        }
+        return accepted
+    }
+
+    private fun clearRoomRepairIfSatisfied(version: Long, source: RoomStateSource) {
+        val isHttpState = when (source) {
+            RoomStateSource.HTTP_REFRESH,
+            RoomStateSource.HTTP_CONTROL_FALLBACK,
+            RoomStateSource.HTTP_SESSION_UPDATE -> true
+            else -> false
+        }
+        if (isHttpState && pendingRoomRepairVersion >= 0L && version >= pendingRoomRepairVersion) {
+            pendingRoomRepairVersion = -1L
+        }
+    }
+
+    private fun commitRoomState(
+        state: ListenTogetherRoomState,
+        expectedPositionMs: Long?,
+        source: RoomStateSource
+    ) {
+        NPLogger.d(
+            TAG,
+            "commitRoomState(): source=${source.logName}, roomId=${state.roomId}, version=${state.version}, members=${state.members.size}, expectedPositionMs=$expectedPositionMs"
+        )
+        lastAppliedRoomVersion = maxOf(lastAppliedRoomVersion, state.version)
+        _roomState.value = state
+        reconcileControllerAudioLinkAvailability(state)
+        ensureListenTogetherForegroundService("room_state:${state.version}")
+        awaitingTrackFinishStableKey?.let { waitingStableKey ->
+            if (state.currentStableKey() != waitingStableKey) {
+                awaitingTrackFinishStableKey = null
+            }
+        }
+        _sessionState.value = _sessionState.value.copy(
+            roomId = state.roomId,
+            role = resolveListenTogetherSessionRole(
+                sessionUserId = _sessionState.value.userUuid,
+                fallbackRole = _sessionState.value.role,
+                state = state
+            ),
+            expectedPositionMs = expectedPositionMs,
+            roomNotice = roomNoticeForState(state)
+        )
+        maybeRecoverMissingListenerMembership(state, reason = "apply_room_state")
+    }
+
+    private fun updateRoomPositionSupplement(
+        currentState: ListenTogetherRoomState,
+        expectedPositionMs: Long?,
+        source: RoomStateSource
+    ) {
+        if (expectedPositionMs == null) {
+            NPLogger.d(
+                TAG,
+                "acceptRoomState(): keep current structure source=${source.logName}, roomId=${currentState.roomId}, version=${currentState.version}"
+            )
+            return
+        }
+        NPLogger.d(
+            TAG,
+            "acceptRoomState(): position supplement source=${source.logName}, roomId=${currentState.roomId}, version=${currentState.version}, expectedPositionMs=$expectedPositionMs"
+        )
+        _sessionState.value = _sessionState.value.copy(
+            expectedPositionMs = expectedPositionMs
+        )
+    }
+
+    private fun latestAcceptedRoomVersion(currentState: ListenTogetherRoomState?): Long {
+        return latestListenTogetherAcceptedRoomVersion(lastAppliedRoomVersion, currentState)
+    }
+
+    private fun recordWebSocketMessage(message: ListenTogetherSocketEnvelope): Boolean {
+        val incomingVersion = message.state?.version ?: message.version
+        val incomingRoomId = message.state?.roomId ?: message.roomId
+        return synchronized(roomStateLock) {
+            val activeRoomId = activeRoomIdForStateAcceptance ?: return@synchronized false
+            if (!incomingRoomId.isNullOrBlank() && incomingRoomId != activeRoomId) {
+                return@synchronized false
+            }
+            lastWebSocketMessageAtElapsedMs = SystemClock.elapsedRealtime()
+            if (incomingVersion == null) return@synchronized true
+            val latestVersion = latestAcceptedRoomVersion(_roomState.value)
+            if (latestVersion < 0L || incomingVersion <= latestVersion + 1L) {
+                return@synchronized true
+            }
+            pendingRoomRepairVersion = maxOf(pendingRoomRepairVersion, incomingVersion)
+            NPLogger.w(
+                TAG,
+                "recordWebSocketMessage(): version gap detected, roomId=$activeRoomId, incoming=$incomingVersion, latest=$latestVersion, repairTarget=$pendingRoomRepairVersion"
+            )
+            true
+        }
+    }
+
+    private fun ensureListenTogetherForegroundService(reason: String) {
+        if (PlaybackService.isReadyForPassiveLocalPlaybackSync()) {
+            return
+        }
+        runCatching {
+            PlaybackService.startSyncService(
+                context = AppGraph.applicationContext,
+                source = "listen_together_$reason",
+                forceForeground = true
+            )
+        }.onFailure { error ->
+            NPLogger.w(
+                TAG,
+                "ensureListenTogetherForegroundService(): failed, reason=$reason, error=${error.message}",
+                error
+            )
+        }
+    }
+
+    private fun handleSocketRoomState(message: ListenTogetherSocketEnvelope) {
+        val state = message.state ?: return
+        if (shouldIgnoreIncomingState(message)) {
+            NPLogger.d(
+                TAG,
+                "handleSocketRoomState(): ignored causedBy=${message.causedBy?.type}:${message.causedBy?.eventId}"
+            )
+            return
+        }
+        if (shouldDeferIncomingStateForLocalTrackFinish(state, message.causedBy)) {
+            NPLogger.d(
+                TAG,
+                "handleSocketRoomState(): defer while waiting track finish barrier, causedBy=${message.causedBy?.type}:${message.causedBy?.eventId}"
+            )
+            markInboundEvent(message.causedBy?.eventId)
+            return
+        }
+        val previousState = _roomState.value
+        val accepted = acceptRoomState(
+            state = state,
+            expectedPositionMs = message.expectedPositionMs,
+            source = RoomStateSource.WEB_SOCKET_STATE,
+            cause = message.causedBy
+        ) ?: return
+        localControlOutbox.acknowledge(message.causedBy?.eventId)
+        val shouldConfirmControllerLinkUnavailable =
+            if (message.causedBy?.type == "LINK_UNAVAILABLE") {
+                markControllerAudioLinkUnavailable(
+                    state = accepted.state,
+                    requestedStableKey = message.requestTrackStableKey,
+                    signalId = message.causedBy.eventId
+                        ?: "room-state:${accepted.state.version}"
+                )
+            } else {
+                false
+            }
+        if (message.causedBy?.type == "LINK_UNAVAILABLE") {
+            NPLogger.d(
+                TAG,
+                "handleSocketRoomState(): link unavailable confirmation pending=$shouldConfirmControllerLinkUnavailable, stableKey=${accepted.state.currentStableKey()}"
+            )
+        }
+        message.message?.takeIf { it.isNotBlank() }?.let { notice ->
+            _sessionState.value = _sessionState.value.copy(
+                roomNotice = roomNoticeForState(accepted.state, notice)
+            )
+        }
+        maybePublishControllerLinkAfterAudioSharingEnabled(
+            previousState = previousState,
+            currentState = accepted.state,
+            reason = "room_state:${message.causedBy?.type ?: message.type}"
+        )
+        if (
+            message.causedBy?.type != "LINK_UNAVAILABLE" &&
+            previousState?.currentStableKey() != accepted.state.currentStableKey()
+        ) {
+            maybePublishControllerCurrentLink(
+                "track_changed:${message.causedBy?.type ?: message.type}"
+            )
+        }
+        if (message.causedBy?.type == "TRACK_FINISHED") {
+            awaitingTrackFinishStableKey = null
+        }
+        markInboundEvent(message.causedBy?.eventId)
+        val currentUserUuid = _sessionState.value.userUuid
+        if (
+            isCurrentUserController() &&
+            message.causedBy?.userUuid == currentUserUuid &&
+            message.causedBy?.type != "TRACK_FINISHED" &&
+            !isListenTogetherQueueUpdateCause(message.causedBy?.type)
+        ) {
+            NPLogger.d(
+                TAG,
+                "handleSocketRoomState(): current controller caused event locally, skip player apply, causedBy=${message.causedBy?.type}:${message.causedBy?.eventId}"
+            )
+            maybePublishControllerRecoveryHeartbeat(message)
+            return
+        }
+        applyRoomStateToPlayer(
+            accepted.state,
+            message.causedBy?.type,
+            accepted.expectedPositionMs
+        )
+        maybeRequestControllerLink(
+            state = accepted.state,
+            causeType = message.causedBy?.type,
+            force = shouldConfirmControllerLinkUnavailable,
+            bypassThrottle = shouldConfirmControllerLinkUnavailable
+        )
+        maybePublishControllerRecoveryHeartbeat(message)
+    }
+
+    private fun handleLinkRequested(message: ListenTogetherSocketEnvelope) {
+        val snapshot = _sessionState.value
+        if (!isCurrentUserController(snapshot)) {
+            NPLogger.d(
+                TAG,
+                "handleLinkRequested(): ignore because current user is not controller, requester=${message.causedBy?.userUuid}, role=${currentRole(snapshot)}"
+            )
+            return
+        }
+        val stableKey = message.requestTrackStableKey
+            ?: message.track?.stableKey
+            ?: run {
+                NPLogger.w(
+                    TAG,
+                    "handleLinkRequested(): missing stableKey, requester=${message.causedBy?.userUuid}, messageType=${message.type}"
+                )
+                return
+            }
+        NPLogger.d(
+            TAG,
+            "handleLinkRequested(): stableKey=$stableKey, requester=${message.causedBy?.userUuid}"
+        )
+        resolveAndPublishControllerLink(
+            stableKey = stableKey,
+            reason = "request:${message.causedBy?.userUuid}"
+        )
+    }
+
+    // 旧自建 Worker 可能仍依赖这条中转路径, 当前内置 Worker 已直接仲裁听众请求
+    private fun handleMemberControlRequested(message: ListenTogetherSocketEnvelope) {
+        val snapshot = _sessionState.value
+        if (!isCurrentUserController(snapshot)) return
+        if (
+            !forwardedRequestDeduper.shouldProcess(
+                requesterUuid = message.causedBy?.userUuid,
+                sequence = message.requestSequence,
+                eventId = message.causedBy?.eventId
+            )
+        ) {
+            NPLogger.d(
+                TAG,
+                "handleMemberControlRequested(): ignore duplicate/outdated requester=${message.causedBy?.userUuid}, requestSequence=${message.requestSequence}, eventId=${message.causedBy?.eventId}"
+            )
+            return
+        }
+        val forwardedEvent = buildControllerCommitEventFromForwardedRequest(message) ?: run {
+            NPLogger.w(
+                TAG,
+                "handleMemberControlRequested(): invalid forwarded request type=${message.causedBy?.type}, requester=${message.causedBy?.userUuid}"
+            )
+            return
+        }
+        if (shouldRejectForwardedMemberControl(message, forwardedEvent)) {
+            return
+        }
+        if (
+            SystemClock.elapsedRealtime() - lastControllerLocalControlAtElapsedMs <
+            CONTROLLER_LOCAL_CONTROL_COOLDOWN_MS
+        ) {
+            NPLogger.d(
+                TAG,
+                "handleMemberControlRequested(): controller local action wins, skip requester=${message.causedBy?.userUuid}"
+            )
+            publishControllerHeartbeatIfNeeded(force = true, reason = "controller_priority")
+            return
+        }
+        NPLogger.d(
+            TAG,
+            "handleMemberControlRequested(): requester=${message.causedBy?.userUuid}, type=${message.causedBy?.type}, commitType=${forwardedEvent.type}"
+        )
+        applyForwardedControllerRequestLocally(message, forwardedEvent)
+        markOutboundEvent(forwardedEvent.eventId)
+        noteOutboundSync()
+        if (!sendControlEventPureWebSocket(forwardedEvent, "forwarded_member_control")) {
+            NPLogger.w(
+                TAG,
+                "handleMemberControlRequested(): websocket unavailable, requester=${message.causedBy?.userUuid}"
+            )
+        }
+    }
+
+    private fun handleRoomSuspended(message: ListenTogetherSocketEnvelope) {
+        val state = message.state ?: return
+        NPLogger.w(
+            TAG,
+            "handleRoomSuspended(): roomId=${state.roomId}, controllerOfflineSince=${state.controllerOfflineSince}"
+        )
+        val accepted = acceptRoomState(
+            state = state,
+            expectedPositionMs = message.expectedPositionMs,
+            source = RoomStateSource.WEB_SOCKET_ROOM_STATUS,
+            cause = message.causedBy
+        ) ?: return
+        if (!isCurrentUserController()) {
+            observedControllerOffline = true
+        }
+        _sessionState.value = _sessionState.value.copy(
+            roomNotice = roomNoticeForState(accepted.state, message.message)
+        )
+    }
+
+    private fun handleRoomResumed(message: ListenTogetherSocketEnvelope) {
+        val state = message.state ?: return
+        NPLogger.d(TAG, "handleRoomResumed(): roomId=${state.roomId}, version=${state.version}")
+        val accepted = acceptRoomState(
+            state = state,
+            expectedPositionMs = message.expectedPositionMs,
+            source = RoomStateSource.WEB_SOCKET_ROOM_STATUS,
+            cause = message.causedBy
+        ) ?: return
+        val isCurrentUserController = isCurrentUserController()
+        val showControllerReconnected =
+            shouldShowListenTogetherControllerReconnectedNotice(
+                isCurrentUserController = isCurrentUserController,
+                observedControllerOffline = observedControllerOffline
+            )
+        val currentUserUuid = _sessionState.value.userUuid
+        if (!isCurrentUserController || message.causedBy?.userUuid != currentUserUuid) {
+            applyRoomStateToPlayer(accepted.state, message.message, accepted.expectedPositionMs)
+        }
+        observedControllerOffline = false
+        _sessionState.value = _sessionState.value.copy(
+            roomNotice = roomNoticeForState(
+                state = accepted.state,
+                fallbackMessage = message.message,
+                showControllerReconnected = showControllerReconnected
+            ),
+            lastError = null
+        )
+    }
+
+    private fun handleRoomClosed(message: ListenTogetherSocketEnvelope) {
+        val state = message.state
+        NPLogger.w(
+            TAG,
+            "handleRoomClosed(): roomId=${message.roomId ?: state?.roomId}, message=${message.message}"
+        )
+        val accepted = state?.let {
+            acceptRoomState(
+                state = it,
+                expectedPositionMs = message.expectedPositionMs,
+                source = RoomStateSource.WEB_SOCKET_ROOM_CLOSED,
+                cause = message.causedBy
+            )
+        }
+        if (accepted != null && shouldApplyListenTogetherClosedRoomPause(accepted.state)) {
+            mainScope.launch {
+                ListenTogetherPlayer.pauseImpl(
+                    forcePersist = true,
+                    commandSource = PlaybackCommandSource.REMOTE_SYNC,
+                    allowFadeOut = false,
+                    debugReason = "listen_together_closed_room_auto_pause"
+                )
+            }
+        }
+        closeRoomLocally(
+            state?.closedReason
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() }
+                ?: message.message
+                ?: roomNoticeForState(state)
+        )
+    }
+
+    private suspend fun handleLocalPlaybackCommand(command: PlaybackCommand) {
+        val snapshot = _sessionState.value
+        NPLogger.d(
+            TAG,
+            "handleLocalPlaybackCommand(): type=${command.type}, source=${command.source}, connection=${snapshot.connectionState}, role=${currentRole(snapshot)}, roomId=${snapshot.roomId}"
+        )
+        if (command.source != PlaybackCommandSource.LOCAL) return
+        if (snapshot.roomId.isNullOrBlank()) return
+        resolveControlBlockReason(snapshot, _roomState.value, command)?.let { reason ->
+            NPLogger.w(TAG, "handleLocalPlaybackCommand(): blocked, reason=$reason")
+            _sessionState.value = _sessionState.value.copy(lastError = reason)
+            return
+        }
+
+        val event = buildEventForPlaybackCommand(command) ?: run {
+            NPLogger.w(
+                TAG,
+                "handleLocalPlaybackCommand(): unsupported command type=${command.type}, source=${command.source}"
+            )
+            return
+        }
+        if (shouldSuppressLocalListenerControlEvent(event)) {
+            return
+        }
+        noteControllerLocalControl(command)
+        if (shouldCoalesceLocalControlEvent(event)) {
+            enqueueCoalescedLocalControlEvent(event, snapshot.roomId)
+            return
+        }
+        dispatchLocalControlEvent(event, snapshot.roomId)
+    }
+
+    private fun shouldCoalesceLocalControlEvent(event: ListenTogetherEvent): Boolean {
+        return event.type in COALESCED_LOCAL_CONTROL_EVENT_TYPES
+    }
+
+    private fun enqueueCoalescedLocalControlEvent(
+        event: ListenTogetherEvent,
+        roomId: String?
+    ) {
+        val eventType = event.type
+        synchronized(coalescedControlLock) {
+            pendingCoalescedControlEvents[eventType] = PendingCoalescedControlEvent(event, roomId)
+            coalescedControlJobs.remove(eventType)?.cancel()
+            coalescedControlJobs[eventType] = scope.launch {
+                delay(COALESCED_LOCAL_CONTROL_WINDOW_MS)
+                val pending = synchronized(coalescedControlLock) {
+                    val completingJob = coroutineContext[Job]
+                        ?: return@synchronized null
+                    if (!isCurrentListenTogetherCoalescedControlJob(
+                            currentJob = coalescedControlJobs[eventType],
+                            completingJob = completingJob
+                        )
+                    ) {
+                        return@synchronized null
+                    }
+                    coalescedControlJobs.remove(eventType)
+                    pendingCoalescedControlEvents.remove(eventType)
+                }
+                pending?.let { dispatchLocalControlEvent(it.event, it.roomId) }
+            }
+        }
+    }
+
+    private fun dispatchLocalControlEvent(
+        event: ListenTogetherEvent,
+        expectedRoomId: String?
+    ) {
+        val snapshot = _sessionState.value
+        if (
+            snapshot.roomId.isNullOrBlank() ||
+            snapshot.roomId != expectedRoomId
+        ) {
+            NPLogger.d(
+                TAG,
+                "dispatchLocalControlEvent(): discard stale event type=${event.type}, expectedRoomId=$expectedRoomId, currentRoomId=${snapshot.roomId}, connection=${snapshot.connectionState}"
+            )
+            return
+        }
+        val legacyQueueMutationFallback = buildListenTogetherLegacyQueueMutationFallback(
+            event = event,
+            fallbackEventId = nextEventId()
+        )
+        localControlOutbox.offer(
+            event = event,
+            roomId = snapshot.roomId,
+            legacyFallbackEvent = legacyQueueMutationFallback
+        )
+        if (event.type == "TRACK_FINISHED") {
+            awaitingTrackFinishStableKey = event.finishedTrackStableKey
+            pendingTrackFinishedLegacyFallback = buildTrackFinishedLegacyFallbackEvent(
+                event = event,
+                isController = isCurrentUserController(),
+                nowMs = System.currentTimeMillis(),
+                eventIdFactory = ::nextEventId
+            )?.let { fallbackEvent ->
+                PendingTrackFinishedLegacyFallback(
+                    event = fallbackEvent,
+                    createdAtElapsedMs = SystemClock.elapsedRealtime()
+                )
+            }
+        } else {
+            awaitingTrackFinishStableKey = null
+            pendingTrackFinishedLegacyFallback = null
+        }
+        pendingMemberControlRequest = buildPendingMemberControlRequest(event)
+        markOutboundEvent(event.eventId)
+        noteOutboundSync()
+        NPLogger.d(
+            TAG,
+            "sendEvent(): type=${event.type}, eventId=${event.eventId}, currentIndex=${event.currentIndex}, positionMs=${event.positionMs}, queueSize=${event.queue?.size}"
+        )
+        val wsSent = sendControlEventPureWebSocket(event, "local_playback_command")
+        NPLogger.d(TAG, "sendEvent(): websocketSent=$wsSent, type=${event.type}, eventId=${event.eventId}")
+        if (!wsSent) {
+            NPLogger.w(TAG, "sendEvent(): websocket unavailable, type=${event.type}, eventId=${event.eventId}")
+        }
+    }
+
+    private fun replayPendingLocalControlEvents() {
+        val roomId = _sessionState.value.roomId ?: return
+        val pending = localControlOutbox.pendingForRoom(roomId)
+        if (pending.isEmpty()) return
+        NPLogger.d(
+            TAG,
+            "replayPendingLocalControlEvents(): roomId=$roomId, count=${pending.size}"
+        )
+        pending.forEach { pendingEvent ->
+            if (_sessionState.value.roomId != pendingEvent.roomId) return@forEach
+            markOutboundEvent(pendingEvent.event.eventId)
+            noteOutboundSync()
+            sendControlEventPureWebSocket(
+                event = pendingEvent.event,
+                reason = "replay_local_control"
+            )
+        }
+    }
+
+    private fun clearCoalescedLocalControlEvents(reason: String) {
+        val pendingCount = synchronized(coalescedControlLock) {
+            val count = pendingCoalescedControlEvents.size
+            pendingCoalescedControlEvents.clear()
+            coalescedControlJobs.values.forEach(Job::cancel)
+            coalescedControlJobs.clear()
+            count
+        }
+        if (pendingCount > 0) {
+            NPLogger.d(TAG, "clearCoalescedLocalControlEvents(): reason=$reason, count=$pendingCount")
+        }
+    }
+
+    private fun buildEventForPlaybackCommand(command: PlaybackCommand): ListenTogetherEvent? {
+        return eventFactory.buildEventForPlaybackCommand(command)
+    }
+
+    private fun trySendQueueMutationLegacyFallback(
+        errorMessage: String?,
+        eventId: String?
+    ): Boolean {
+        if (!isListenTogetherQueueMutationCompatibilityError(errorMessage)) return false
+        val pending = localControlOutbox.pendingByEventId(eventId)
+            ?: localControlOutbox.singlePendingWithLegacyFallback()
+            ?: return false
+        val fallbackEvent = pending.legacyFallbackEvent ?: return false
+        if (_sessionState.value.roomId != pending.roomId) return false
+        if (localControlOutbox.replace(pending.event.eventId, fallbackEvent) == null) {
+            return false
+        }
+        pendingMemberControlRequest = buildPendingMemberControlRequest(fallbackEvent)
+        markOutboundEvent(fallbackEvent.eventId)
+        noteOutboundSync()
+        NPLogger.w(
+            TAG,
+            "trySendQueueMutationLegacyFallback(): type=${fallbackEvent.type}, " +
+                "eventId=${fallbackEvent.eventId}, originalEventId=${pending.event.eventId}"
+        )
+        sendControlEventPureWebSocket(
+            event = fallbackEvent,
+            reason = "queue_mutation_legacy_fallback"
+        )
+        return true
+    }
+
+    private fun buildControllerCommitEventFromForwardedRequest(
+        message: ListenTogetherSocketEnvelope
+    ): ListenTogetherEvent? {
+        return eventFactory.buildControllerCommitEventFromForwardedRequest(message)
+    }
+
+    private fun shouldSuppressLocalListenerControlEvent(event: ListenTogetherEvent): Boolean {
+        if (isCurrentUserController()) return false
+        if (event.type !in requestControlEventTypes) return false
+        val currentState = _roomState.value
+        val currentStableKey = currentState?.currentStableKey()
+        val requestedStableKey = event.requestedStableKey()
+        if (!isListenTogetherMemberControlTargetCurrent(event.type, requestedStableKey, currentStableKey)) {
+            NPLogger.w(
+                TAG,
+                "shouldSuppressLocalListenerControlEvent(): stale target, type=${event.type}, requested=$requestedStableKey, current=$currentStableKey"
+            )
+            return true
+        }
+        val awaitingAuthoritativeStream = currentState?.targetSongItem()?.let { targetSong ->
+            shouldWaitForListenTogetherAuthoritativeStreamPlayback(
+                playerWaitingForAuthoritativeStream = ListenTogetherPlayer.shouldWaitForListenTogetherAuthoritativeStream(targetSong),
+                localTrackMatchesTarget = ListenTogetherPlayer.currentSongFlow.value?.sameTrackAs(targetSong) == true,
+                localTrackStreamUrl = ListenTogetherPlayer.currentMediaUrlFlow.value,
+                localResolvedStreamUrl = ListenTogetherPlayer.currentMediaUrlFlow.value
+            )
+        } ?: false
+        val hasDirectStream = normalizedDirectStreamUrl(ListenTogetherPlayer.currentMediaUrlFlow.value) != null ||
+            normalizedDirectStreamUrl(ListenTogetherPlayer.currentMediaUrlFlow.value) != null
+        if (
+            shouldSuppressListenerControlWhileAwaitingStream(
+                eventType = event.type,
+                awaitingAuthoritativeStream = awaitingAuthoritativeStream,
+                localTrackHasDirectStream = hasDirectStream
+            )
+        ) {
+            NPLogger.w(
+                TAG,
+                "shouldSuppressLocalListenerControlEvent(): awaiting controller stream, type=${event.type}, requested=$requestedStableKey"
+            )
+            currentState?.let { maybeRequestControllerLink(it, "suppress_local_control:${event.type}", force = true) }
+            return true
+        }
+        return false
+    }
+
+    private fun shouldRejectForwardedMemberControl(
+        message: ListenTogetherSocketEnvelope,
+        forwardedEvent: ListenTogetherEvent
+    ): Boolean {
+        val roomState = _roomState.value
+        // 房态未落地(未知)时对转发成员控制一律 fail-closed
+        // 否则 settings.normalized() 回退默认 allowMemberControl=true 会造成安全门误放行
+        if (roomState == null) {
+            NPLogger.w(
+                TAG,
+                "shouldRejectForwardedMemberControl(): room state unknown, reject forwarded control, requester=${message.causedBy?.userUuid}, type=${message.causedBy?.type}"
+            )
+            publishControllerHeartbeatIfNeeded(force = true, reason = "reject_member_control_room_unknown")
+            return true
+        }
+        // 服务端侧鉴权: 成员控制关闭时拒绝一切非控制端发起的转发请求, 防止改造端越权
+        if (
+            shouldRejectForwardedListenTogetherMemberControl(
+                requesterUuid = message.causedBy?.userUuid,
+                controllerUserUuid = roomState.controllerUserUuid,
+                allowMemberControl = roomState.settings.normalized().allowMemberControl
+            )
+        ) {
+            NPLogger.w(
+                TAG,
+                "shouldRejectForwardedMemberControl(): member control disabled, requester=${message.causedBy?.userUuid}, type=${message.causedBy?.type}"
+            )
+            publishControllerHeartbeatIfNeeded(force = true, reason = "reject_member_control_disabled")
+            return true
+        }
+        val requestType = message.causedBy?.type ?: return false
+        if (requestType !in trackBoundRequestControlEventTypes) return false
+        val currentStableKey = roomState.currentStableKey()
+        val requestedStableKey = forwardedEvent.requestedStableKey()
+        if (isListenTogetherMemberControlTargetCurrent(requestType, requestedStableKey, currentStableKey)) {
+            return false
+        }
+        NPLogger.w(
+            TAG,
+            "shouldRejectForwardedMemberControl(): stale target, requestType=$requestType, requested=$requestedStableKey, current=$currentStableKey, requester=${message.causedBy.userUuid}"
+        )
+        publishControllerHeartbeatIfNeeded(force = true, reason = "reject_stale_member_control")
+        return true
+    }
+
+    private fun applyForwardedControllerRequestLocally(
+        message: ListenTogetherSocketEnvelope,
+        committedEvent: ListenTogetherEvent
+    ) {
+        val syntheticState = synchronized(roomStateLock) {
+            val currentState = _roomState.value ?: return
+            val nextState = buildListenTogetherForwardedControlSyntheticState(
+                currentState = currentState,
+                message = message,
+                committedEvent = committedEvent
+            )
+            commitRoomState(
+                state = nextState,
+                expectedPositionMs = committedEvent.positionMs ?: message.expectedPositionMs,
+                source = RoomStateSource.LOCAL_SYNTHETIC
+            )
+            nextState
+        }
+        applyRoomStateToPlayer(
+            syntheticState,
+            message.causedBy?.type ?: committedEvent.type,
+            committedEvent.positionMs ?: message.expectedPositionMs
+        )
+    }
+
+    private fun resolveControlBlockReason(
+        sessionState: ListenTogetherSessionState,
+        roomState: ListenTogetherRoomState?,
+        command: PlaybackCommand
+    ): String? {
+        return resolveListenTogetherControlBlockReason(
+            sessionRole = currentRole(sessionState),
+            roomState = roomState,
+            commandType = command.type
+        )
+    }
+
+    private fun shouldIgnoreIncomingState(message: ListenTogetherSocketEnvelope): Boolean {
+        if (
+            shouldAcceptListenTogetherAuthoritativeQueueUpdate(
+                cause = message.causedBy,
+                candidateState = message.state,
+                currentState = _roomState.value
+            )
+        ) {
+            NPLogger.d(
+                TAG,
+                "shouldIgnoreIncomingState(): accept authoritative queue update, eventId=${message.causedBy?.eventId}"
+            )
+            return false
+        }
+        return shouldIgnoreListenTogetherIncomingState(
+            cause = message.causedBy,
+            currentUserId = _sessionState.value.userUuid,
+            hasRecentOutboundEvent = ::hasRecentOutboundEvent,
+            hasRecentInboundEvent = ::hasRecentInboundEvent
+        )
+    }
+
+    private fun shouldDeferIncomingStateForLocalTrackFinish(
+        state: ListenTogetherRoomState,
+        cause: ListenTogetherCause?
+    ): Boolean {
+        return shouldDeferListenTogetherIncomingStateForLocalTrackFinish(
+            state = state,
+            cause = cause,
+            awaitingTrackFinishStableKey = awaitingTrackFinishStableKey
+        )
+    }
+
+    private fun shouldDropControllerLocalEcho(
+        state: ListenTogetherRoomState,
+        cause: ListenTogetherCause?,
+        latestVersion: Long
+    ): Boolean {
+        return shouldDropListenTogetherControllerLocalEcho(
+            state = state,
+            cause = cause,
+            latestVersion = latestVersion,
+            currentUserId = _sessionState.value.userUuid,
+            lastControllerLocalControlAtElapsedMs = lastControllerLocalControlAtElapsedMs,
+            nowElapsedMs = SystemClock.elapsedRealtime(),
+            controllerLocalControlCooldownMs = CONTROLLER_LOCAL_CONTROL_COOLDOWN_MS
+        )
+    }
+
+    private fun startHeartbeat() {
+        if (heartbeatJob?.isActive == true) return
+        NPLogger.d(TAG, "startHeartbeat()")
+        if (lastOutboundSyncAtMs == 0L) {
+            lastOutboundSyncAtMs = SystemClock.elapsedRealtime()
+        }
+        heartbeatJob = scope.launch {
+            while (isActive) {
+                val snapshot = _sessionState.value
+                if (
+                    snapshot.connectionState != ListenTogetherConnectionState.CONNECTED ||
+                    !isCurrentUserController(snapshot)
+                ) {
+                    delay(HEARTBEAT_STATE_RECHECK_INTERVAL_MS)
+                    continue
+                }
+                if (!ListenTogetherPlayer.currentSongFlow.value.isShareableForListenTogether()) {
+                    NPLogger.d(TAG, "heartbeat(): skip non-shareable current track")
+                    delay(HEARTBEAT_STATE_RECHECK_INTERVAL_MS)
+                    continue
+                }
+                val now = SystemClock.elapsedRealtime()
+                val idleMs = now - lastOutboundSyncAtMs
+                val playbackState = currentLocalPlaybackStateName()
+                val heartbeatIntervalMs = resolveListenTogetherHeartbeatIntervalMs(
+                    isPlaying = playbackState == "playing",
+                    playingIntervalMs = LISTEN_TOGETHER_PLAYING_HEARTBEAT_INTERVAL_MS,
+                    pausedIntervalMs = LISTEN_TOGETHER_PAUSED_HEARTBEAT_INTERVAL_MS
+                )
+                val remainingMs = heartbeatIntervalMs - idleMs
+                if (remainingMs > 0L) {
+                    delay(minOf(remainingMs, HEARTBEAT_STATE_RECHECK_INTERVAL_MS))
+                    continue
+                }
+                val heartbeat = buildHeartbeatEvent(
+                    state = playbackState,
+                    positionMs = ListenTogetherPlayer.playbackPositionFlow.value.coerceAtLeast(0L),
+                    includeQueue = false
+                )
+                markOutboundEvent(heartbeat.eventId)
+                noteOutboundSync()
+                NPLogger.d(
+                    TAG,
+                    "heartbeat(): eventId=${heartbeat.eventId}, positionMs=${heartbeat.positionMs}, idleMs=$idleMs"
+                )
+                sendControlEventPureWebSocket(heartbeat, "heartbeat")
+            }
+        }
+    }
+
+    private fun stopHeartbeat() {
+        NPLogger.d(TAG, "stopHeartbeat()")
+        heartbeatJob?.cancel()
+        heartbeatJob = null
+    }
+
+    private fun startSocketKeepAlive() {
+        if (socketKeepAliveJob?.isActive == true) return
+        NPLogger.d(TAG, "startSocketKeepAlive()")
+        socketKeepAliveJob = scope.launch {
+            while (isActive) {
+                val snapshot = _sessionState.value
+                if (snapshot.connectionState != ListenTogetherConnectionState.CONNECTED) {
+                    delay(HEARTBEAT_STATE_RECHECK_INTERVAL_MS)
+                    continue
+                }
+                val nowElapsedMs = SystemClock.elapsedRealtime()
+                if (
+                    shouldReconnectListenTogetherSocket(
+                        reconnectEnabled = reconnectEnabled,
+                        connectionState = snapshot.connectionState,
+                        lastMessageAtElapsedMs = lastWebSocketMessageAtElapsedMs,
+                        lastPingSentAtElapsedMs = pingSentAtElapsedMs,
+                        nowElapsedMs = nowElapsedMs,
+                        responseTimeoutMs = LISTEN_TOGETHER_SOCKET_RESPONSE_TIMEOUT_MS
+                    )
+                ) {
+                    NPLogger.w(TAG, "socketKeepAlive(): response timeout, scheduling reconnect")
+                    pendingStateRefreshAfterReconnect = true
+                    scheduleReconnect("socket_keep_alive_response_timeout")
+                    delay(LISTEN_TOGETHER_SOCKET_KEEP_ALIVE_INTERVAL_MS)
+                    continue
+                }
+                val sent = sendSocketKeepAlivePing()
+                if (!sent) {
+                    NPLogger.w(TAG, "socketKeepAlive(): send failed")
+                    pendingStateRefreshAfterReconnect = true
+                    scheduleReconnect("socket_keep_alive_send_failed")
+                }
+                updateBackgroundKeepAlive("socket_keep_alive")
+                delay(LISTEN_TOGETHER_SOCKET_KEEP_ALIVE_INTERVAL_MS)
+            }
+        }
+    }
+
+    private fun stopSocketKeepAlive() {
+        NPLogger.d(TAG, "stopSocketKeepAlive()")
+        socketKeepAliveJob?.cancel()
+        socketKeepAliveJob = null
+    }
+
+    private fun updateBackgroundKeepAlive(reason: String) {
+        val snapshot = _sessionState.value
+        val shouldHold = shouldHoldListenTogetherBackgroundKeepAlive(
+            sessionActive = !snapshot.roomId.isNullOrBlank(),
+            reconnectEnabled = reconnectEnabled,
+            applicationInForeground = applicationInForeground
+        )
+        if (shouldHold) {
+            if (!AppGraph.initialized) return
+            ListenTogetherBackgroundKeepAlive.renew(
+                context = AppGraph.applicationContext,
+                reason = reason
+            )
+        } else {
+            ListenTogetherBackgroundKeepAlive.release(reason)
+        }
+    }
+
+    private fun startSyncWatchdog() {
+        if (syncWatchdogJob?.isActive == true) return
+        NPLogger.d(TAG, "startSyncWatchdog()")
+        lastListenerStateRefreshAtElapsedMs = 0L
+        syncWatchdogJob = scope.launch {
+            while (isActive) {
+                delay(SYNC_WATCHDOG_INTERVAL_MS)
+                val snapshot = _sessionState.value
+                if (
+                    snapshot.connectionState != ListenTogetherConnectionState.CONNECTED ||
+                    snapshot.roomId.isNullOrBlank()
+                ) {
+                    continue
+                }
+                if (isCurrentUserController(snapshot)) {
+                    continue
+                }
+                retryPendingMemberControlRequestIfNeeded()
+                val state = _roomState.value
+                if (state != null) {
+                    applyListenerWatchdogSync(state)
+                    maybeRequestControllerLink(state, "listener_watchdog")
+                }
+                refreshListenerRoomStateIfDue(snapshot, "listener_watchdog")
+            }
+        }
+    }
+
+    private fun stopSyncWatchdog() {
+        NPLogger.d(TAG, "stopSyncWatchdog()")
+        syncWatchdogJob?.cancel()
+        syncWatchdogJob = null
+    }
+
+    private fun scheduleForegroundSocketProbe(
+        roomId: String?,
+        probeStartedAtElapsedMs: Long
+    ) {
+        foregroundSocketProbeJob?.cancel()
+        foregroundSocketProbeJob = scope.launch {
+            delay(FOREGROUND_SOCKET_PROBE_TIMEOUT_MS)
+            val snapshot = _sessionState.value
+            if (!shouldReconnectListenTogetherForegroundSocket(
+                    reconnectEnabled = reconnectEnabled,
+                    connectionState = snapshot.connectionState,
+                    expectedRoomId = roomId,
+                    currentRoomId = snapshot.roomId,
+                    lastWebSocketMessageAtElapsedMs = lastWebSocketMessageAtElapsedMs,
+                    probeStartedAtElapsedMs = probeStartedAtElapsedMs
+                )
+            ) {
+                return@launch
+            }
+            NPLogger.w(
+                TAG,
+                "scheduleForegroundSocketProbe(): no websocket response after foreground recovery"
+            )
+            pendingStateRefreshAfterReconnect = true
+            connectWebSocket()
+        }
+    }
+
+    private fun cancelForegroundSocketProbe() {
+        foregroundSocketProbeJob?.cancel()
+        foregroundSocketProbeJob = null
+    }
+
+    private fun reconcileListenTogetherSoftSyncRateRecheck() {
+        if (abs(ListenTogetherPlayer.listenTogetherSyncPlaybackRate - 1f) < 0.001f) {
+            stopListenTogetherSoftSyncRateRecheck()
+            return
+        }
+        if (softSyncRateRecheckJob?.isActive == true) return
+        softSyncRateRecheckJob = mainScope.launch {
+            try {
+                while (isActive) {
+                    delay(SOFT_SYNC_RECHECK_INTERVAL_MS)
+                    val snapshot = _sessionState.value
+                    val state = _roomState.value
+                    val targetSong = state?.targetSongItem()
+                    val currentSong = ListenTogetherPlayer.currentSongFlow.value
+                    val expectedPositionMs = if (state != null && targetSong != null) {
+                        state.playback.expectedPositionMs(
+                            serverClockOffsetMs = estimatedServerClockOffsetMs,
+                            durationMs = targetSong.durationMs
+                        )
+                    } else {
+                        0L
+                    }
+                    val localPositionMs = ListenTogetherPlayer.playbackPositionFlow.value
+                        .coerceAtLeast(0L)
+                    val signedDriftMs = expectedPositionMs - localPositionMs
+                    val action = resolveListenTogetherSoftSyncRecheckAction(
+                        currentRate = ListenTogetherPlayer.listenTogetherSyncPlaybackRate,
+                        sessionConnected =
+                            snapshot.connectionState == ListenTogetherConnectionState.CONNECTED,
+                        isController = isCurrentUserController(snapshot),
+                        desiredPlaying = state?.playback?.state == "playing",
+                        localPlaying = ListenTogetherPlayer.isPlayingFlow.value,
+                        currentTrackMatchesRoom =
+                            targetSong != null && currentSong?.sameTrackAs(targetSong) == true,
+                        signedDriftMs = signedDriftMs,
+                        softSyncMinDriftMs = SOFT_SYNC_MIN_DRIFT_MS,
+                        forcePositionSyncDriftMs = PLAYING_DRIFT_FORCE_SYNC_MS
+                    )
+                    when (action) {
+                        ListenTogetherSoftSyncRecheckAction.NONE -> return@launch
+                        ListenTogetherSoftSyncRecheckAction.RESET_RATE -> {
+                            ListenTogetherPlayer.resetListenTogetherSyncPlaybackRate()
+                            return@launch
+                        }
+
+                        ListenTogetherSoftSyncRecheckAction.FORCE_POSITION_SYNC -> {
+                            state?.let {
+                                applyRoomStateToPlayer(
+                                    state = it,
+                                    causeType = "SOFT_SYNC_RECHECK",
+                                    expectedPositionMs = expectedPositionMs
+                                )
+                            } ?: ListenTogetherPlayer.resetListenTogetherSyncPlaybackRate()
+                            return@launch
+                        }
+
+                        ListenTogetherSoftSyncRecheckAction.KEEP_RATE -> {
+                            val rate = resolveListenTogetherSoftSyncPlaybackRate(
+                                driftMs = abs(signedDriftMs),
+                                signedDriftMs = signedDriftMs,
+                                allowSoftSync = true,
+                                isController = false,
+                                softSyncMinDriftMs = SOFT_SYNC_MIN_DRIFT_MS,
+                                softSyncFastDriftMs = SOFT_SYNC_FAST_DRIFT_MS,
+                                playingDriftForceSyncMs = PLAYING_DRIFT_FORCE_SYNC_MS
+                            )
+                            if (rate == null) {
+                                ListenTogetherPlayer.resetListenTogetherSyncPlaybackRate()
+                                return@launch
+                            }
+                            ListenTogetherPlayer.setListenTogetherSyncPlaybackRate(rate)
+                        }
+                    }
+                }
+            } finally {
+                if (softSyncRateRecheckJob === coroutineContext[Job]) {
+                    softSyncRateRecheckJob = null
+                }
+            }
+        }
+    }
+
+    private fun stopListenTogetherSoftSyncRateRecheck() {
+        softSyncRateRecheckJob?.cancel()
+        softSyncRateRecheckJob = null
+    }
+
+    private fun buildPendingMemberControlRequest(event: ListenTogetherEvent): PendingMemberControlRequest? {
+        if (isCurrentUserController()) return null
+        if (event.type !in requestControlEventTypes) return null
+        val nowElapsedMs = SystemClock.elapsedRealtime()
+        return PendingMemberControlRequest(
+            event = event,
+            createdAtElapsedMs = nowElapsedMs,
+            lastSentAtElapsedMs = nowElapsedMs,
+            attempts = 1
+        )
+    }
+
+    private fun retryPendingMemberControlRequestIfNeeded() {
+        val pending = pendingMemberControlRequest ?: return
+        val nowElapsedMs = SystemClock.elapsedRealtime()
+        if (
+            isListenTogetherPendingMemberControlSatisfied(
+                event = pending.event,
+                state = _roomState.value,
+                seekSatisfiedDriftMs = PENDING_MEMBER_SEEK_SATISFIED_DRIFT_MS
+            )
+        ) {
+            NPLogger.d(TAG, "retryPendingMemberControlRequestIfNeeded(): request satisfied, type=${pending.event.type}")
+            pendingMemberControlRequest = null
+            return
+        }
+        if (nowElapsedMs - pending.createdAtElapsedMs > PENDING_MEMBER_CONTROL_REQUEST_TTL_MS) {
+            NPLogger.w(TAG, "retryPendingMemberControlRequestIfNeeded(): request expired, type=${pending.event.type}")
+            pendingMemberControlRequest = null
+            return
+        }
+        if (pending.attempts >= PENDING_MEMBER_CONTROL_REQUEST_MAX_ATTEMPTS) {
+            NPLogger.w(TAG, "retryPendingMemberControlRequestIfNeeded(): max attempts reached, type=${pending.event.type}")
+            pendingMemberControlRequest = null
+            return
+        }
+        if (nowElapsedMs - pending.lastSentAtElapsedMs < PENDING_MEMBER_CONTROL_REQUEST_RETRY_INTERVAL_MS) {
+            return
+        }
+        val retryEvent = pending.event
+        pendingMemberControlRequest = pending.retriedAt(nowElapsedMs)
+        markOutboundEvent(retryEvent.eventId)
+        NPLogger.w(
+            TAG,
+            "retryPendingMemberControlRequestIfNeeded(): retry type=${retryEvent.type}, attempt=${pending.attempts + 1}"
+        )
+        sendControlEventPureWebSocket(retryEvent, "pending_member_control_retry")
+    }
+
+    private suspend fun refreshListenerRoomStateIfDue(
+        snapshot: ListenTogetherSessionState,
+        reason: String
+    ) {
+        val baseUrl = snapshot.baseUrl
+        val roomId = snapshot.roomId
+        if (baseUrl.isNullOrBlank() || roomId.isNullOrBlank()) return
+        val nowElapsedMs = SystemClock.elapsedRealtime()
+        val shouldRepair = shouldRepairListenTogetherListenerState(
+            nowElapsedMs = nowElapsedMs,
+            lastWebSocketMessageAtElapsedMs = lastWebSocketMessageAtElapsedMs,
+            lastRefreshAtElapsedMs = lastListenerStateRefreshAtElapsedMs,
+            pendingVersionGap = pendingRoomRepairVersion,
+            webSocketSilenceTimeoutMs = LISTENER_WEB_SOCKET_SILENCE_TIMEOUT_MS,
+            repairMinIntervalMs = LISTENER_STATE_REPAIR_MIN_INTERVAL_MS
+        )
+        if (!shouldRepair) return
+        lastListenerStateRefreshAtElapsedMs = nowElapsedMs
+        runCatching {
+            refreshRoomState(baseUrl, roomId)
+        }.onFailure { error ->
+            val resolvedError = error.message ?: error.javaClass.simpleName
+            NPLogger.w(
+                TAG,
+                "refreshListenerRoomStateIfDue(): failed, reason=$reason, roomId=$roomId, error=$resolvedError",
+                error
+            )
+            _sessionState.value = _sessionState.value.copy(lastError = resolvedError)
+            if (handleTerminalReconnectFailure(resolvedError, "listener_watchdog_refresh")) {
+                return@onFailure
+            }
+            if (!maybeRecoverFromFatalMembershipError(resolvedError, "listener_watchdog_refresh")) {
+                scheduleReconnect("listener_watchdog_refresh_failed:$reason")
+            }
+        }
+    }
+
+    private fun applyListenerWatchdogSync(state: ListenTogetherRoomState) {
+        if (isCurrentUserController()) return
+        if (state.roomStatus != ListenTogetherRoomStatuses.ACTIVE) return
+        val expectedPositionMs = state.playback.expectedPositionMs(
+            serverClockOffsetMs = estimatedServerClockOffsetMs,
+            durationMs = state.targetSongItem()?.durationMs ?: 0L
+        )
+        val needsStallRecovery = listenerStallRecovery.shouldRecover(
+            state = state,
+            nowElapsedMs = SystemClock.elapsedRealtime()
+        )
+        val causeType = if (needsStallRecovery) "WATCHDOG_STALL" else "WATCHDOG"
+        applyRoomStateToPlayer(
+            state = state,
+            causeType = causeType,
+            expectedPositionMs = expectedPositionMs
+        )
+        if (needsStallRecovery) {
+            maybeRequestControllerLink(state, causeType, force = true)
+        }
+    }
+
+    private fun resetListenerRecoveryState() {
+        lastListenerStateRefreshAtElapsedMs = 0L
+        listenerStallRecovery.reset()
+    }
+
+    private fun cancelControllerLinkResolve() {
+        controllerLinkResolveJob?.cancel()
+        controllerLinkResolveJob = null
+        controllerLinkResolveStableKey = null
+    }
+
+    private suspend fun handleResolvedStreamUrlChanged(url: String?) {
+        val streamUrl = url?.trim().orEmpty()
+        if (streamUrl.isBlank()) {
+            NPLogger.d(TAG, "handleResolvedStreamUrlChanged(): ignored blank url")
+            return
+        }
+        if (!streamUrl.startsWith("https://", ignoreCase = true) && !streamUrl.startsWith("http://", ignoreCase = true)) {
+            NPLogger.d(TAG, "handleResolvedStreamUrlChanged(): ignored non-http url=$streamUrl")
+            return
+        }
+        val snapshot = _sessionState.value
+        if (snapshot.connectionState != ListenTogetherConnectionState.CONNECTED) {
+            NPLogger.d(
+                TAG,
+                "handleResolvedStreamUrlChanged(): ignored because connection=${snapshot.connectionState}"
+            )
+            return
+        }
+        if (snapshot.roomId.isNullOrBlank()) {
+            NPLogger.d(TAG, "handleResolvedStreamUrlChanged(): ignored because roomId is blank")
+            return
+        }
+        if (!isCurrentUserController(snapshot)) {
+            NPLogger.d(
+                TAG,
+                "handleResolvedStreamUrlChanged(): ignored because current user is not controller, roomId=${snapshot.roomId}"
+            )
+            return
+        }
+        if (!_roomState.value?.settings.normalized().shareAudioLinks) {
+            NPLogger.d(
+                TAG,
+                "handleResolvedStreamUrlChanged(): ignored because shareAudioLinks is disabled, roomId=${snapshot.roomId}"
+            )
+            return
+        }
+        val currentStableKey = ListenTogetherPlayer.currentSongFlow.value?.toListenTogetherTrackOrNull()?.stableKey
+        NPLogger.d(
+            TAG,
+            "handleResolvedStreamUrlChanged(): roomId=${snapshot.roomId}, stableKey=$currentStableKey, url=${streamUrl.take(128)}"
+        )
+        if (!currentStableKey.isNullOrBlank()) {
+            resolveAndPublishControllerLink(
+                stableKey = currentStableKey,
+                reason = "stream_url_resolved"
+            )
+        } else {
+            publishControllerHeartbeatIfNeeded(force = true, reason = "stream_url_resolved")
+        }
+    }
+
+    private fun resetReconnectAttempt() {
+        // 与 scheduleReconnect 的自增共用同一把锁串行, 避免与成功/断开后的重置交错导致计数漂移
+        synchronized(connectionLock) {
+            reconnectAttempt.set(0)
+        }
+    }
+
+    private fun scheduleReconnect(reason: String) {
+        val snapshot = _sessionState.value
+        if (!reconnectEnabled) {
+            NPLogger.d(TAG, "scheduleReconnect(): skipped, reconnect disabled, reason=$reason")
+            return
+        }
+        if (snapshot.wsUrl.isNullOrBlank() || snapshot.roomId.isNullOrBlank()) {
+            NPLogger.d(TAG, "scheduleReconnect(): skipped, missing room/wsUrl, reason=$reason")
+            return
+        }
+        if (snapshot.connectionState == ListenTogetherConnectionState.CONNECTING) {
+            NPLogger.d(TAG, "scheduleReconnect(): skipped, already connecting, reason=$reason")
+            return
+        }
+        updateBackgroundKeepAlive("reconnect_scheduled:$reason")
+        synchronized(connectionLock) {
+            if (reconnectJob?.isActive == true) {
+                NPLogger.d(TAG, "scheduleReconnect(): already scheduled, reason=$reason")
+                return
+            }
+            val attempt = reconnectAttempt.incrementAndGet()
+            if (attempt > LISTEN_TOGETHER_MAX_RECONNECT_ATTEMPTS) {
+                NPLogger.w(
+                    TAG,
+                    "scheduleReconnect(): max attempts reached ($LISTEN_TOGETHER_MAX_RECONNECT_ATTEMPTS), giving up, reason=$reason"
+                )
+                closeRoomLocally("reconnect_max_attempts_exceeded")
+                return
+            }
+            val delayMs = listenTogetherReconnectDelayMs(attempt)
+            NPLogger.w(
+                TAG,
+                "scheduleReconnect(): roomId=${snapshot.roomId}, attempt=$attempt, delayMs=$delayMs, reason=$reason"
+            )
+            reconnectJob = scope.launch {
+                delay(delayMs)
+                reconnectJob = null
+                val latest = _sessionState.value
+                if (!reconnectEnabled || latest.wsUrl.isNullOrBlank() || latest.roomId.isNullOrBlank()) {
+                    NPLogger.d(TAG, "scheduleReconnect(): cancelled before execution")
+                    return@launch
+                }
+                updateBackgroundKeepAlive("reconnect_attempt:$reason")
+                NPLogger.d(TAG, "reconnect(): roomId=${latest.roomId}, attempt=$attempt")
+                if (tryRecoverMembershipBeforeReconnect("scheduled_reconnect:$reason")) {
+                    return@launch
+                }
+                connectWebSocket()
+            }
+        }
+    }
+
+    private fun sendControlEventPureWebSocket(
+        event: ListenTogetherEvent,
+        reason: String
+    ): Boolean {
+        val snapshot = _sessionState.value
+        val expectedRoomId = snapshot.roomId
+        if (snapshot.connectionState != ListenTogetherConnectionState.CONNECTED) {
+            handleWebSocketControlSendFailure(
+                event = event,
+                reason = "$reason:not_connected"
+            )
+            sendControlEventOverHttpFallback(
+                event = event,
+                reason = "$reason:not_connected",
+                expectedRoomId = expectedRoomId
+            )
+            return false
+        }
+        val sent = sendControlEventOverWebSocket(event)
+        if (!sent) {
+            handleWebSocketControlSendFailure(
+                event = event,
+                reason = "$reason:send_failed"
+            )
+            sendControlEventOverHttpFallback(
+                event = event,
+                reason = "$reason:send_failed",
+                expectedRoomId = expectedRoomId
+            )
+        }
+        return sent
+    }
+
+    private fun isUnsupportedClockSyncPingError(errorMessage: String): Boolean {
+        return errorMessage.contains("unsupported event type: np_ping", ignoreCase = true)
+    }
+
+    private fun handleUnsupportedClockSyncPingError(errorMessage: String): Boolean {
+        if (!isUnsupportedClockSyncPingError(errorMessage)) return false
+        clockSyncPingSupported = false
+        NPLogger.d(TAG, "socketKeepAlive(): np_ping unsupported, fallback to legacy ping")
+        webSocketClient.sendLegacyPing()
+        return true
+    }
+
+    private fun trySendTrackFinishedLegacyFallback(errorMessage: String): Boolean {
+        if (!isUnsupportedTrackFinishedEventError(errorMessage)) return false
+        val pending = pendingTrackFinishedLegacyFallback ?: return false
+        if (pending.attempted) return false
+        val elapsedMs = SystemClock.elapsedRealtime() - pending.createdAtElapsedMs
+        if (elapsedMs > TRACK_FINISHED_LEGACY_FALLBACK_TTL_MS) {
+            pendingTrackFinishedLegacyFallback = null
+            return false
+        }
+        pendingTrackFinishedLegacyFallback = pending.copy(attempted = true)
+        awaitingTrackFinishStableKey = null
+        markOutboundEvent(pending.event.eventId)
+        noteOutboundSync()
+        NPLogger.w(
+            TAG,
+            "trySendTrackFinishedLegacyFallback(): server rejected TRACK_FINISHED, fallbackType=${pending.event.type}, eventId=${pending.event.eventId}, elapsedMs=$elapsedMs"
+        )
+        val sent = sendControlEventPureWebSocket(pending.event, "track_finished_legacy_fallback")
+        if (sent) {
+            _sessionState.value = _sessionState.value.copy(lastError = null)
+        }
+        return sent
+    }
+
+    private fun handleWebSocketControlSendFailure(
+        event: ListenTogetherEvent,
+        reason: String
+    ) {
+        pendingStateRefreshAfterReconnect = true
+        val resolvedMessage = LtMessages.listen_together_error_reconnecting
+        NPLogger.w(
+            TAG,
+            "handleWebSocketControlSendFailure(): type=${event.type}, eventId=${event.eventId}, reason=$reason"
+        )
+        _sessionState.value = _sessionState.value.copy(lastError = resolvedMessage)
+        scheduleReconnect("control_send_failed:${event.type}:$reason")
+    }
+
+    private fun sendControlEventOverHttpFallback(
+        event: ListenTogetherEvent,
+        reason: String,
+        expectedRoomId: String?
+    ) {
+        val snapshot = _sessionState.value
+        if (
+            snapshot.baseUrl.isNullOrBlank() ||
+            snapshot.roomId.isNullOrBlank() ||
+            snapshot.token.isNullOrBlank() ||
+            expectedRoomId.isNullOrBlank() ||
+            snapshot.roomId != expectedRoomId
+        ) {
+            NPLogger.d(TAG, "sendControlEventOverHttpFallback(): skipped, missing session, reason=$reason")
+            return
+        }
+        val baseUrl = snapshot.baseUrl
+        val token = snapshot.token
+        scope.launch {
+            if (_sessionState.value.roomId != expectedRoomId) {
+                NPLogger.d(
+                    TAG,
+                    "sendControlEventOverHttpFallback(): skip inactive room, roomId=$expectedRoomId"
+                )
+                return@launch
+            }
+            runCatching {
+                api.sendControlEvent(baseUrl, expectedRoomId, token, event)
+            }.onSuccess { response ->
+                handleHttpFallbackControlResponse(
+                    response = response,
+                    event = event,
+                    reason = reason,
+                    expectedRoomId = expectedRoomId
+                )
+            }.onFailure { error ->
+                if (_sessionState.value.roomId != expectedRoomId) return@onFailure
+                val resolvedError = error.message ?: error.javaClass.simpleName
+                NPLogger.w(
+                    TAG,
+                    "sendControlEventOverHttpFallback(): failed, type=${event.type}, reason=$reason, error=$resolvedError",
+                    error
+                )
+                _sessionState.value = _sessionState.value.copy(lastError = resolvedError)
+                if (handleTerminalReconnectFailure(resolvedError, "http_control_fallback")) {
+                    return@onFailure
+                }
+                maybeRecoverFromFatalMembershipError(resolvedError, "http_control_fallback")
+            }
+        }
+    }
+
+    private fun handleHttpFallbackControlResponse(
+        response: ListenTogetherControlResponse,
+        event: ListenTogetherEvent,
+        reason: String,
+        expectedRoomId: String
+    ) {
+        if (_sessionState.value.roomId != expectedRoomId) {
+            NPLogger.d(
+                TAG,
+                "handleHttpFallbackControlResponse(): skip inactive room, roomId=$expectedRoomId"
+            )
+            return
+        }
+        if (!response.ok || !response.error.isNullOrBlank()) {
+            val resolvedError = response.error ?: "control event rejected"
+            NPLogger.w(
+                TAG,
+                "handleHttpFallbackControlResponse(): rejected, type=${event.type}, reason=$reason, error=$resolvedError"
+            )
+            _sessionState.value = _sessionState.value.copy(lastError = resolvedError)
+            if (trySendQueueMutationLegacyFallback(resolvedError, event.eventId)) {
+                return
+            }
+            if (trySendTrackFinishedLegacyFallback(resolvedError)) {
+                return
+            }
+            if (handleTerminalReconnectFailure(resolvedError, "http_control_fallback_response")) {
+                return
+            }
+            maybeRecoverFromFatalMembershipError(resolvedError, "http_control_fallback_response")
+            return
+        }
+        _sessionState.value = _sessionState.value.copy(lastError = null)
+        localControlOutbox.acknowledge(event.eventId)
+        val applied = response.applied ?: return
+        val state = applied.state ?: return
+        NPLogger.d(
+            TAG,
+            "handleHttpFallbackControlResponse(): applied, type=${event.type}, reason=$reason, version=${applied.version}"
+        )
+        val accepted = acceptRoomState(
+            state = state,
+            expectedPositionMs = applied.expectedPositionMs,
+            source = RoomStateSource.HTTP_CONTROL_FALLBACK,
+            cause = applied.causedBy
+        )
+        if (accepted != null && !isCurrentUserController()) {
+            applyRoomStateToPlayer(
+                state = accepted.state,
+                causeType = applied.causedBy?.type,
+                expectedPositionMs = accepted.expectedPositionMs
+            )
+            maybeRequestControllerLink(accepted.state, applied.causedBy?.type)
+        }
+    }
+
+    private suspend fun refreshRoomStateAfterReconnect(reason: String) {
+        val snapshot = _sessionState.value
+        val baseUrl = snapshot.baseUrl
+        val roomId = snapshot.roomId
+        if (baseUrl.isNullOrBlank() || roomId.isNullOrBlank()) return
+        runCatching {
+            refreshRoomState(baseUrl, roomId)
+        }.onFailure { error ->
+            NPLogger.w(
+                TAG,
+                "refreshRoomStateAfterReconnect(): failed, reason=$reason, error=${error.message}"
+            )
+            val resolvedError = error.message ?: error.javaClass.simpleName
+            _sessionState.value = _sessionState.value.copy(lastError = resolvedError)
+            if (handleTerminalReconnectFailure(resolvedError, "refresh_after_reconnect")) {
+                return@onFailure
+            }
+            if (!maybeRecoverFromFatalMembershipError(resolvedError, "refresh_after_reconnect")) {
+                scheduleReconnect("refresh_state_failed:$reason")
+            }
+        }
+    }
+
+    private fun maybeRecoverMissingListenerMembership(
+        state: ListenTogetherRoomState,
+        reason: String
+    ) {
+        val snapshot = _sessionState.value
+        val userUuid = snapshot.userUuid ?: return
+        if (isCurrentUserController(snapshot)) return
+        if (state.roomStatus == ListenTogetherRoomStatuses.CLOSED) return
+        if (state.members.any { it.userUuid.ifBlank { it.userId.orEmpty() } == userUuid }) return
+        NPLogger.w(
+            TAG,
+            "maybeRecoverMissingListenerMembership(): userUuid=$userUuid missing from roomId=${state.roomId}, reason=$reason"
+        )
+        triggerListenerMembershipRecovery("$reason:missing_member")
+    }
+
+    private fun maybeRecoverFromFatalMembershipError(
+        errorMessage: String?,
+        reason: String
+    ): Boolean {
+        val normalized = errorMessage?.trim()?.lowercase().orEmpty()
+        if (
+            "member not in room" !in normalized &&
+            "member missing" !in normalized
+        ) {
+            return false
+        }
+        NPLogger.w(TAG, "maybeRecoverFromFatalMembershipError(): reason=$reason, error=$errorMessage")
+        return triggerListenerMembershipRecovery("$reason:$normalized")
+    }
+
+    private fun tryRecoverMembershipBeforeReconnect(reason: String): Boolean {
+        val snapshot = _sessionState.value
+        if (isCurrentUserController(snapshot)) return false
+        return triggerListenerMembershipRecovery(reason)
+    }
+
+    private fun triggerListenerMembershipRecovery(reason: String): Boolean {
+        val snapshot = _sessionState.value
+        val baseUrl = snapshot.baseUrl
+        val roomId = snapshot.roomId
+        val userUuid = snapshot.userUuid
+        val nickname = snapshot.nickname
+        if (baseUrl.isNullOrBlank() || roomId.isNullOrBlank() || userUuid.isNullOrBlank() || nickname.isNullOrBlank()) {
+            NPLogger.d(TAG, "triggerListenerMembershipRecovery(): skipped, missing session, reason=$reason")
+            return false
+        }
+        if (isCurrentUserController(snapshot)) {
+            NPLogger.d(TAG, "triggerListenerMembershipRecovery(): skipped, current user is controller")
+            return false
+        }
+        if (membershipRecoveryJob?.isActive == true) {
+            NPLogger.d(TAG, "triggerListenerMembershipRecovery(): already running, reason=$reason")
+            return true
+        }
+        reconnectEnabled = true
+        reconnectJob?.cancel()
+        reconnectJob = null
+        pendingStateRefreshAfterReconnect = true
+        stopHeartbeat()
+        stopSocketKeepAlive()
+        webSocketClient.disconnect(code = 1000, reason = "listener_recovering")
+        _sessionState.value = snapshot.copy(
+            connectionState = ListenTogetherConnectionState.CONNECTING,
+            lastError = LtMessages.listen_together_error_rejoining
+        )
+        membershipRecoveryJob = scope.launch {
+            try {
+                NPLogger.w(
+                    TAG,
+                    "triggerListenerMembershipRecovery(): rejoin roomId=$roomId, userUuid=$userUuid, reason=$reason"
+                )
+                joinRoom(baseUrl, roomId, userUuid, nickname)
+                connectWebSocket()
+            } catch (error: Throwable) {
+                val resolvedError = error.message ?: error.javaClass.simpleName
+                NPLogger.e(
+                    TAG,
+                    "triggerListenerMembershipRecovery(): failed, roomId=$roomId, userUuid=$userUuid, reason=$reason, error=$resolvedError",
+                    error
+                )
+                _sessionState.value = _sessionState.value.copy(
+                    connectionState = ListenTogetherConnectionState.DISCONNECTED,
+                    lastError = resolvedError
+                )
+                if (handleTerminalReconnectFailure(resolvedError, "listener_membership_recovery_failed")) {
+                    return@launch
+                }
+                scheduleReconnect("listener_membership_recovery_failed:$reason")
+            } finally {
+                membershipRecoveryJob = null
+            }
+        }
+        return true
+    }
+
+    private fun handleTerminalReconnectFailure(
+        errorMessage: String?,
+        reason: String
+    ): Boolean {
+        if (!isTerminalListenTogetherReconnectError(errorMessage)) {
+            return false
+        }
+        NPLogger.w(
+            TAG,
+            "handleTerminalReconnectFailure(): stop reconnect, reason=$reason, error=$errorMessage"
+        )
+        closeRoomLocally(errorMessage ?: "listen_together_unavailable")
+        return true
+    }
+
+    private fun noteOutboundSync() {
+        lastOutboundSyncAtMs = SystemClock.elapsedRealtime()
+    }
+
+    private fun currentRole(
+        sessionState: ListenTogetherSessionState = _sessionState.value
+    ): String? {
+        return resolveListenTogetherSessionRole(
+            sessionUserId = sessionState.userUuid,
+            fallbackRole = sessionState.role,
+            state = _roomState.value
+        )
+    }
+
+    private fun isCurrentUserController(
+        sessionState: ListenTogetherSessionState = _sessionState.value
+    ): Boolean = currentRole(sessionState) == "controller"
+
+    private fun hasRecentOutboundEvent(eventId: String): Boolean = recentEventTracker.hasOutbound(eventId)
+
+    private fun hasRecentInboundEvent(eventId: String): Boolean = recentEventTracker.hasInbound(eventId)
+
+    private fun markOutboundEvent(eventId: String?) = recentEventTracker.markOutbound(eventId)
+
+    private fun markInboundEvent(eventId: String?) = recentEventTracker.markInbound(eventId)
+
+    private fun closeRoomLocally(reason: String?) {
+        val snapshot = _sessionState.value
+        NPLogger.w(
+            TAG,
+            "closeRoomLocally(): roomId=${snapshot.roomId}, role=${snapshot.role}, reason=$reason, lastAppliedVersion=$lastAppliedRoomVersion"
+        )
+        reconnectEnabled = false
+        localControlOutbox.clear()
+        resetReconnectAttempt()
+        pendingStateRefreshAfterReconnect = false
+        cancelListenTogetherBackgroundJobs(reconnectJob, membershipRecoveryJob)
+        reconnectJob = null
+        membershipRecoveryJob = null
+        cancelControllerLinkResolve()
+        cancelForegroundSocketProbe()
+        stopListenTogetherSoftSyncRateRecheck()
+        stopHeartbeat()
+        stopSocketKeepAlive()
+        stopSyncWatchdog()
+        lastOutboundSyncAtMs = 0L
+        lastRequestedLinkStableKey = null
+        lastRequestedLinkAtElapsedMs = 0L
+        controllerLinkAvailability.clear()
+        synchronized(roomStateLock) {
+            lastAppliedRoomVersion = -1L
+            pendingRoomRepairVersion = -1L
+            activeRoomIdForStateAcceptance = null
+            _roomState.value = null
+        }
+        lastControllerLocalControlAtElapsedMs = 0L
+        forwardedRequestDeduper.clear()
+        pendingMemberControlRequest = null
+        lastListenerStateRefreshAtElapsedMs = 0L
+        lastWebSocketMessageAtElapsedMs = 0L
+        webSocketConnectingAtElapsedMs = 0L
+        clockSyncPingSupported = null
+        observedControllerOffline = false
+        resetListenerRecoveryState()
+        ListenTogetherBackgroundKeepAlive.release("room_closed")
+        ListenTogetherPlayer.clearListenTogetherSafetyPause()
+        ListenTogetherPlayer.resetListenTogetherSyncPlaybackRate()
+        webSocketClient.disconnect(code = 1000, reason = "room_closed")
+        val closureReason = normalizeListenTogetherRoomClosureReason(reason)
+        val normalClosure = isNormalListenTogetherRoomClosureReason(closureReason)
+        _sessionState.value = ListenTogetherSessionState(
+            baseUrl = snapshot.baseUrl,
+            userUuid = snapshot.userUuid,
+            nickname = snapshot.nickname,
+            connectionState = ListenTogetherConnectionState.DISCONNECTED,
+            lastError = closureReason.takeUnless { normalClosure },
+            roomNotice = closureReason ?: "room_closed"
+        )
+    }
+
+    private fun roomNoticeForState(
+        state: ListenTogetherRoomState?,
+        fallbackMessage: String? = null,
+        showControllerReconnected: Boolean = false
+    ): String? {
+        return resolveListenTogetherRoomNotice(
+            state = state,
+            fallbackMessage = fallbackMessage,
+            controllerGracePeriodMs = CONTROLLER_GRACE_PERIOD_MS,
+            showControllerReconnected = showControllerReconnected
+        )
+    }
+
+    private fun nextEventId(): String = nextListenTogetherEventId()
+
+    private fun nextClientSequence(): Long = clientSequence.incrementAndGet()
+
+    private fun noteControllerLocalControl(command: PlaybackCommand) {
+        if (command.source != PlaybackCommandSource.LOCAL) return
+        if (!isCurrentUserController()) return
+        if (command.type !in controlledPlaybackCommandTypes) return
+        lastControllerLocalControlAtElapsedMs = SystemClock.elapsedRealtime()
+        NPLogger.d(
+            TAG,
+            "noteControllerLocalControl(): type=${command.type}, positionMs=${command.positionMs}, currentIndex=${command.currentIndex}"
+        )
+    }
+
+    private fun publishControllerHeartbeatIfNeeded(
+        force: Boolean = false,
+        reason: String
+    ) {
+        val snapshot = _sessionState.value
+        if (snapshot.connectionState != ListenTogetherConnectionState.CONNECTED) return
+        if (!isCurrentUserController(snapshot)) return
+        val state = _roomState.value ?: return
+        if (state.roomStatus == ListenTogetherRoomStatuses.CLOSED) return
+        if (!ListenTogetherPlayer.currentSongFlow.value.isShareableForListenTogether()) {
+            NPLogger.d(TAG, "publishControllerHeartbeatIfNeeded(): skip non-shareable current track, reason=$reason")
+            return
+        }
+        val heartbeat = buildHeartbeatEvent(
+            state = currentLocalPlaybackStateName(),
+            positionMs = ListenTogetherPlayer.playbackPositionFlow.value.coerceAtLeast(0L),
+            includeQueue = force
+        )
+        if (!force && heartbeat.track == null) return
+        markOutboundEvent(heartbeat.eventId)
+        noteOutboundSync()
+        NPLogger.d(
+            TAG,
+            "publishControllerHeartbeatIfNeeded(): reason=$reason, eventId=${heartbeat.eventId}, track=${heartbeat.track?.stableKey}, positionMs=${heartbeat.positionMs}"
+        )
+        sendControlEventPureWebSocket(heartbeat, "publish_controller_heartbeat:$reason")
+    }
+
+    private fun maybePublishControllerLinkAfterAudioSharingEnabled(
+        previousState: ListenTogetherRoomState?,
+        currentState: ListenTogetherRoomState,
+        reason: String
+    ) {
+        if (previousState?.settings.normalized().shareAudioLinks != false) return
+        if (!currentState.settings.normalized().shareAudioLinks) return
+        val currentStableKey = ListenTogetherPlayer.currentSongFlow.value
+            ?.toListenTogetherTrackOrNull()
+            ?.stableKey
+        val roomStableKey = currentState.currentStableKey()
+        if (currentStableKey.isNullOrBlank() || currentStableKey != roomStableKey) {
+            NPLogger.d(
+                TAG,
+                "maybePublishControllerLinkAfterAudioSharingEnabled(): skip current=$currentStableKey room=$roomStableKey, reason=$reason"
+            )
+            return
+        }
+        resolveAndPublishControllerLink(currentStableKey, "audio_links_enabled:$reason")
+    }
+
+    private fun publishControllerLinkReadyIfPossible(
+        stableKey: String,
+        reason: String,
+        streamUrlOverride: String? = null,
+        streamUrlsOverride: List<String> = emptyList()
+    ): Boolean {
+        val snapshot = _sessionState.value
+        if (snapshot.connectionState != ListenTogetherConnectionState.CONNECTED) return false
+        if (!isCurrentUserController(snapshot)) return false
+        if (!_roomState.value?.settings.normalized().shareAudioLinks) return false
+        val currentStableKey = ListenTogetherPlayer.currentSongFlow.value
+            ?.toListenTogetherTrackOrNull()
+            ?.stableKey
+        if (currentStableKey != stableKey) {
+            NPLogger.d(
+                TAG,
+                "publishControllerLinkReadyIfPossible(): skip stale or non-shareable current track, expected=$stableKey, actual=$currentStableKey, reason=$reason"
+            )
+            return false
+        }
+        val event = buildLinkReadyEvent(
+            stableKey = stableKey,
+            positionMs = ListenTogetherPlayer.playbackPositionFlow.value.coerceAtLeast(0L),
+            streamUrlOverride = streamUrlOverride,
+            streamUrlsOverride = streamUrlsOverride
+        ) ?: run {
+            NPLogger.d(
+                TAG,
+                "publishControllerLinkReadyIfPossible(): skipped because buildLinkReadyEvent returned null, stableKey=$stableKey, reason=$reason"
+            )
+            return false
+        }
+        markOutboundEvent(event.eventId)
+        noteOutboundSync()
+        NPLogger.d(
+            TAG,
+            "publishControllerLinkReadyIfPossible(): reason=$reason, eventId=${event.eventId}, stableKey=$stableKey"
+        )
+        return sendControlEventPureWebSocket(event, "publish_link_ready:$reason")
+    }
+
+    private fun publishControllerLinkUnavailable(
+        stableKey: String,
+        reason: String
+    ): Boolean {
+        val snapshot = _sessionState.value
+        val roomState = _roomState.value ?: return false
+        if (snapshot.connectionState != ListenTogetherConnectionState.CONNECTED) return false
+        if (!isCurrentUserController(snapshot)) return false
+        if (!roomState.settings.normalized().shareAudioLinks) return false
+        if (roomState.currentStableKey() != stableKey) {
+            NPLogger.d(
+                TAG,
+                "publishControllerLinkUnavailable(): skip stale target, expected=$stableKey, actual=${roomState.currentStableKey()}, reason=$reason"
+            )
+            return false
+        }
+        val event = buildLinkUnavailableEvent(stableKey) ?: return false
+        markOutboundEvent(event.eventId)
+        noteOutboundSync()
+        NPLogger.d(
+            TAG,
+            "publishControllerLinkUnavailable(): reason=$reason, eventId=${event.eventId}, stableKey=$stableKey"
+        )
+        return sendControlEventPureWebSocket(event, "publish_link_unavailable:$reason")
+    }
+
+    private fun reconcileControllerAudioLinkAvailability(state: ListenTogetherRoomState) {
+        controllerLinkAvailability.reconcile(
+            roomId = state.roomId,
+            stableKey = state.currentStableKey(),
+            hasAuthoritativeStream = state.authoritativeStreamUrlsForCurrentTrack().isNotEmpty()
+        )
+    }
+
+    private fun markControllerAudioLinkUnavailable(
+        state: ListenTogetherRoomState,
+        requestedStableKey: String?,
+        signalId: String?
+    ): Boolean {
+        if (isCurrentUserController()) return false
+        val stableKey = state.currentStableKey() ?: return false
+        val requested = requestedStableKey?.trim()?.takeIf { it.isNotEmpty() }
+        if (requested != null && requested != stableKey) {
+            NPLogger.d(
+                TAG,
+                "markControllerAudioLinkUnavailable(): ignore stale target, requested=$requested, current=$stableKey"
+            )
+            return false
+        }
+        if (state.authoritativeStreamUrlsForCurrentTrack().isNotEmpty()) return false
+        val confirmedUnavailable = controllerLinkAvailability.markUnavailable(
+            roomId = state.roomId,
+            stableKey = stableKey,
+            signalId = signalId
+        )
+        NPLogger.d(
+            TAG,
+            "markControllerAudioLinkUnavailable(): roomId=${state.roomId}, stableKey=$stableKey, confirmed=$confirmedUnavailable"
+        )
+        return !confirmedUnavailable && controllerLinkAvailability.isAwaitingConfirmation(
+            roomId = state.roomId,
+            stableKey = stableKey
+        )
+    }
+
+    private fun maybePublishControllerCurrentLink(reason: String) {
+        val snapshot = _sessionState.value
+        val roomState = _roomState.value ?: return
+        if (snapshot.connectionState != ListenTogetherConnectionState.CONNECTED) return
+        if (!isCurrentUserController(snapshot)) return
+        if (!roomState.settings.normalized().shareAudioLinks) return
+        val stableKey = ListenTogetherPlayer.currentSongFlow.value
+            ?.toListenTogetherTrackOrNull()
+            ?.stableKey
+            ?: return
+        if (roomState.currentStableKey() != stableKey) {
+            NPLogger.d(
+                TAG,
+                "maybePublishControllerCurrentLink(): skip current=$stableKey room=${roomState.currentStableKey()}, reason=$reason"
+            )
+            return
+        }
+        resolveAndPublishControllerLink(stableKey, reason)
+    }
+
+    private fun isControllerPlaybackResolutionPending(stableKey: String): Boolean {
+        val currentStableKey = ListenTogetherPlayer.currentSongFlow.value
+            ?.toListenTogetherTrackOrNull()
+            ?.stableKey
+        return shouldDeferControllerLinkResolution(
+            playbackResolutionPending = ListenTogetherPlayer.isPendingMediaLoadActive(),
+            currentTrackStableKey = currentStableKey,
+            requestedStableKey = stableKey
+        )
+    }
+
+    private suspend fun awaitControllerPlaybackResolution(stableKey: String): Boolean {
+        repeat(CONTROLLER_PLAYBACK_RESOLUTION_POLL_COUNT) {
+            if (!isControllerPlaybackResolutionPending(stableKey)) {
+                return true
+            }
+            delay(CONTROLLER_PLAYBACK_RESOLUTION_POLL_MS)
+        }
+        return !isControllerPlaybackResolutionPending(stableKey)
+    }
+
+    private fun resolveAndPublishControllerLink(
+        stableKey: String,
+        reason: String
+    ) {
+        val snapshot = _sessionState.value
+        if (snapshot.connectionState != ListenTogetherConnectionState.CONNECTED) return
+        if (!isCurrentUserController(snapshot)) return
+        if (!_roomState.value?.settings.normalized().shareAudioLinks) return
+        val song = ListenTogetherPlayer.currentSongFlow.value
+        if (song == null) {
+            NPLogger.w(
+                TAG,
+                "resolveAndPublishControllerLink(): skipped because currentSong missing, stableKey=$stableKey, reason=$reason"
+            )
+            return
+        }
+        val songStableKey = song.toListenTogetherTrackOrNull()?.stableKey
+        if (songStableKey != stableKey) {
+            NPLogger.d(
+                TAG,
+                "resolveAndPublishControllerLink(): skipped because current stableKey mismatch, expected=$stableKey, actual=$songStableKey, reason=$reason"
+            )
+            return
+        }
+        if (controllerLinkResolveJob?.isActive == true && controllerLinkResolveStableKey == stableKey) {
+            NPLogger.d(
+                TAG,
+                "resolveAndPublishControllerLink(): already resolving, stableKey=$stableKey, reason=$reason"
+            )
+            return
+        }
+        controllerLinkResolveJob?.cancel()
+        controllerLinkResolveStableKey = stableKey
+        controllerLinkResolveJob = scope.launch {
+            try {
+                for (attempt in 0 until CONTROLLER_LINK_RESOLUTION_ATTEMPTS) {
+                    if (!awaitControllerPlaybackResolution(stableKey)) {
+                        NPLogger.d(
+                            TAG,
+                            "resolveAndPublishControllerLink(): defer until controller playback resolution settles, stableKey=$stableKey, reason=$reason"
+                        )
+                        return@launch
+                    }
+                    val currentStableKey = ListenTogetherPlayer.currentSongFlow.value
+                        ?.toListenTogetherTrackOrNull()
+                        ?.stableKey
+                    if (currentStableKey != stableKey) {
+                        NPLogger.d(
+                            TAG,
+                            "resolveAndPublishControllerLink(): skip after playback resolution because current stableKey mismatch, expected=$stableKey, actual=$currentStableKey, reason=$reason"
+                        )
+                        return@launch
+                    }
+                    NPLogger.d(
+                        TAG,
+                        "resolveAndPublishControllerLink(): resolving shareable stream, stableKey=$stableKey, attempt=${attempt + 1}/$CONTROLLER_LINK_RESOLUTION_ATTEMPTS, reason=$reason"
+                    )
+                    val resolution = ListenTogetherPlayer.resolveShareableListenTogetherStreamUrls(song)
+                    if (resolution.streamUrls.isNotEmpty()) {
+                        val latestSongStableKey = ListenTogetherPlayer.currentSongFlow.value
+                            ?.toListenTogetherTrackOrNull()
+                            ?.stableKey
+                        if (latestSongStableKey != stableKey) {
+                            NPLogger.d(
+                                TAG,
+                                "resolveAndPublishControllerLink(): drop stale resolved stream, expected=$stableKey, actual=$latestSongStableKey, reason=$reason"
+                            )
+                            return@launch
+                        }
+                        if (publishControllerLinkReadyIfPossible(
+                                stableKey = stableKey,
+                                reason = "resolved:$reason",
+                                streamUrlsOverride = resolution.streamUrls
+                            )
+                        ) {
+                            return@launch
+                        }
+                        NPLogger.w(
+                            TAG,
+                            "resolveAndPublishControllerLink(): resolved stream could not be published, stableKey=$stableKey, reason=$reason"
+                        )
+                        return@launch
+                    }
+                    NPLogger.w(
+                        TAG,
+                        "resolveAndPublishControllerLink(): no shareable stream resolved, stableKey=$stableKey, previewOnly=${resolution.isPreviewOnly}, attempt=${attempt + 1}/$CONTROLLER_LINK_RESOLUTION_ATTEMPTS, reason=$reason"
+                    )
+                    val playbackResolutionPending = isControllerPlaybackResolutionPending(stableKey)
+                    if (playbackResolutionPending) {
+                        NPLogger.d(
+                            TAG,
+                            "resolveAndPublishControllerLink(): defer unavailable result while controller playback is resolving, stableKey=$stableKey, reason=$reason"
+                        )
+                        return@launch
+                    }
+                    if (shouldRetryControllerLinkResolution(
+                            attempt = attempt,
+                            maximumAttempts = CONTROLLER_LINK_RESOLUTION_ATTEMPTS,
+                            hasShareableStream = false,
+                            playbackResolutionPending = playbackResolutionPending
+                        )
+                    ) {
+                        delay(CONTROLLER_LINK_RESOLUTION_RETRY_DELAY_MS)
+                        continue
+                    }
+                    if (shouldPublishControllerLinkUnavailable(
+                            attempt = attempt,
+                            maximumAttempts = CONTROLLER_LINK_RESOLUTION_ATTEMPTS,
+                            hasShareableStream = false,
+                            playbackResolutionPending = playbackResolutionPending
+                        )
+                    ) {
+                        if (publishControllerLinkReadyIfPossible(
+                                stableKey = stableKey,
+                                reason = "current_stream_fallback:$reason"
+                            )
+                        ) {
+                            return@launch
+                        }
+                        publishControllerLinkUnavailable(
+                            stableKey = stableKey,
+                            reason = if (resolution.isPreviewOnly) {
+                                "preview_only:$reason"
+                            } else {
+                                "unavailable:$reason"
+                            }
+                        )
+                    }
+                    return@launch
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                NPLogger.w(
+                    TAG,
+                    "resolveAndPublishControllerLink(): failed, stableKey=$stableKey, reason=$reason, error=${e.message}"
+                )
+            } finally {
+                if (controllerLinkResolveStableKey == stableKey) {
+                    controllerLinkResolveStableKey = null
+                    controllerLinkResolveJob = null
+                }
+            }
+        }
+    }
+
+    private fun maybeRequestControllerLink(
+        state: ListenTogetherRoomState,
+        causeType: String?,
+        force: Boolean = false,
+        bypassThrottle: Boolean = false
+    ) {
+        val snapshot = _sessionState.value
+        if (snapshot.connectionState != ListenTogetherConnectionState.CONNECTED) return
+        if (isCurrentUserController(snapshot)) return
+        if (!state.settings.normalized().shareAudioLinks) return
+        if (state.roomStatus != ListenTogetherRoomStatuses.ACTIVE) return
+        val targetTrack = state.currentTrack() ?: return
+        if (
+            !force &&
+                (
+                    normalizedDirectStreamUrl(targetTrack.streamUrl) != null ||
+                        targetTrack.streamUrls.any { normalizedDirectStreamUrl(it) != null }
+                )
+        ) {
+            NPLogger.d(
+                TAG,
+                "maybeRequestControllerLink(): skip because direct stream already present, stableKey=${targetTrack.stableKey}, causeType=$causeType"
+            )
+            return
+        }
+        if (!force && hasUsableLocalDirectStreamForListenTogetherTrack(targetTrack)) {
+            NPLogger.d(
+                TAG,
+                "maybeRequestControllerLink(): skip because listener already has direct stream, stableKey=${targetTrack.stableKey}, causeType=$causeType"
+            )
+            return
+        }
+        val stableKey = targetTrack.stableKey
+        if (stableKey.isBlank()) return
+        if (
+            !shouldRequestListenTogetherControllerLink(
+                force = force,
+                controllerLinkUnavailable = controllerLinkAvailability.isUnavailable(
+                    roomId = state.roomId,
+                    stableKey = stableKey
+                )
+            )
+        ) {
+            NPLogger.d(
+                TAG,
+                "maybeRequestControllerLink(): skip confirmed unavailable link, " +
+                    "stableKey=$stableKey, causeType=$causeType"
+            )
+            return
+        }
+        val nowElapsedMs = SystemClock.elapsedRealtime()
+        if (
+            !bypassThrottle &&
+            lastRequestedLinkStableKey == stableKey &&
+            nowElapsedMs - lastRequestedLinkAtElapsedMs < LINK_REQUEST_THROTTLE_MS
+        ) {
+            NPLogger.d(
+                TAG,
+                "maybeRequestControllerLink(): throttled, stableKey=$stableKey, causeType=$causeType, delta=${nowElapsedMs - lastRequestedLinkAtElapsedMs}ms"
+            )
+            return
+        }
+        val event = buildRequestLinkEvent(
+            stableKey = stableKey,
+            currentIndex = state.currentIndex,
+            track = targetTrack.withStreamUrls(emptyList()),
+            forceRefresh = force
+        )
+        lastRequestedLinkStableKey = stableKey
+        lastRequestedLinkAtElapsedMs = nowElapsedMs
+        markOutboundEvent(event.eventId)
+        NPLogger.d(
+            TAG,
+            "maybeRequestControllerLink(): causeType=$causeType, eventId=${event.eventId}, stableKey=$stableKey"
+        )
+        sendControlEventPureWebSocket(event, "request_controller_link:$causeType")
+    }
+
+    private fun maybePublishControllerRecoveryHeartbeat(message: ListenTogetherSocketEnvelope) {
+        val snapshot = _sessionState.value
+        if (!isCurrentUserController(snapshot)) return
+        val state = message.state ?: return
+        if (!state.settings.normalized().shareAudioLinks) return
+        val cause = message.causedBy ?: return
+        if (cause.userUuid == snapshot.userUuid) return
+        if (cause.type == "REQUEST_LINK") {
+            val stableKey = message.requestTrackStableKey
+                ?: state.currentStableKey()
+                ?: message.track?.stableKey
+                ?: return
+            NPLogger.d(
+                TAG,
+                "maybePublishControllerRecoveryHeartbeat(): respond with LINK_READY, requester=${cause.userUuid}, stableKey=$stableKey"
+            )
+            resolveAndPublishControllerLink(
+                stableKey = stableKey,
+                reason = "recovery:REQUEST_LINK"
+            )
+            return
+        }
+        if (cause.type !in controllerHeartbeatRecoveryTypes) return
+        NPLogger.d(
+            TAG,
+            "maybePublishControllerRecoveryHeartbeat(): respond with HEARTBEAT, requester=${cause.userUuid}, causeType=${cause.type}"
+        )
+        publishControllerHeartbeatIfNeeded(force = true, reason = "recovery:${cause.type}")
+    }
+
+    private fun isLocalPlaybackTransportActive(): Boolean {
+        return runCatching { ListenTogetherPlayer.isTransportActive() }
+            .getOrDefault(ListenTogetherPlayer.isPlayingFlow.value || ListenTogetherPlayer.playWhenReadyFlow.value)
+    }
+
+    private fun currentLocalPlaybackStateName(): String {
+        return if (isLocalPlaybackTransportActive() || ListenTogetherPlayer.isPlayingFlow.value) {
+            "playing"
+        } else {
+            "paused"
+        }
+    }
+
+    private fun hasUsableLocalDirectStreamForListenTogetherTrack(track: ListenTogetherTrack): Boolean {
+        val currentSong = ListenTogetherPlayer.currentSongFlow.value ?: return false
+        return hasUsableListenTogetherLocalDirectStream(
+            currentSongMatchesTarget = currentSong.sameTrackAs(track.toSong()),
+            currentSongHasDirectStream = normalizedDirectStreamUrl(ListenTogetherPlayer.currentMediaUrlFlow.value) != null,
+            currentMediaHasDirectStream =
+                normalizedDirectStreamUrl(ListenTogetherPlayer.currentMediaUrlFlow.value) != null,
+            currentPlaybackCandidateIsPreview =
+                ListenTogetherPlayer.isCurrentPlaybackPreviewOnly()
+        )
+    }
+
+    companion object {
+        private const val TAG = "ListenTogether"
+        private const val PLAYING_DRIFT_FORCE_SYNC_MS = 2_500L
+        private const val HEARTBEAT_DRIFT_FORCE_SYNC_MS = 5_000L
+        private const val PAUSED_DRIFT_FORCE_SYNC_MS = 800L
+        private const val TRACK_SWITCH_FORCE_SYNC_MS = 500L
+        private const val TRACK_SWITCH_GRACE_PERIOD_MS = 800L
+        private const val CONTROLLER_GRACE_PERIOD_MS = 10 * 60 * 1000L
+        private const val HEARTBEAT_STATE_RECHECK_INTERVAL_MS = 10_000L
+        internal const val LISTEN_TOGETHER_SOCKET_KEEP_ALIVE_INTERVAL_MS = 20_000L
+        private const val FOREGROUND_SOCKET_PROBE_TIMEOUT_MS = 5_000L
+        private const val LINK_REQUEST_THROTTLE_MS = 4_000L
+        private const val CONTROLLER_LOCAL_CONTROL_COOLDOWN_MS = 1_200L
+        private const val COALESCED_LOCAL_CONTROL_WINDOW_MS = 100L
+        private val COALESCED_LOCAL_CONTROL_EVENT_TYPES = setOf(
+            "SET_QUEUE",
+            "REQUEST_SET_QUEUE",
+            "PLAYBACK_MODE",
+            "REQUEST_PLAYBACK_MODE"
+        )
+        private const val SYNC_WATCHDOG_INTERVAL_MS = 8_000L
+        private const val LISTENER_WEB_SOCKET_SILENCE_TIMEOUT_MS = 45_000L
+        private const val LISTENER_STATE_REPAIR_MIN_INTERVAL_MS = 30_000L
+        private const val LISTENER_PLAYBACK_STALL_TIMEOUT_MS = 8_000L
+        private const val LISTENER_PLAYBACK_STALL_RECOVERY_COOLDOWN_MS = 12_000L
+        private const val PENDING_MEMBER_CONTROL_REQUEST_RETRY_INTERVAL_MS = 3_000L
+        private const val PENDING_MEMBER_CONTROL_REQUEST_TTL_MS = 18_000L
+        private const val PENDING_MEMBER_CONTROL_REQUEST_MAX_ATTEMPTS = 4
+        private const val PENDING_MEMBER_SEEK_SATISFIED_DRIFT_MS = 1_500L
+        private const val TRACK_FINISHED_LEGACY_FALLBACK_TTL_MS = 15_000L
+        private const val CONTROLLER_PLAYBACK_RESOLUTION_POLL_MS = 200L
+        private const val CONTROLLER_PLAYBACK_RESOLUTION_POLL_COUNT = 40
+        private const val CONTROLLER_LINK_RESOLUTION_RETRY_DELAY_MS = 2_000L
+        private const val CONTROLLER_LINK_RESOLUTION_ATTEMPTS = 3
+        private const val SOFT_SYNC_MIN_DRIFT_MS = 600L
+        private const val SOFT_SYNC_FAST_DRIFT_MS = 1_500L
+        private const val SOFT_SYNC_RECHECK_INTERVAL_MS = 500L
+        private const val CLOCK_SYNC_MAX_RTT_MS = 30_000L
+        private const val UNEXPECTED_ZERO_POSITION_ROLLBACK_GUARD_MS = 2_000L
+    }
+}

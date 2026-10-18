@@ -449,6 +449,65 @@ class KugouClient(private val context: Context) {
         headers = mapOf("x-router" to "cloudlist.service.kugou.com"),
     )
 
+    // ---------- 歌词（公开接口，无需签名） ----------
+
+    /** 不带签名的 GET（krcs / lyrics 歌词服务是公开接口）。 */
+    private suspend fun rawGet(url: String): KugouResponse = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url(url)
+            .header("User-Agent", KugouCrypto.USER_AGENT)
+            .get()
+            .build()
+        okHttpClient.newCall(request).execute().use { response ->
+            val bytes = response.body?.byteStream()?.readBytesLimited(MAX_RESPONSE_BYTES) ?: ByteArray(0)
+            val parsed = runCatching { JSONObject(String(bytes, Charsets.UTF_8)) }.getOrNull() ?: JSONObject()
+            KugouResponse(response.code, parsed)
+        }
+    }
+
+    /** 按歌名/歌手检索歌词候选（body.candidates[].id/accesskey）。 */
+    suspend fun lyricSearch(keyword: String, hash: String, durationMs: Long): KugouResponse {
+        val builder = "https://krcs.kugou.com/search".toHttpUrl().newBuilder()
+            .addQueryParameter("ver", "1")
+            .addQueryParameter("man", "yes")
+            .addQueryParameter("client", "mobi")
+            .addQueryParameter("keyword", keyword)
+        if (hash.isNotBlank()) builder.addQueryParameter("hash", hash.lowercase())
+        if (durationMs > 0L) builder.addQueryParameter("duration", durationMs.toString())
+        return rawGet(builder.build().toString())
+    }
+
+    /** 下载歌词（body.content 为 base64 文本，fmt=lrc 时是明文 LRC）。 */
+    suspend fun lyricDownload(id: String, accessKey: String): KugouResponse {
+        val url = "https://lyrics.kugou.com/download".toHttpUrl().newBuilder()
+            .addQueryParameter("ver", "1")
+            .addQueryParameter("client", "pc")
+            .addQueryParameter("id", id)
+            .addQueryParameter("accesskey", accessKey)
+            .addQueryParameter("fmt", "lrc")
+            .addQueryParameter("charset", "utf8")
+            .build()
+            .toString()
+        return rawGet(url)
+    }
+
+    /**
+     * 下载 KRC（加密二进制，body.content 是 base64）。
+     * 明文 LRC 里没有译文，中文译文只在 KRC 的 `language` 标签里，见 [KugouKrc]。
+     */
+    suspend fun lyricDownloadKrc(id: String, accessKey: String): KugouResponse {
+        val url = "https://lyrics.kugou.com/download".toHttpUrl().newBuilder()
+            .addQueryParameter("ver", "1")
+            .addQueryParameter("client", "mobi")
+            .addQueryParameter("id", id)
+            .addQueryParameter("accesskey", accessKey)
+            .addQueryParameter("fmt", "krc")
+            .addQueryParameter("charset", "utf8")
+            .build()
+            .toString()
+        return rawGet(url)
+    }
+
     // ---------- 扫码登录 ----------
 
     /** 申请二维码 key。 */

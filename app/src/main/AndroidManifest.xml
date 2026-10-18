@@ -9,6 +9,14 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- 关于页外链要用 MAIN + APP_BROWSER 找系统默认浏览器，不声明会因为包可见性查不到 -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.APP_BROWSER" />
+        </intent>
+    </queries>
+
     <application
         android:name=".YzliyinApp"
         android:allowBackup="true"
@@ -29,6 +37,20 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- 一起听邀请深链：neriplayer 与 NeriPlayer 客户端互通，yzliyin 为本应用自有 scheme -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="neriplayer"
+                    android:host="listen-together"
+                    android:pathPrefix="/join" />
+                <data
+                    android:scheme="yzliyin"
+                    android:host="listen-together"
+                    android:pathPrefix="/join" />
             </intent-filter>
         </activity>
 
