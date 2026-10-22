@@ -46,6 +46,10 @@
         <meta-data
             android:name="xposedminversion"
             android:value="93" />
+        <!-- 推荐作用域：LSPosed 启用本模块时会自动勾上系统设置，省得手动去找 -->
+        <meta-data
+            android:name="xposedscope"
+            android:value="com.android.settings" />
         <!-- 让 LSPosed 侧的 XSharedPreferences 读得到本应用的偏好（入口开关 / 位置 / 图标样式） -->
         <meta-data
             android:name="xposedsharedprefs"

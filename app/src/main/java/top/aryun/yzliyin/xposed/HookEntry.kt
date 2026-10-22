@@ -4,6 +4,9 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.res.Resources
+import android.graphics.Canvas
+import android.graphics.ColorFilter
+import android.graphics.PixelFormat
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
@@ -218,16 +221,59 @@ class HookEntry : IXposedHookLoadPackage {
         )
     }
 
+    /**
+     * 设置行里的图标只有 28dp（HyperIsland 用的就是一张 28dp 的专用 vector）。
+     * 直接把 `ic_launcher` 塞进去会大一圈：adaptive icon 自身还带一圈留白，
+     * 而 MIUI 是按 Drawable 上报的 intrinsic 尺寸摆的，不是按某个固定的 ImageView 尺寸。
+     *
+     * 所以套一层 [SizedDrawable] 只改上报尺寸、不动实际绘制 —— 既把行高占位缩到 28dp，
+     * 又仍然按调用方给的 bounds 画原始矢量图，不会因为缩小位图而发虚。
+     */
     private fun moduleIcon(resources: Resources?): Drawable? = runCatching {
-        val base = runCatching {
+        val density = (resources ?: hostContext?.resources)?.displayMetrics?.density ?: 1f
+        val raw = runCatching {
             val ctx = hostContext?.let { moduleContext(it) } ?: return@runCatching null
             val id = ctx.resources.getIdentifier("ic_launcher", "mipmap", APP_PKG)
             if (id != 0) ctx.resources.getDrawable(id, null) else null
         }.getOrNull()
             ?: resources?.getDrawable(android.R.drawable.ic_media_play, null)
             ?: return@runCatching null
-        if (config().iconStyle == ICON_OUTLINE) withOutline(base, resources) else base
+        val sized = SizedDrawable(raw, (ICON_SIZE_DP * density).toInt().coerceAtLeast(1))
+        if (config().iconStyle == ICON_OUTLINE) withOutline(sized, resources) else sized
     }.getOrNull()
+
+    /**
+     * 只把上报给系统的尺寸改成 [sizePx]，绘制时仍按调用方给的 bounds 画 [child]。
+     *
+     * 用它而不是把图标先画进一张小位图：那样 MIUI 拿到的就是张低分辨率位图，
+     * 放到实际显示尺寸上会糊。
+     */
+    private class SizedDrawable(
+        private val child: Drawable,
+        private val sizePx: Int,
+    ) : Drawable() {
+
+        override fun draw(canvas: Canvas) {
+            if (bounds.isEmpty) return
+            child.bounds = bounds
+            child.draw(canvas)
+        }
+
+        override fun getIntrinsicWidth(): Int = sizePx
+
+        override fun getIntrinsicHeight(): Int = sizePx
+
+        override fun setAlpha(alpha: Int) {
+            child.alpha = alpha
+        }
+
+        override fun setColorFilter(colorFilter: ColorFilter?) {
+            child.colorFilter = colorFilter
+        }
+
+        @Deprecated("Deprecated in android.graphics.drawable.Drawable")
+        override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
+    }
 
     // ================================================================ AOSP 路径
 
@@ -536,6 +582,9 @@ class HookEntry : IXposedHookLoadPackage {
         const val POSITION_BOTTOM = "bottom"
         const val ICON_DEFAULT = "default"
         const val ICON_OUTLINE = "outline"
+
+        /** 设置行里的图标尺寸，与 HyperIsland 的专用 vector 保持一致（28dp）。 */
+        const val ICON_SIZE_DP = 28
 
         const val ENTRY_KEY = "yzliyin_settings_entry"
 
