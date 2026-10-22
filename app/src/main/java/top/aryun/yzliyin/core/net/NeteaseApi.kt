@@ -4,6 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import top.aryun.yzliyin.R
 import top.aryun.yzliyin.core.AppGraph
 import top.aryun.yzliyin.core.data.JsonCodecs
 import top.aryun.yzliyin.core.model.Album
@@ -15,6 +16,8 @@ import top.aryun.yzliyin.core.model.Parsers
 import top.aryun.yzliyin.core.model.Playlist
 import top.aryun.yzliyin.core.model.ResolveResult
 import top.aryun.yzliyin.core.model.Song
+import top.aryun.yzliyin.util.AppLocale
+import top.aryun.yzliyin.util.NPLogger
 import top.aryun.yzliyin.util.isDirectUrl
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -26,6 +29,8 @@ import java.util.Locale
  * 数据源仅网易云音乐；统一输出本项目的模型，登录态经 [AppGraph.store] 持久化。
  */
 object NeteaseApi {
+
+    private const val TAG = "NeteaseApi"
 
     private val client: NeteaseClient get() = AppGraph.netease
     private val store get() = AppGraph.store
@@ -275,12 +280,14 @@ object NeteaseApi {
     /** 发表评论（需登录；未登录时服务端返回 301）。@return 提示语。 */
     suspend fun sendComment(songId: String, content: String): Result<String> = runCatching {
         withContext(Dispatchers.IO) {
-            val id = songId.toLongOrNull() ?: throw IllegalStateException("歌曲 id 无效")
+            val id = songId.toLongOrNull() ?: throw IllegalStateException(AppLocale.string(R.string.net_invalid_song_id))
             val root = JSONObject(client.sendComment(id, content))
             when (val code = root.optInt("code", -1)) {
-                200 -> "评论发送成功"
-                301 -> throw IllegalStateException("请先登录后再发表评论")
-                else -> throw IllegalStateException(root.optString("msg").ifBlank { "评论发送失败($code)" })
+                200 -> AppLocale.string(R.string.net_comment_sent)
+                301 -> throw IllegalStateException(AppLocale.string(R.string.net_comment_need_login))
+                else -> throw IllegalStateException(
+                    root.optString("msg").ifBlank { AppLocale.string(R.string.net_comment_send_failed, code.toString()) }
+                )
             }
         }
     }
@@ -297,26 +304,26 @@ object NeteaseApi {
     suspend fun songUrl(songId: String): ResolveResult = withContext(Dispatchers.IO) {
         runCatching {
             val id = songId.toLongOrNull()
-                ?: return@withContext ResolveResult("", "网易云曲目 id 无效")
+                ?: return@withContext ResolveResult("", AppLocale.string(R.string.net_netease_invalid_id))
             val level = store.playQuality.ifBlank { "exhigh" }
             val raw = runCatching { client.getSongDownloadUrl(id, level = level) }
                 .getOrElse { client.getSongUrl(id) }
             val first = JSONObject(raw).optJSONArray("data")?.optJSONObject(0)
-                ?: return@withContext ResolveResult("", "获取播放链接失败，请稍后重试")
+                ?: return@withContext ResolveResult("", AppLocale.string(R.string.net_resolve_failed))
             // 无版权曲目这里下发的是 JSON null，optString 会给出字符串 "null"，
             // 必须按“是不是真的 http 直链”判，不能只判非空
             val url = first.optString("url")
             if (!isDirectUrl(url)) {
-                return@withContext ResolveResult("", "该歌曲暂无版权，无法获取播放链接")
+                return@withContext ResolveResult("", AppLocale.string(R.string.net_no_copyright))
             }
             val trial = !first.isNull("freeTrialInfo") ||
                 (first.optInt("payed", -1) == 0 &&
                     !first.isNull("fee") && isVipFee(first.optInt("fee")))
             if (trial) {
-                return@withContext ResolveResult("", "该歌曲需要网易云会员，当前账号只能试听")
+                return@withContext ResolveResult("", AppLocale.string(R.string.net_netease_vip))
             }
             ResolveResult(url)
-        }.getOrElse { ResolveResult("", "获取播放链接失败，请稍后重试") }
+        }.getOrElse { ResolveResult("", AppLocale.string(R.string.net_resolve_failed)) }
     }
 
     /** 该曲是否需要会员（fee=1 需 VIP，fee=4 需购买专辑）。 */
@@ -330,13 +337,32 @@ object NeteaseApi {
      * 客户端已带 `tv=1`（译文）、`ytv=1`（逐字译文），响应里的 `tlyric` / `ytlric`
      * 就是**中文译文**，一并解析后按时间戳并回原文行，见 [Parsers.mergeTranslation]。
      */
+    /**
+     * 取歌词。
+     *
+     * 所有失败路径**都记日志**：网易云取词失败在界面上与「这首歌本来就没词」长得一模一样
+     * （都显示「暂无歌词」），不打日志就无从判断到底是接口报错、VIP/地区限制，
+     * 还是这首歌真没有词——这是排查「默认歌词」的唯一观测点。
+     */
     suspend fun lyric(songId: String): List<LyricLine> = withContext(Dispatchers.IO) {
         runCatching {
-            val id = songId.toLongOrNull() ?: return@withContext emptyList()
+            val id = songId.toLongOrNull() ?: run {
+                NPLogger.w(TAG, "取词跳过：songId 非数字（$songId）")
+                return@withContext emptyList()
+            }
             val root = JSONObject(client.getLyricNew(id))
-            if (root.optInt("code", 200) != 200) return@withContext emptyList()
+            val code = root.optInt("code", 200)
+            if (code != 200) {
+                // VIP / 地区限制 / 风控 / 登录态过期都会落到这里
+                NPLogger.w(TAG, "取词失败：code=$code id=$id")
+                return@withContext emptyList()
+            }
             val lrc = root.optJSONObject("lrc")?.optString("lyric").orEmpty()
-            if (lrc.isBlank()) return@withContext emptyList()
+            if (lrc.isBlank()) {
+                // 接口 200 却没给 lrc：多为无版权或需会员
+                NPLogger.w(TAG, "取词返回空 lrc：id=$id")
+                return@withContext emptyList()
+            }
 
             val translated = listOfNotNull(
                 root.optJSONObject("tlyric")?.optString("lyric").orEmpty().ifBlank { null },
@@ -345,8 +371,13 @@ object NeteaseApi {
                 runCatching { Parsers.parseLrc(text) }.getOrNull()?.takeIf { it.isNotEmpty() }
             }.orEmpty()
 
-            Parsers.mergeTranslation(Parsers.parseLrc(lrc), translated)
-        }.getOrDefault(emptyList())
+            val lines = Parsers.mergeTranslation(Parsers.parseLrc(lrc), translated)
+            if (lines.isEmpty()) NPLogger.w(TAG, "lrc 解析后无有效行：id=$id")
+            lines
+        }.getOrElse {
+            NPLogger.w(TAG, "取词异常：id=$songId（${it.message}）")
+            emptyList()
+        }
     }
 
     // ================= 歌手 / 专辑 =================
@@ -419,9 +450,9 @@ object NeteaseApi {
             val raw = client.sendCaptcha(phone)
             val root = JSONObject(raw)
             if (root.optInt("code", -1) != 200) {
-                throw IllegalStateException(root.optString("msg").ifBlank { "验证码发送失败" })
+                throw IllegalStateException(root.optString("msg").ifBlank { AppLocale.string(R.string.net_captcha_send_failed) })
             }
-            root.optString("msg").ifBlank { "验证码已发送" }
+            root.optString("msg").ifBlank { AppLocale.string(R.string.net_captcha_sent) }
         }
     }
 
@@ -432,18 +463,18 @@ object NeteaseApi {
         withContext(Dispatchers.IO) {
             val verify = JSONObject(client.verifyCaptcha(phone, captcha))
             if (verify.optInt("code", -1) != 200) {
-                throw IllegalStateException(verify.optString("msg").ifBlank { "验证码错误" })
+                throw IllegalStateException(verify.optString("msg").ifBlank { AppLocale.string(R.string.net_captcha_incorrect) })
             }
             val login = JSONObject(client.loginByCaptcha(phone, captcha))
             if (login.optInt("code", -1) != 200) {
-                throw IllegalStateException(login.optString("msg").ifBlank { "登录失败" })
+                throw IllegalStateException(login.optString("msg").ifBlank { AppLocale.string(R.string.net_login_failed) })
             }
             // 登录成功：取回 Cookie（必要时补 __csrf），校验后落库
             val cookies = client.getCookies().toMutableMap()
             runCatching { client.ensureWeapiSession() }
             cookies.putAll(client.getCookies())
             if (cookies["MUSIC_U"].isNullOrBlank()) {
-                throw IllegalStateException("登录未返回有效 Cookie，请改用网页登录")
+                throw IllegalStateException(AppLocale.string(R.string.net_login_no_cookie))
             }
             store.saveNeteaseCookies(cookies)
             client.setPersistedCookies(store.neteaseCookieMap())

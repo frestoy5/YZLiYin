@@ -1,5 +1,6 @@
 package top.aryun.yzliyin.player
 
+import top.aryun.yzliyin.R
 import top.aryun.yzliyin.core.AppGraph
 import top.aryun.yzliyin.core.model.ResolveResult
 import top.aryun.yzliyin.core.model.Song
@@ -7,6 +8,8 @@ import top.aryun.yzliyin.core.model.Source
 import top.aryun.yzliyin.core.net.BiliApi
 import top.aryun.yzliyin.core.net.KugouApi
 import top.aryun.yzliyin.core.net.NeteaseApi
+import top.aryun.yzliyin.core.net.YouTubeApi
+import top.aryun.yzliyin.util.AppLocale
 import top.aryun.yzliyin.util.isDirectUrl
 
 /**
@@ -23,9 +26,9 @@ object PlaybackResolver {
 
     /** 只用曲目自己的源取链，不做替补；已缓存的曲目直接读本地文件。 */
     suspend fun resolveOwn(song: Song): ResolveResult {
-        AudioCache.cached(song.key)?.let { file ->
+        AudioCache.cachedSource(song.key)?.let { cached ->
             return ResolveResult(
-                url = android.net.Uri.fromFile(file).toString(),
+                url = cached,
                 source = song.source,
                 fromCache = true,
             )
@@ -34,7 +37,7 @@ object PlaybackResolver {
             // 会员曲 + 当前账号不是会员：网易云只会下发试听片段，
             // 直接判为不可用，省一次请求也避免只播几十秒被当成成功。
             Source.NETEASE -> if (song.vip && !AppGraph.store.neteaseVip) {
-                ResolveResult("", "该歌曲需要网易云会员，当前账号无权限")
+                ResolveResult("", AppLocale.string(R.string.ply_err_netease_vip))
             } else {
                 NeteaseApi.songUrl(song.id).withSource(Source.NETEASE)
             }
@@ -49,8 +52,22 @@ object PlaybackResolver {
                     bvid = song.playId.ifEmpty { song.id },
                     cid = song.playSubId,
                 ),
-                reason = "获取 B 站音频流失败（可能是充电专属、地区限制或需要登录）",
+                reason = AppLocale.string(R.string.ply_err_bili_stream),
                 source = Source.BILIBILI,
+            )
+
+            // id 即 YouTube 的 videoId；登录与取流由移植过来的 Innertube 栈处理
+            Source.YOUTUBE -> ResolveResult(
+                url = YouTubeApi.songUrl(song.id),
+                reason = AppLocale.string(R.string.ply_err_youtube_stream),
+                source = Source.YOUTUBE,
+            )
+
+            // 本机音乐本该在上面 cachedSource 那一步就命中；走到这儿说明文件已经不在了
+            Source.LOCAL -> ResolveResult(
+                url = "",
+                reason = AppLocale.string(R.string.src_local_gone),
+                source = Source.LOCAL,
             )
         }.validated()
     }
@@ -65,7 +82,7 @@ object PlaybackResolver {
      */
     private fun ResolveResult.validated(): ResolveResult =
         if (ok && !url.startsWith("file:") && !isDirectUrl(url)) {
-            ResolveResult("", "取到的播放链接无效，该歌曲可能暂无版权")
+            ResolveResult("", AppLocale.string(R.string.ply_err_url_invalid))
         } else this
 
     suspend fun resolve(song: Song): ResolveResult {
@@ -85,7 +102,7 @@ object PlaybackResolver {
         // 免得再喂给播放器一轮 onPlayerError、又把兜底绕开。
         return own ?: ResolveResult(
             url = "",
-            reason = "当前源播放失败，其它源也没找到同一首歌",
+            reason = AppLocale.string(R.string.ply_err_all_sources_failed),
             source = song.source,
         )
     }

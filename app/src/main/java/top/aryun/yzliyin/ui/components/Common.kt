@@ -30,10 +30,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import top.aryun.yzliyin.R
+import top.aryun.yzliyin.core.model.Source
 import top.aryun.yzliyin.core.model.Song
+import java.util.Locale
 
 /** 封面图（占位 + 圆角）。 */
 @Composable
@@ -75,12 +79,67 @@ fun formatDuration(ms: Long): String {
     return "%d:%02d".format(total / 60, total % 60)
 }
 
-/** 播放量：1.2万 / 1.3亿 */
-fun formatCount(n: Long): String = when {
-    n >= 100_000_000 -> "%.1f亿".format(n / 100_000_000.0)
-    n >= 10_000 -> "%.1f万".format(n / 10_000.0)
-    else -> n.toString()
+/**
+ * 分钟数 → 人话标签：「30 分钟」/「1 小时」/「1 小时 30 分」。
+ * 设置里的时长滑杆和长时长确认弹框共用同一个函数，保证两处显示的阈值一字不差。
+ */
+@Composable
+fun minutesLabel(minutes: Int): String = when {
+    minutes >= 60 && minutes % 60 == 0 -> stringResource(R.string.set_hours, minutes / 60)
+    minutes >= 60 -> stringResource(R.string.set_hours_minutes, minutes / 60, minutes % 60)
+    else -> stringResource(R.string.set_minutes, minutes)
 }
+
+/**
+ * 播放量的紧凑写法：单位**随语言变**，不能统一翻成一个词。
+ *  - 中文：1.2万 / 1.3亿
+ *  - 日文：1.2万 / 1.3億（「億」不是「亿」）
+ *  - 其它（含英文）：12K / 1.3M / 1.2B
+ *
+ * 依据是 [Locale.getDefault]——AppLocale.wrap 已经把进程默认 Locale
+ * 设成了设置里选的语言（跟随系统时还原则是系统语言）。
+ */
+fun formatCount(n: Long): String = when (Locale.getDefault().language) {
+    Locale.CHINESE.language -> when {
+        n >= 100_000_000 -> "%.1f亿".format(n / 100_000_000.0)
+        n >= 10_000 -> "%.1f万".format(n / 10_000.0)
+        else -> n.toString()
+    }
+
+    Locale.JAPANESE.language -> when {
+        n >= 100_000_000 -> "%.1f億".format(n / 100_000_000.0)
+        n >= 10_000 -> "%.1f万".format(n / 10_000.0)
+        else -> n.toString()
+    }
+
+    else -> when {
+        n >= 1_000_000_000 -> "%.1fB".format(n / 1_000_000_000.0)
+        n >= 1_000_000 -> "%.1fM".format(n / 1_000_000.0)
+        n >= 1_000 -> "%.1fK".format(n / 1_000.0)
+        else -> n.toString()
+    }
+}
+
+/**
+ * 源的**显示名**，随界面语言切换（中文 / 日本語 / English）。
+ *
+ * ⚠ 与 [Source.label] 的分工：`label` 是写死的中文，**只喂 NPLogger**（日志不翻译）；
+ * 凡是进界面的文案一律走这里。这样 `core/model` 不必依赖 R，也顺带给
+ * 「日志恒中文」划出了一条硬边界。
+ *
+ * 用法：`stringResource(R.string.srch_in_source, source.labelText())`、
+ * `Text(detail?.name ?: source.labelText())`。
+ */
+@Composable
+fun Source.labelText(): String = stringResource(
+    when (this) {
+        Source.NETEASE -> R.string.src_netease
+        Source.KUGOU -> R.string.src_kugou
+        Source.BILIBILI -> R.string.src_bilibili
+        Source.YOUTUBE -> R.string.src_youtube
+        Source.LOCAL -> R.string.src_local
+    },
+)
 
 /** 区块标题 */
 @Composable

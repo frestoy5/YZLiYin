@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 日本語。ここに無いキーは values/（中国語）へフォールバック。 -->
+<resources>
+    <!-- 页头 -->
+    <string name="lt_back">戻る</string>
+    <string name="lt_title">一緒に聴く</string>
+    <string name="lt_debug">デバッグ</string>
+    <string name="lt_op_failed">操作に失敗しました</string>
+
+    <!-- 服务端 -->
+    <string name="lt_server">サーバー</string>
+    <string name="lt_server_default">現在はデフォルトのサーバーを使用中：%1$s</string>
+    <string name="lt_server_custom">現在はカスタムサーバーを使用中：%1$s</string>
+    <string name="lt_server_url_label">カスタムサーバー URL</string>
+    <string name="lt_test_server">サーバーをテスト</string>
+    <string name="lt_save">保存</string>
+    <string name="lt_server_reset">デフォルトのサーバーに戻しました</string>
+    <string name="lt_server_saved">サーバー URL を保存しました</string>
+
+    <!-- 身份（昵称、UUID） -->
+    <string name="lt_identity">識別情報</string>
+    <string name="lt_nickname">ニックネーム</string>
+    <string name="lt_invite_default_nickname">視聴者%1$s</string>
+    <string name="lt_identity_uuid">識別 UUID：%1$s…</string>
+    <string name="lt_not_generated">未生成</string>
+    <string name="lt_save_nickname">ニックネームを保存</string>
+    <string name="lt_nickname_saved">ニックネームを保存しました</string>
+    <string name="lt_leave_to_reset">ルームを出てから識別情報をリセットできます</string>
+    <string name="lt_reset_identity">識別 UUID をリセット</string>
+    <string name="lt_reset_identity_message">リセットすると現在の識別 UUID は無効になり、新しいものに置き換えられます。続けますか？</string>
+    <string name="lt_reset">リセット</string>
+    <string name="lt_cancel">キャンセル</string>
+    <string name="lt_identity_reset_done">識別 UUID をリセットしました</string>
+
+    <!-- 顶部提示条 / Toast -->
+    <string name="lt_left_room">ルームから出ました</string>
+    <string name="lt_room_updated">ルーム設定を更新しました</string>
+    <string name="lt_room_update_failed">設定を更新できませんでした</string>
+    <string name="lt_clipboard_no_invite">クリップボードに有効な招待がありません</string>
+
+    <!-- 建房 / 入房结果 -->
+    <string name="lt_create_room_failed">ルームを作成できませんでした</string>
+    <string name="lt_room_created">ルーム %1$s を作成しました</string>
+    <string name="lt_join_room_failed">ルームに参加できませんでした</string>
+    <string name="lt_room_joined">ルーム %1$s に参加しました</string>
+    <string name="lt_invite_url_invalid">招待に含まれるサーバー URL が無効です。手動で設定してから参加してください</string>
+
+    <!-- 房间信息 -->
+    <string name="lt_room">ルーム</string>
+    <string name="lt_room_id">ルーム ID</string>
+    <string name="lt_role">役割</string>
+    <string name="lt_role_host">ホスト</string>
+    <string name="lt_role_listener">聴き手</string>
+    <string name="lt_connection_state">接続状態</string>
+    <string name="lt_connected">接続済み</string>
+    <string name="lt_connecting">接続中</string>
+    <string name="lt_disconnected">未接続</string>
+    <string name="lt_room_status">ルーム状態</string>
+    <string name="lt_status_active">通常</string>
+    <string name="lt_status_host_offline">ホストがオフライン</string>
+    <string name="lt_status_closed">終了</string>
+    <string name="lt_member_count">メンバー数</string>
+    <string name="lt_queue_count">キューの曲数</string>
+    <string name="lt_current_song">再生中の曲</string>
+    <string name="lt_artist">アーティスト</string>
+    <string name="lt_playback_state">再生状態</string>
+    <string name="lt_playing">再生中</string>
+    <string name="lt_paused">一時停止中</string>
+    <string name="lt_close_reason">終了理由</string>
+
+    <!-- 房间操作按钮 -->
+    <string name="lt_copy_invite">招待をコピー</string>
+    <string name="lt_copy_secret">キーをコピー</string>
+    <string name="lt_leave_room">ルームから出る</string>
+
+    <!-- 房间设置开关 -->
+    <string name="lt_room_settings">ルーム設定</string>
+    <string name="lt_allow_member_control">メンバーの操作を許可</string>
+    <string name="lt_allow_member_control_desc">オフにすると聴き手は一時停止・曲送り・シークができません</string>
+    <string name="lt_allow_member_control_desc_create">聴き手が一時停止・曲送り・シークできます（ホストの同期許可が必要）</string>
+    <string name="lt_auto_pause">メンバー増減で自動一時停止</string>
+    <string name="lt_auto_pause_desc">メンバーの参加・退出時に自動で一時停止します</string>
+    <string name="lt_share_audio_links">この端末で取得した音源リンクを共有</string>
+    <string name="lt_share_audio_links_desc">聴き手はホストが取得したリンクでそのまま再生でき、自分で音源を探す必要はありません</string>
+
+    <!-- 成员与队列 -->
+    <string name="lt_members">メンバー</string>
+    <string name="lt_me">自分</string>
+    <string name="lt_queue">キュー</string>
+    <string name="lt_queue_more">… 他の %1$s 曲は非表示</string>
+
+    <!-- 创建房间 -->
+    <string name="lt_create_room">ルームを作成</string>
+    <string name="lt_create_room_empty">再生キューがありません。先に曲を再生してからルームを作成してください</string>
+    <string name="lt_create_room_hint">現在の再生キューでルームを作成（%1$s 曲、%2$s 曲目を再生中）</string>
+    <string name="lt_host_can_copy_invite">ホストは招待をコピーして友達に送れます</string>
+
+    <!-- 加入房间 -->
+    <string name="lt_join_room">ルームに参加</string>
+    <string name="lt_room_id_label">ルーム ID</string>
+    <string name="lt_room_id_hint">英数字6桁</string>
+    <string name="lt_invite_secret">招待キー</string>
+    <string name="lt_paste_invite">招待を貼り付けて参加</string>
+
+    <!-- 复制到剪贴板 -->
+    <string name="lt_invite_info">招待情報</string>
+    <string name="lt_copy_empty">%1$s が空です</string>
+    <string name="lt_copy_done">%1$s をコピーしました</string>
+</resources>

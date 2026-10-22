@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 日本語。ここに無いキーは values/（中国語）へフォールバック。 -->
+<resources>
+    <!-- 首页 Home.kt -->
+    <string name="home_refresh_desc">更新</string>
+    <string name="home_hot_search">トレンド検索</string>
+    <string name="home_hot_rank">急上昇曲</string>
+    <string name="home_play_all">すべて再生</string>
+    <string name="home_hot_rank_note">リアルタイム人気度 · 10分ごとに更新</string>
+    <string name="home_new_songs">新着曲</string>
+    <string name="home_rec_playlists">おすすめプレイリスト</string>
+    <string name="home_refresh_batch">更新</string>
+    <string name="home_loading">読み込み中…</string>
+    <string name="home_offline_retry">ネットワークに接続できません。しばらくしてから下にスワイプして再試行してください</string>
+    <string name="home_not_connected">未接続</string>
+    <string name="home_checking">確認中…</string>
+    <string name="home_latency">%1$sms</string>
+
+    <!-- 搜索 Search.kt -->
+    <string name="srch_tab_songs">楽曲</string>
+    <string name="srch_tab_playlists">プレイリスト</string>
+    <string name="srch_tab_artists">アーティスト</string>
+    <string name="srch_tab_albums">アルバム</string>
+    <string name="srch_hint">楽曲・アーティスト・アルバムを検索</string>
+    <string name="srch_clear">クリア</string>
+    <string name="srch_back">戻る</string>
+    <string name="srch_fail">検索に失敗しました</string>
+    <string name="srch_suggest">おすすめの検索</string>
+    <string name="srch_hot">人気の検索</string>
+    <string name="srch_history_hint">タップで再検索、長押しでその項目を削除</string>
+    <string name="srch_in_source">%1$sで楽曲を検索</string>
+    <string name="srch_prompt">キーワードを入力して検索</string>
+    <string name="srch_empty">関連する結果が見つかりません</string>
+    <string name="srch_count_unit">%1$s曲</string>
+    <string name="srch_all_sources">すべて</string>
+    <string name="srch_view_all">すべて見る（%1$s曲）</string>
+    <string name="srch_source_timeout">検索がタイムアウトしました</string>
+    <string name="srch_artist_meta">楽曲 %1$s · アルバム %2$s</string>
+
+    <!-- 検索ボタン（入力欄の右）と検索履歴 -->
+    <string name="srch_action">検索</string>
+    <string name="srch_history">検索履歴</string>
+    <string name="srch_history_clear">履歴を消去</string>
+
+    <!-- 歌手 Artist.kt -->
+    <string name="art_missing_id">歌手 ID がありません</string>
+    <string name="art_load_songs_fail">楽曲の読み込みに失敗しました</string>
+    <string name="art_load_albums_fail">アルバムの読み込みに失敗しました</string>
+    <string name="art_fallback_title">アーティスト</string>
+    <string name="art_back">戻る</string>
+    <string name="art_play_all">すべて再生</string>
+    <string name="art_tab_songs">人気楽曲</string>
+    <string name="art_tab_albums">アルバム %1$s</string>
+    <string name="art_meta">楽曲 %1$s · アルバム %2$s</string>
+    <string name="art_no_songs">楽曲がありません</string>
+    <string name="art_count_unit">%1$s曲</string>
+    <string name="art_no_albums">アルバムがありません</string>
+
+    <!-- 专辑 Album.kt -->
+    <string name="alb_missing_id">アルバム ID がありません</string>
+    <string name="alb_load_fail">アルバムの読み込みに失敗しました</string>
+    <string name="alb_fallback_title">アルバム</string>
+    <string name="alb_back">戻る</string>
+    <string name="alb_play_all">すべて再生</string>
+    <string name="alb_count_unit">%1$s曲</string>
+
+    <!-- 评论 Comment.kt -->
+    <string name="cmt_load_fail">コメントの読み込みに失敗しました</string>
+    <string name="cmt_missing_id">曲 ID がありません</string>
+    <string name="cmt_title">コメント</string>
+    <string name="cmt_back">戻る</string>
+    <string name="cmt_loading">読み込み中…</string>
+    <string name="cmt_empty">まだコメントがありません。最初のコメントをどうぞ</string>
+    <string name="cmt_prev">前のページ</string>
+    <string name="cmt_next">次のページ</string>
+    <string name="cmt_input_hint">どんなことでもどうぞ…</string>
+    <string name="cmt_input_locked">未ログイン · コメントは投稿できません</string>
+    <string name="cmt_send_fail">送信に失敗しました</string>
+    <string name="cmt_not_logged_in">NetEase Music にログインしていません · コメントは閲覧できます</string>
+    <string name="cmt_sign_in">ログイン</string>
+    <string name="cmt_hot">人気コメント</string>
+    <string name="cmt_reply">返信：%1$s</string>
+
+    <!-- 歌单详情 PlaylistDetail.kt -->
+    <string name="pld_load_fail">プレイリストの読み込みに失敗しました</string>
+    <string name="pld_missing_id">プレイリスト ID がありません</string>
+    <string name="pld_dl_start">%1$s曲をダウンロード中…</string>
+    <string name="pld_dl_no_link">再生リンクを取得できません</string>
+    <string name="pld_dl_write_fail">ローカルへの書き込みに失敗しました</string>
+    <string name="pld_dl_unknown">不明なエラー</string>
+    <string name="pld_dl_done">ダウンロード完了：%1$s曲成功</string>
+    <string name="pld_dl_fail">、%1$s曲失敗（%2$s）</string>
+    <string name="pld_selected">%1$s曲を選択中</string>
+    <string name="pld_exit_select">選択を終了</string>
+    <string name="pld_back">戻る</string>
+    <string name="pld_unselect_all">選択を解除</string>
+    <string name="pld_select_all">すべて選択</string>
+    <string name="pld_downloading">ダウンロード中…</string>
+    <string name="pld_download">ダウンロード</string>
+    <string name="pld_play_all">すべて再生</string>
+    <string name="pld_meta_play">%1$s再生 · %2$s曲</string>
+    <string name="pld_meta_count">%1$s曲</string>
+    <string name="pld_refresh">更新</string>
+    <string name="pld_comments">コメント</string>
+    <string name="pld_empty">このプレイリストには再生できる曲がありません</string>
+</resources>

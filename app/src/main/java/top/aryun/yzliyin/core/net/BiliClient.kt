@@ -12,7 +12,9 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
 import org.json.JSONObject
+import top.aryun.yzliyin.R
 import top.aryun.yzliyin.core.model.Comment
+import top.aryun.yzliyin.util.AppLocale
 import top.aryun.yzliyin.util.NPLogger
 import top.aryun.yzliyin.util.readBytesLimited
 import java.io.IOException
@@ -153,6 +155,67 @@ data class BiliQrCheck(val code: Int, val message: String, val cookies: Map<Stri
 data class BiliProfile(val name: String, val avatar: String, val mid: Long)
 
 /**
+ * 直播间：列表卡片与详情（`getH5InfoByRoom`）归一到同一套字段。
+ * 列表接口只给一部分（头像、人气等按需），缺的留默认值。
+ */
+data class BiliLiveRoom(
+    val roomId: Long = 0L,
+    val uid: Long = 0L,
+    val title: String = "",
+    val cover: String = "",
+    val anchorName: String = "",
+    val anchorFace: String = "",
+    val areaName: String = "",
+    val parentAreaName: String = "",
+    val online: Int = 0,
+    val liveStatus: Int = 0,
+    /** "1.6万人看过"，列表页没有这个字段时留空。 */
+    val watchedText: String = "",
+) {
+    val isLive: Boolean get() = liveStatus == 1
+}
+
+/**
+ * 按主播 mid 查到的直播间概况（UP 主页的「正在直播」用）。
+ *
+ * [liveStatus]：0 未开播 / 1 正在直播 / 2 轮播中（房间在放录像，仍能进）。
+ */
+data class BiliLiveBrief(
+    val roomId: Long = 0L,
+    val liveStatus: Int = 0,
+    val title: String = "",
+    val areaName: String = "",
+    val online: Int = 0,
+)
+
+/**
+ * 直播直链：[url] 已拼成完整地址。
+ * [isHls] 决定用 HLS 还是渐进源——**ExoPlayer 不支持 FLV**，只在没有 HLS 时才可能用到后者。
+ */
+data class BiliLiveStream(
+    val url: String,
+    val qn: Int,
+    val format: String,
+    val codec: String,
+    val isHls: Boolean,
+)
+
+/** 弹幕弹道：进房 token + 弹幕服务器地址（拼 `wss://{host}:{port}/sub`）。 */
+data class BiliLiveDmInfo(val token: String, val hosts: List<String>)
+
+/** 一条直播弹幕/聊天室消息。 */
+data class BiliLiveMsg(
+    val text: String,
+    val userName: String,
+    val uid: Long,
+    /** ARGB 颜色（B 站给的是十进制 RGB）。 */
+    val color: Int,
+    /** 1 滚动 / 4 底部 / 5 顶部。 */
+    val mode: Int = 1,
+    val isSelf: Boolean = false,
+)
+
+/**
  * B 站接口传输层。
  *
  * 收藏夹、视频信息、搜索走 Wbi 加签；取流走 `/x/player/wbi/playurl`，
@@ -180,6 +243,39 @@ class BiliClient {
         const val QR_GENERATE_URL =
             "https://passport.bilibili.com/x/passport-login/web/qrcode/generate"
         const val QR_POLL_URL = "https://passport.bilibili.com/x/passport-login/web/qrcode/poll"
+
+        // ---------- 直播 ----------
+        /** 直播间列表（App 端，appkey 加签 + 必须带 buvid 头，实测匿名可用）。 */
+        const val LIVE_APP_SECOND_LIST =
+            "https://api.live.bilibili.com/xlive/app-interface/v2/second/getList"
+        /** 直播间列表（网页端，Wbi 加签，作为上者的兜底）。 */
+        const val LIVE_WEB_SECOND_LIST =
+            "https://api.live.bilibili.com/xlive/web-interface/v1/second/getList"
+        /** 直播间详情：标题/封面/分区/主播昵称头像/看过人数。 */
+        const val LIVE_ROOM_H5 =
+            "https://api.live.bilibili.com/xlive/web-room/v1/index/getH5InfoByRoom"
+        /** 取直播流地址（http_stream=FLV / http_hls=m3u8，ExoPlayer 播不了 FLV，优先 HLS）。 */
+        const val LIVE_ROOM_PLAY_INFO =
+            "https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo"
+        /** 弹幕弹道：token + 弹幕服务器列表（要 Wbi 加签，不签会被 -352 拦下）。 */
+        const val LIVE_DM_INFO =
+            "https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo"
+        /** 进房先拉最近弹幕，免得弹幕区要等主播下次发言才有内容。 */
+        const val LIVE_DM_HISTORY =
+            "https://api.live.bilibili.com/xlive/web-room/v1/dM/gethistory"
+        /** 直播间发言（POST 表单，要 csrf）。 */
+        const val LIVE_MSG_SEND = "https://api.live.bilibili.com/msg/send"
+        /** 按主播 mid 批量查直播间状态（免登录免签名）；单个 mid 一样走它。 */
+        const val LIVE_STATUS_BY_UIDS =
+            "https://api.live.bilibili.com/room/v1/Room/get_status_info_by_uids"
+        /** 关注状态：`data.attribute` 为 0 表示未关注。 */
+        const val RELATION_INFO = "https://api.bilibili.com/x/relation"
+        /** 改关注：act 1 关注 / 2 取关。 */
+        const val RELATION_MODIFY = "https://api.bilibili.com/x/relation/modify"
+
+        /** 直播接口要的设备指纹头，64 位占位值（B 站只校验格式）。 */
+        const val FP_MASK =
+            "1111111111111111111111111111111111111111111111111111111111111111"
 
         const val CARD_URL = "https://api.bilibili.com/x/web-interface/card"
         const val RELATION_STAT_URL = "https://api.bilibili.com/x/relation/stat"
@@ -494,15 +590,15 @@ class BiliClient {
                     delay(BAN_RETRY_DELAY_MS)
                     continue
                 }
-                throw BiliException("请求被风控拦截(-412)，请稍后再试", isBan = true)
+                throw BiliException(AppLocale.string(R.string.net_risk_blocked_request), isBan = true)
             }
 
             if (httpCode !in 200..299) {
                 throw BiliException("HTTP $httpCode: ${text.take(200)}")
             }
-            if (text.isBlank()) throw BiliException("B 站返回空响应")
+            if (text.isBlank()) throw BiliException(AppLocale.string(R.string.net_bili_empty_response))
             return runCatching { JSONObject(text) }
-                .getOrElse { throw BiliException("B 站响应不是合法 JSON") }
+                .getOrElse { throw BiliException(AppLocale.string(R.string.net_bili_invalid_json)) }
         }
     }
 
@@ -532,11 +628,18 @@ class BiliClient {
      * 网页的 `x/space/wbi/arc/search` 对未登录 / 第三方客户端常年回 -352 风控，
      * 空间投稿列表因此整页空掉；App 端接口匿名就能正常翻页，所以这类接口走这里。
      */
-    private suspend fun getJsonApp(url: String, params: Map<String, String>): JSONObject {
+    private suspend fun getJsonApp(
+        url: String,
+        params: Map<String, String>,
+        extraHeaders: Map<String, String> = emptyMap(),
+    ): JSONObject {
         val query = appQuery(appSign(params).toSortedMap())
         return executeJson(
             "$url?$query".toHttpUrl(),
-            headers = mapOf("bili-http-engine" to "cronet"),
+            headers = buildMap {
+                put("bili-http-engine", "cronet")
+                putAll(extraHeaders)
+            },
             userAgent = APP_UA,
             referer = "",
         )
@@ -606,15 +709,15 @@ class BiliClient {
                     delay(BAN_RETRY_DELAY_MS)
                     continue
                 }
-                throw BiliException("操作被风控拦截(-412)，请稍后再试", isBan = true)
+                throw BiliException(AppLocale.string(R.string.net_risk_blocked_action), isBan = true)
             }
 
             if (httpCode !in 200..299) {
                 throw BiliException("HTTP $httpCode: ${text.take(200)}")
             }
-            if (text.isBlank()) throw BiliException("B 站返回空响应")
+            if (text.isBlank()) throw BiliException(AppLocale.string(R.string.net_bili_empty_response))
             return runCatching { JSONObject(text) }
-                .getOrElse { throw BiliException("B 站响应不是合法 JSON") }
+                .getOrElse { throw BiliException(AppLocale.string(R.string.net_bili_invalid_json)) }
         }
     }
 
@@ -622,7 +725,7 @@ class BiliClient {
         val code = optInt("code", -1)
         if (code != 0) {
             val message = optString("message").ifBlank { optString("msg") }
-            throw BiliException("$endpoint 失败：code=$code, message=$message")
+            throw BiliException(AppLocale.string(R.string.net_bili_endpoint_failed, endpoint, code, message))
         }
         return optJSONObject("data") ?: JSONObject()
     }
@@ -650,7 +753,7 @@ class BiliClient {
         val json = executeJson(NAV_URL.toHttpUrl())
         val wbi = json.optJSONObject("data")?.optJSONObject("wbi_img") ?: JSONObject()
         val key = BiliWbi.mixinKeyFrom(imgUrl = wbi.optString("img_url"), subUrl = wbi.optString("sub_url"))
-        if (key.isBlank()) throw BiliException("nav 未返回有效的 wbi_img")
+        if (key.isBlank()) throw BiliException(AppLocale.string(R.string.net_bili_nav_missing_wbi))
         return key
     }
 
@@ -673,7 +776,7 @@ class BiliClient {
             val text = String(response.body?.byteStream()?.readBytesLimited(MAX_RESPONSE_BYTES) ?: ByteArray(0))
             val nav = JSONObject(text).optJSONObject("data")?.optJSONObject("nav") ?: JSONObject()
             val key = BiliWbi.mixinKeyFrom(imgUrl = nav.optString("img"), subUrl = nav.optString("sub"))
-            if (key.isBlank()) throw BiliException("WebTicket 未返回有效的 nav")
+            if (key.isBlank()) throw BiliException(AppLocale.string(R.string.net_bili_webticket_missing_nav))
             return key
         }
     }
@@ -711,7 +814,7 @@ class BiliClient {
         val data = executeJson(QR_GENERATE_URL.toHttpUrl(), referer = QR_REFERER).requireData("qrcode/generate")
         val key = data.optString("qrcode_key").trim()
         val url = data.optString("url").trim()
-        if (key.isBlank() || url.isBlank()) throw BiliException("B 站未返回二维码")
+        if (key.isBlank() || url.isBlank()) throw BiliException(AppLocale.string(R.string.net_bili_qr_missing))
         BiliQrSession(key, url)
     }
 
@@ -927,7 +1030,7 @@ class BiliClient {
             major.optJSONObject("opus")?.optString("title").orEmpty()
         }
         val isVideo = item.optString("type").contains("AV") || bvid.isNotBlank()
-        val extra = if (item.optString("type").contains("REPOST")) "转发" else ""
+        val extra = if (item.optString("type").contains("REPOST")) AppLocale.string(R.string.net_repost) else ""
         return BiliDynamicItem(
             id = id,
             text = text,
@@ -1345,6 +1448,328 @@ class BiliClient {
                 )
             }
             BiliFavPage(folder, items, data.optBoolean("has_more", false))
+        }
+
+    // ---------- 直播 ----------
+
+    /**
+     * 直播间列表（首页「正在直播」）。
+     *
+     * 两条源依次兜底：App 端 `second/getList` 匿名可用，但除了 `appkey` 加签还必须带
+     * `buvid` 等设备头，缺了直接回 -352 风控（实测）；网页端同名接口同样吃 buvid3 指纹，
+     * 走 [getJsonWbi] 自动带上。两条都失败就返回空表，首页据此整块隐藏，不打断同一次刷新。
+     */
+    suspend fun liveRooms(page: Int = 1, pageSize: Int = 20): List<BiliLiveRoom> =
+        withContext(Dispatchers.IO) {
+            val appRooms = runCatching {
+                cookieHeader() // 先把 buvid 指纹换到手，下面的请求头要用它
+                parseLiveList(
+                    getJsonApp(
+                        LIVE_APP_SECOND_LIST,
+                        mapOf(
+                            "area_id" to "0",
+                            "parent_area_id" to "0",
+                            "sort_type" to "online",
+                            "page" to page.toString(),
+                            "page_size" to pageSize.toString(),
+                            "module_select" to "0",
+                            "tag_version" to "1",
+                            "qn" to "0",
+                            "disable_rcmd" to "0",
+                        ),
+                        extraHeaders = liveAppHeaders(),
+                    ).requireData("live/second/getList"),
+                )
+            }.onFailure { NPLogger.w(TAG, "App 端直播列表失败：${it.message}") }
+                .getOrNull().orEmpty()
+            if (appRooms.isNotEmpty()) return@withContext appRooms
+
+            runCatching {
+                parseLiveList(
+                    getJsonWbi(
+                        LIVE_WEB_SECOND_LIST,
+                        mapOf(
+                            "platform" to "web",
+                            "area_id" to "0",
+                            "parent_area_id" to "0",
+                            "sort_type" to "online",
+                            "page" to page.toString(),
+                            "page_size" to pageSize.toString(),
+                        ),
+                    ).requireData("live/second/getList(web)"),
+                )
+            }.onFailure { NPLogger.w(TAG, "网页端直播列表失败：${it.message}") }
+                .getOrNull().orEmpty()
+        }
+
+    /**
+     * 直播接口要求的设备头：`buvid` 缺一个就 -352 风控。
+     * `fp_local` / `fp_remote` 是设备指纹，PiliPlus 同款取 64 位占位值即可。
+     */
+    private fun liveAppHeaders(): Map<String, String> {
+        val buvid = cookies()["buvid3"].orEmpty().substringBefore(';')
+        return buildMap {
+            if (buvid.isNotBlank()) put("buvid", buvid)
+            put("fp_local", FP_MASK)
+            put("fp_remote", FP_MASK)
+            put("session_id", "11111111")
+            put("env", "prod")
+            put("app-key", "android")
+        }
+    }
+
+    /** `second/getList` 的 `data.list` 与列表卡片共用一套字段。 */
+    private fun parseLiveList(data: JSONObject): List<BiliLiveRoom> {
+        val arr = data.optJSONArray("list") ?: return emptyList()
+        return (0 until arr.length()).mapNotNull { i ->
+            val item = arr.optJSONObject(i) ?: return@mapNotNull null
+            val roomId = item.optLong("roomid").takeIf { it > 0 } ?: item.optLong("id")
+            if (roomId <= 0) return@mapNotNull null
+            val watched = item.optJSONObject("watched_show")
+            BiliLiveRoom(
+                roomId = roomId,
+                uid = item.optLong("uid"),
+                title = item.optString("title"),
+                cover = coverOf(item, "cover", "user_cover", "system_cover", "keyframe"),
+                anchorName = item.optString("uname"),
+                anchorFace = httpsUrl(item.optString("face")),
+                areaName = item.optString("area_name"),
+                parentAreaName = item.optString("parent_area_name"),
+                online = item.optInt("online"),
+                liveStatus = item.optInt("live_status", 1),
+                watchedText = watched?.let {
+                    // text_small「1.6万」；接口有时只给 text_large「1.6万人看过」
+                    it.optString("text_small").ifBlank { it.optString("text_large") }
+                }.orEmpty(),
+            )
+        }.filter { it.isLive }
+    }
+
+    /** 封面字段在不同接口里名字不同（cover / user_cover / system_cover / keyframe），取第一个非空的。 */
+    private fun coverOf(o: JSONObject, vararg keys: String): String =
+        httpsUrl(keys.firstNotNullOfOrNull { o.optString(it).takeIf(String::isNotBlank) }.orEmpty())
+
+    /**
+     * 直播间详情：标题、封面、分区、主播昵称头像、看过人数。
+     * 列表卡片给不全这些字段，所以进房时用这里的值覆盖。
+     */
+    suspend fun liveRoomInfo(roomId: Long): BiliLiveRoom = withContext(Dispatchers.IO) {
+        val data = getJson(LIVE_ROOM_H5, mapOf("room_id" to roomId.toString()))
+            .requireData("live/getH5InfoByRoom")
+        val room = data.optJSONObject("room_info") ?: JSONObject()
+        val anchor = data.optJSONObject("anchor_info")?.optJSONObject("base_info") ?: JSONObject()
+        val watched = data.optJSONObject("watched_show")
+        BiliLiveRoom(
+            roomId = room.optLong("room_id", roomId),
+            // 转播房 room_info.uid 可能不是当前主播，优先取 anchor_info 的
+            uid = anchor.optLong("uid").takeIf { it > 0 } ?: room.optLong("uid"),
+            title = room.optString("title"),
+            cover = coverOf(room, "cover", "keyframe"),
+            anchorName = anchor.optString("uname"),
+            anchorFace = httpsUrl(anchor.optString("face")),
+            areaName = room.optString("area_name"),
+            parentAreaName = room.optString("parent_area_name"),
+            online = room.optInt("online"),
+            liveStatus = room.optInt("live_status"),
+            // text_small「1.6万」由界面拼成「N 人在看」；text_large「1.6万人看过」
+            // 本身已带「人」，界面会照原样显示，取不到才回退到在线人数
+            watchedText = watched?.let {
+                it.optString("text_small").ifBlank { it.optString("text_large") }
+            }.orEmpty(),
+        )
+    }
+
+    /**
+     * 取直播流地址。
+     *
+     * 响应是三层嵌套 `stream[].format[].codec[]`：`protocol_name`(http_stream/http_hls)
+     * → `format_name`(flv/ts/fmp4) → `codec_name`(avc/hevc)，地址拼 `host + base_url + extra`。
+     * **ExoPlayer 没有 FLV 解码能力**，所以只挑 `http_hls`，优先 ts（直给分片、延迟低）
+     * 其次 fmp4，同档优先 avc（硬解覆盖面比 hevc 广）。没有 HLS 时返回空表，
+     * 由页面提示改用 B 站 App。
+     */
+    suspend fun liveStreams(roomId: Long, qn: Int = 10000): List<BiliLiveStream> =
+        withContext(Dispatchers.IO) {
+            val data = getJson(
+                LIVE_ROOM_PLAY_INFO,
+                mapOf(
+                    "room_id" to roomId.toString(),
+                    "protocol" to "0,1",
+                    "format" to "0,1,2",
+                    "codec" to "0,1",
+                    "qn" to qn.toString(),
+                    "platform" to "web",
+                    "ptype" to "8",
+                ),
+            ).requireData("live/getRoomPlayInfo")
+
+            // 未开播时 playurl_info 直接是 null
+            val playurl = data.optJSONObject("playurl_info")?.optJSONObject("playurl")
+                ?: return@withContext emptyList()
+            val protocols = playurl.optJSONArray("stream") ?: return@withContext emptyList()
+
+            val found = mutableListOf<BiliLiveStream>()
+            for (p in 0 until protocols.length()) {
+                val proto = protocols.optJSONObject(p) ?: continue
+                if (proto.optString("protocol_name") != "http_hls") continue
+                val formats = proto.optJSONArray("format") ?: continue
+                for (f in 0 until formats.length()) {
+                    val format = formats.optJSONObject(f) ?: continue
+                    val codecs = format.optJSONArray("codec") ?: continue
+                    for (c in 0 until codecs.length()) {
+                        val codec = codecs.optJSONObject(c) ?: continue
+                        val baseUrl = codec.optString("base_url")
+                        val host = codec.optJSONArray("url_info")?.optJSONObject(0)
+                            ?.optString("host").orEmpty()
+                        val extra = codec.optJSONArray("url_info")?.optJSONObject(0)
+                            ?.optString("extra").orEmpty()
+                        if (baseUrl.isBlank() || host.isBlank()) continue
+                        found += BiliLiveStream(
+                            url = host + baseUrl + extra,
+                            qn = codec.optInt("current_qn"),
+                            format = format.optString("format_name"),
+                            codec = codec.optString("codec_name"),
+                            isHls = true,
+                        )
+                    }
+                }
+            }
+            // ts 优于 fmp4（少一层主播放列表），avc 优于 hevc（硬解兼容），最后按画质降序
+            found.sortedWith(
+                compareBy({ if (it.format == "ts") 0 else 1 }, { if (it.codec == "avc") 0 else 1 }, { -it.qn }),
+            )
+        }
+
+    /**
+     * 主播 mid → 他自己的直播间（房间号 + 开播状态）。
+     *
+     * 常见的 `xlive/web-room/v1/index/getInfoByUser` 要登录（实测回 -101 账号未登录），
+     * 这个批量接口免登录也免签名，单个 mid 一样能查；该用户没有直播间时返回 null。
+     */
+    suspend fun liveBrief(mid: Long): BiliLiveBrief? = withContext(Dispatchers.IO) {
+        val data = getJson(
+            LIVE_STATUS_BY_UIDS,
+            mapOf("uids[]" to mid.toString()),
+        ).requireData("live/statusByUids")
+        val room = data.optJSONObject(mid.toString()) ?: return@withContext null
+        val roomId = room.optLong("room_id")
+        if (roomId <= 0) return@withContext null
+        BiliLiveBrief(
+            roomId = roomId,
+            liveStatus = room.optInt("live_status"),
+            title = room.optString("title"),
+            areaName = room.optString("area_v2_name").ifBlank { room.optString("area_name") },
+            online = room.optInt("online"),
+        )
+    }
+
+    /**
+     * 弹幕弹道：进房 token + 弹幕服务器地址。
+     *
+     * 这个接口**必须 Wbi 加签**，不签一律回 -352（实测）；失败时由调用方退回官方公开弹幕地址
+     * 匿名读。
+     */
+    suspend fun liveDmInfo(roomId: Long): BiliLiveDmInfo = withContext(Dispatchers.IO) {
+        val data = getJsonWbi(
+            LIVE_DM_INFO,
+            mapOf("id" to roomId.toString(), "type" to "0", "web_location" to "444.8"),
+        ).requireData("live/getDanmuInfo")
+        val arr = data.optJSONArray("host_list")
+        val hosts = buildList {
+            if (arr != null) {
+                for (i in 0 until arr.length()) {
+                    val host = arr.optJSONObject(i)?.optString("host").orEmpty()
+                    val port = arr.optJSONObject(i)?.optInt("wss_port") ?: 0
+                    if (host.isBlank() || port <= 0) continue
+                    val url = "wss://$host:$port/sub"
+                    if (url !in this) add(url)
+                }
+            }
+        }
+        BiliLiveDmInfo(token = data.optString("token"), hosts = hosts)
+    }
+
+    /**
+     * 进房先拉的最近弹幕，让聊天区不至于开局就空白（拿不到就留空，等实时弹幕）。
+     *
+     * 该接口的元素格式不稳定：有时是 `[mode, 内容, 昵称, 0, 0]` 这样的数组，
+     * 有时是 `user`/`text` 结构的对象，所以两种都试着解，解不出来直接当没有。
+     */
+    suspend fun liveDmHistory(roomId: Long): List<BiliLiveMsg> = withContext(Dispatchers.IO) {
+        runCatching {
+            val data = getJson(LIVE_DM_HISTORY, mapOf("roomid" to roomId.toString()))
+                .requireData("live/gethistory")
+            val msgs = mutableListOf<BiliLiveMsg>()
+            for (key in listOf("room", "admin")) {
+                val arr = data.optJSONArray(key) ?: continue
+                for (i in 0 until arr.length()) {
+                    val item = arr.opt(i)
+                    val text = when (item) {
+                        is JSONObject -> item.optString("text")
+                        is JSONArray -> item.optString(1)
+                        else -> ""
+                    }
+                    if (text.isBlank()) continue
+                    val name = when (item) {
+                        is JSONObject -> item.optJSONObject("user")
+                            ?.optJSONObject("base")?.optString("name").orEmpty()
+                        is JSONArray -> item.optString(2)
+                        else -> ""
+                    }
+                    msgs += BiliLiveMsg(
+                        text = text,
+                        userName = name,
+                        uid = if (item is JSONArray) item.optLong(0) else 0L,
+                        color = 0xFFFFFFFF.toInt(),
+                    )
+                }
+            }
+            msgs
+        }.getOrElse {
+            NPLogger.w(TAG, "拉取历史弹幕失败：${it.message}")
+            emptyList()
+        }
+    }
+
+    /** 直播间发言。`csrf` / `csrf_token` 都要 bili_jct，未登录时直接失败。 */
+    suspend fun sendLiveMsg(roomId: Long, message: String) = withContext(Dispatchers.IO) {
+        val csrf = cookies()["bili_jct"].orEmpty()
+        postForm(
+            LIVE_MSG_SEND,
+            mapOf(
+                "bubble" to "0",
+                "msg" to message,
+                "color" to "16777215",
+                "mode" to "1",
+                "fontsize" to "25",
+                "rnd" to (System.currentTimeMillis() / 1000L).toString(),
+                "roomid" to roomId.toString(),
+                "room_type" to "0",
+                "csrf" to csrf,
+                "csrf_token" to csrf,
+            ),
+        ).requireData("msg/send")
+    }
+
+    /** 关注状态：`data.attribute` 为 0 表示未关注（1 悄悄关注 / 2 已关注 / 128 特别关注都算关注了）。 */
+    suspend fun liveRelation(fid: Long): Boolean = withContext(Dispatchers.IO) {
+        val attr = getJson(RELATION_INFO, mapOf("fid" to fid.toString()))
+            .requireData("relation").optInt("attribute")
+        attr != 0
+    }
+
+    /** 改关注：[follow] 为真则关注（act=1），否则取关（act=2）。 */
+    suspend fun liveRelationModify(fid: Long, follow: Boolean): Boolean =
+        withContext(Dispatchers.IO) {
+            postForm(
+                RELATION_MODIFY,
+                mapOf(
+                    "fid" to fid.toString(),
+                    "act" to if (follow) "1" else "2",
+                    "re_src" to "11",
+                ),
+            ).requireData("relation/modify")
+            follow
         }
 
     // ---------- 工具 ----------

@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ui/screen/Login.kt（登录）、Library.kt（曲库）、Mine.kt（账号卡片）。
+  中文是默认语言，values-ja / values-en 各自覆盖。
+-->
+<resources>
+    <!-- ===================== Login.kt（登录页） ===================== -->
+
+    <!-- 顶栏标题与返回 -->
+    <string name="lgn_title_captcha">验证码登录</string>
+    <string name="lgn_title_netease">网易云登录</string>
+    <string name="lgn_title_kugou">酷狗登录</string>
+    <string name="lgn_title_bili">B 站登录</string>
+    <string name="lgn_title_youtube">YouTube 登录</string>
+    <string name="lgn_title_qr">扫码登录</string>
+    <string name="lgn_back">返回</string>
+
+    <!-- 网页登录（网易云 / YouTube） -->
+    <string name="lgn_netease_web_hint">请在下方页面完成网易云音乐登录</string>
+    <string name="lgn_google_web_hint">请在下方页面完成 Google 账号登录</string>
+    <string name="lgn_paste_hint">在电脑浏览器里登录 music.youtube.com，打开开发者工具 → Network，点任意请求把 Request Headers 里的 Cookie 整段（可连同 Authorization）粘贴到下面</string>
+    <string name="lgn_back_to_web">返回网页登录</string>
+    <string name="lgn_sign_in">登录</string>
+    <string name="lgn_login_success_syncing">登录成功，正在同步账号…</string>
+    <string name="lgn_paste_save_fail">Cookie 解析成功，但登录态保存失败（设备加密存储异常），请重试</string>
+    <string name="lgn_paste_invalid">没有解析到有效的登录 Cookie，请确认粘贴的是 youtube.com 的完整 Cookie</string>
+    <string name="lgn_desktop_mode">电脑模式</string>
+    <string name="lgn_desktop_mode_off">关电脑模式</string>
+    <string name="lgn_refresh">刷新</string>
+    <string name="lgn_paste_cookie">粘贴 Cookie</string>
+    <string name="lgn_page_load_fail">页面加载失败：%1$s，可点右上角刷新或开启电脑模式重试</string>
+    <string name="lgn_network_error">网络错误</string>
+    <string name="lgn_page_login_save_fail">页面已登录，但登录态保存失败（加密存储异常），可再试一次；不行就用粘贴 Cookie</string>
+
+    <!-- 手机号验证码登录 -->
+    <string name="lgn_phone_title">手机号验证码登录</string>
+    <string name="lgn_phone_hint">手机号</string>
+    <string name="lgn_code_hint">验证码</string>
+    <string name="lgn_phone_invalid">请输入 11 位手机号</string>
+    <string name="lgn_send_fail">验证码发送失败</string>
+    <string name="lgn_send_countdown">%1$ss</string>
+    <string name="lgn_sending">发送中</string>
+    <string name="lgn_get_code">获取验证码</string>
+    <string name="lgn_code_required">请输入验证码</string>
+    <string name="lgn_login_success">登录成功</string>
+    <string name="lgn_login_fail">登录失败</string>
+    <string name="lgn_captcha_note">验证码由网易云音乐发送；登录后可播放会员歌曲。</string>
+
+    <!-- 扫码登录（网易云 / 酷狗 / B 站） -->
+    <string name="lgn_qr_fetch_fail">二维码获取失败</string>
+    <string name="lgn_qr_poll_fail">轮询失败</string>
+    <string name="lgn_qr_render_fail">二维码生成失败</string>
+    <string name="lgn_qr_desc">登录二维码</string>
+    <string name="lgn_qr_refresh">刷新二维码</string>
+    <string name="lgn_qr_netease_title">使用网易云音乐 App 扫描二维码</string>
+    <string name="lgn_qr_netease_subtitle">登录后可播放会员歌曲、获取账号曲库</string>
+    <string name="lgn_qr_netease_waiting">请打开网易云音乐 App 扫码</string>
+    <string name="lgn_qr_scanned">已扫描，请在手机上确认登录</string>
+    <string name="lgn_qr_cookie_incomplete">登录确认但 Cookie 不完整，请重试</string>
+    <string name="lgn_qr_expired">二维码已过期，请刷新</string>
+    <string name="lgn_qr_kugou_title">使用酷狗音乐 App 扫描二维码</string>
+    <string name="lgn_qr_kugou_subtitle">登录后可同步「我喜欢」与歌单</string>
+    <string name="lgn_qr_kugou_waiting">请打开酷狗音乐 App 扫码</string>
+    <string name="lgn_qr_kugou_scanned">已扫码，请在手机上确认登录</string>
+    <string name="lgn_qr_bili_title">使用哔哩哔哩 App 扫描二维码</string>
+    <string name="lgn_qr_bili_subtitle">登录后可同步收藏夹与「我喜欢」</string>
+    <string name="lgn_qr_bili_waiting">请打开哔哩哔哩 App 扫码</string>
+
+    <!-- ===================== Library.kt（曲库） ===================== -->
+
+    <string name="lib_title">曲库</string>
+    <string name="lib_refresh">刷新</string>
+
+    <!-- 曲库子标签 -->
+    <string name="lib_tab_recent">最近</string>
+    <string name="lib_tab_local">本地</string>
+    <string name="lib_tab_netease">网易云</string>
+    <string name="lib_tab_kugou">酷狗</string>
+    <string name="lib_tab_bili">B站</string>
+
+    <!-- 最近播放 / 本地 -->
+    <string name="lib_recent_empty">还没有播放记录，去首页或搜索听几首吧</string>
+    <string name="lib_local_empty">本地还没有音频，播放过的曲目会自动缓存，也可以在歌单里手动下载</string>
+    <string name="lib_song_count">%1$s 首</string>
+    <string name="lib_play_all">播放全部</string>
+    <string name="lib_remove_cache">删除本地缓存</string>
+    <string name="lib_cached_header">已缓存 %1$s 首 · %2$s</string>
+    <string name="lib_clear">清空</string>
+    <string name="lib_dropped">已清理 %1$s 条失效记录（文件被缓存淘汰）</string>
+
+    <!-- 最近：长按进多选，勾选后批量下载 -->
+    <string name="lib_dl_start">正在下载《%1$s》…</string>
+    <string name="lib_dl_done">《%1$s》已下载到本地</string>
+    <string name="lib_dl_exists">这首歌已经在本地了</string>
+    <string name="lib_selected_count">已选 %1$s 首</string>
+    <string name="lib_select_all">全选</string>
+    <string name="lib_select_clear">取消全选</string>
+    <string name="lib_dl_button">下载</string>
+    <string name="lib_dl_button_count">下载 %1$s 首</string>
+    <string name="lib_downloading">下载中…</string>
+    <string name="lib_dl_batch_start">开始下载 %1$s 首…</string>
+    <string name="lib_dl_batch_done">已下载 %1$s 首到本地</string>
+    <string name="lib_dl_batch_fail">成功 %1$s 首，失败 %2$s 首：%3$s</string>
+    <string name="lib_exit_selection">退出多选</string>
+
+    <!-- 本地：扫描手机里的音乐（不复制文件，只把清单列进本地） -->
+    <string name="lib_scan">扫描歌曲</string>
+    <string name="lib_scan_desc">把手机里已有的音乐列进「本地」，直接播放、不占额外空间</string>
+    <string name="lib_scan_scanning">正在扫描…</string>
+    <string name="lib_scan_done">扫描到 %1$s 首本机音乐</string>
+    <string name="lib_scan_empty">没有在手机里找到音频文件</string>
+    <string name="lib_scan_denied">需要「音乐和音频」权限才能扫描本机歌曲</string>
+    <string name="lib_scan_fail">扫描失败：%1$s</string>
+    <string name="lib_remove_entry">从本地移除</string>
+
+    <!-- 各源歌单标签页 -->
+    <string name="lib_netease_tip_offline">网络不可达，暂无本地歌单缓存</string>
+    <string name="lib_netease_tip_fallback">暂未取到你的歌单，已展示推荐歌单</string>
+    <string name="lib_netease_tip_login">登录网易云账号即可同步你的歌单</string>
+    <string name="lib_netease_empty_in">还没有歌单</string>
+    <string name="lib_netease_empty_out">登录后同步你的歌单</string>
+    <string name="lib_recommended">推荐歌单</string>
+    <string name="lib_my_playlists">我的歌单</string>
+    <string name="lib_kugou_empty">登录酷狗账号后同步「我喜欢」与歌单</string>
+    <string name="lib_bili_empty">登录 B 站账号后同步收藏夹</string>
+    <string name="lib_bili_folders">收藏夹</string>
+    <string name="lib_bili_created">创建的收藏夹</string>
+    <string name="lib_bili_subscribed">订阅的收藏夹</string>
+    <string name="lib_go_login">去登录</string>
+
+    <!-- ===================== Mine.kt（账号卡片） ===================== -->
+
+    <string name="min_netease_title">网易云音乐</string>
+    <string name="min_kugou_title">酷狗音乐</string>
+    <string name="min_bili_title">哔哩哔哩</string>
+    <string name="min_logged_in">已登录</string>
+    <string name="min_netease_status_vip">%1$s · 黑胶VIP</string>
+    <string name="min_netease_status">%1$s · 网易云账号</string>
+    <string name="min_netease_offline">未登录（登录后可同步歌单、播放会员歌曲）</string>
+    <string name="min_kugou_status">%1$s · 酷狗账号</string>
+    <string name="min_kugou_offline">未登录（登录后可同步「我喜欢」与歌单）</string>
+    <string name="min_bili_status">%1$s · 播放视频的音频轨</string>
+    <string name="min_bili_offline">未登录（登录后可同步收藏夹与「我喜欢」）</string>
+    <string name="min_switch_account">切换账号</string>
+    <string name="min_sign_out">退出</string>
+    <string name="min_web_login">网页登录</string>
+    <string name="min_captcha">验证码</string>
+    <string name="min_qr_login">扫码登录</string>
+    <string name="min_likes">我喜欢</string>
+    <string name="min_kugou_likes_missing">未在酷狗账号里找到「我喜欢」歌单</string>
+    <string name="min_no_folder">未找到可用的收藏夹</string>
+    <string name="min_song_count">%1$s 首</string>
+</resources>

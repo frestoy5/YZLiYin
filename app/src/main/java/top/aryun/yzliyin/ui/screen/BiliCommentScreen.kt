@@ -49,11 +49,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
+import top.aryun.yzliyin.R
 import top.aryun.yzliyin.core.model.Comment
 import top.aryun.yzliyin.core.net.BiliApi
 import top.aryun.yzliyin.ui.Routes
@@ -93,14 +95,14 @@ fun BiliCommentScreen(nav: NavController, bvid: String, name: String = "") {
                 page = p
                 error = null
             }
-            .onFailure { error = it.message ?: "加载评论失败" }
+            .onFailure { error = it.message ?: context.getString(R.string.bili_comments_load_fail) }
         loading = false
     }
 
     /** 未登录时提示并跳登录页，返回是否已登录。 */
     fun requireLogin(): Boolean {
         if (BiliApi.isLoggedIn) return true
-        Toast.makeText(context, "该操作需要先登录 B 站账号", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, context.getString(R.string.bili_comments_login_required), Toast.LENGTH_SHORT).show()
         nav.navigate(Routes.login(Routes.LOGIN_BILIBILI_QR)) { launchSingleTop = true }
         return false
     }
@@ -135,7 +137,11 @@ fun BiliCommentScreen(nav: NavController, bvid: String, name: String = "") {
                     }
                 }
                 .onFailure {
-                    Toast.makeText(context, it.message ?: "操作失败", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        context,
+                        it.message ?: context.getString(R.string.bili_comments_action_fail),
+                        Toast.LENGTH_SHORT,
+                    ).show()
                 }
         }
     }
@@ -153,7 +159,7 @@ fun BiliCommentScreen(nav: NavController, bvid: String, name: String = "") {
 
     LaunchedEffect(bvid) {
         if (bvid.isBlank()) {
-            error = "缺少稿件信息"
+            error = context.getString(R.string.bili_comments_missing)
             loading = false
             return@LaunchedEffect
         }
@@ -169,7 +175,7 @@ fun BiliCommentScreen(nav: NavController, bvid: String, name: String = "") {
             title = {
                 Text(
                     buildString {
-                        append("评论")
+                        append(stringResource(R.string.bili_comments_title))
                         if (comments.isNotEmpty()) append(" ${formatCount(comments.size.toLong())}")
                         if (title.isNotBlank()) append(" · $title")
                     },
@@ -178,7 +184,10 @@ fun BiliCommentScreen(nav: NavController, bvid: String, name: String = "") {
             },
             navigationIcon = {
                 IconButton(onClick = { nav.popBackStack() }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = stringResource(R.string.bili_back),
+                    )
                 }
             },
         )
@@ -199,7 +208,7 @@ fun BiliCommentScreen(nav: NavController, bvid: String, name: String = "") {
                             Modifier.weight(1f),
                             color = MaterialTheme.colorScheme.error,
                         )
-                        TextButton(onClick = { refresh() }) { Text("重试") }
+                        TextButton(onClick = { refresh() }) { Text(stringResource(R.string.bili_retry)) }
                     }
                 }
             }
@@ -207,7 +216,7 @@ fun BiliCommentScreen(nav: NavController, bvid: String, name: String = "") {
             if (comments.isEmpty() && !loading && error == null) {
                 item {
                     Text(
-                        "还没有评论，来抢沙发",
+                        stringResource(R.string.bili_comments_empty),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(vertical = 24.dp),
                     )
@@ -228,7 +237,7 @@ fun BiliCommentScreen(nav: NavController, bvid: String, name: String = "") {
             if (loading) {
                 item {
                     Text(
-                        "加载中…",
+                        stringResource(R.string.bili_comments_loading),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(vertical = 8.dp),
                     )
@@ -241,7 +250,7 @@ fun BiliCommentScreen(nav: NavController, bvid: String, name: String = "") {
                         onClick = { scope.launch { load(page + 1, append = true) } },
                         enabled = !loading,
                         modifier = Modifier.fillMaxWidth(),
-                    ) { Text("加载更多评论") }
+                    ) { Text(stringResource(R.string.bili_comments_load_more)) }
                 }
             }
         }
@@ -256,14 +265,18 @@ fun BiliCommentScreen(nav: NavController, bvid: String, name: String = "") {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    "回复 @${target.user}",
+                    stringResource(R.string.bili_comments_reply_to, target.user),
                     Modifier.weight(1f),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                 )
                 IconButton(onClick = { replyTarget = null }, modifier = Modifier.size(20.dp)) {
-                    Icon(Icons.Filled.Close, contentDescription = "取消回复", modifier = Modifier.size(16.dp))
+                    Icon(
+                        Icons.Filled.Close,
+                        contentDescription = stringResource(R.string.bili_comments_cancel_reply),
+                        modifier = Modifier.size(16.dp),
+                    )
                 }
             }
         }
@@ -280,7 +293,10 @@ fun BiliCommentScreen(nav: NavController, bvid: String, name: String = "") {
                 onValueChange = { draft = it },
                 modifier = Modifier.weight(1f),
                 placeholder = {
-                    Text(if (BiliApi.isLoggedIn) "友善评论，说点什么…" else "未登录 · 暂无法发表评论")
+                    Text(
+                        if (BiliApi.isLoggedIn) stringResource(R.string.bili_comments_hint)
+                        else stringResource(R.string.bili_comments_hint_not_login),
+                    )
                 },
                 enabled = !sending,
                 maxLines = 3,
@@ -303,10 +319,18 @@ fun BiliCommentScreen(nav: NavController, bvid: String, name: String = "") {
                         }.onSuccess {
                             draft = ""
                             replyTarget = null
-                            Toast.makeText(context, "评论已发送", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(
+                                context,
+                                context.getString(R.string.bili_comments_sent),
+                                Toast.LENGTH_SHORT,
+                            ).show()
                             load(1, append = false)
                         }.onFailure {
-                            Toast.makeText(context, it.message ?: "发送失败", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(
+                                context,
+                                it.message ?: context.getString(R.string.bili_comments_send_fail),
+                                Toast.LENGTH_SHORT,
+                            ).show()
                         }
                         sending = false
                     }
@@ -325,14 +349,14 @@ fun BiliCommentScreen(nav: NavController, bvid: String, name: String = "") {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    "未登录 B 站账号 · 可浏览评论",
+                    stringResource(R.string.bili_comments_not_login),
                     Modifier.weight(1f),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 TextButton(onClick = {
                     nav.navigate(Routes.login(Routes.LOGIN_BILIBILI_QR)) { launchSingleTop = true }
-                }) { Text("去登录") }
+                }) { Text(stringResource(R.string.bili_comments_go_login)) }
             }
         }
     }
@@ -365,7 +389,7 @@ private fun BiliCommentItem(
                 if (comment.isHot) {
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        "热评",
+                        stringResource(R.string.bili_comments_hot),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                     )
@@ -395,7 +419,7 @@ private fun BiliCommentItem(
                     Icon(
                         imageVector = if (comment.likeAction == 1) Icons.Filled.ThumbUp
                         else Icons.Filled.ThumbUpOffAlt,
-                        contentDescription = "点赞",
+                        contentDescription = stringResource(R.string.bili_like),
                         tint = if (comment.likeAction == 1) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(16.dp),
@@ -413,7 +437,7 @@ private fun BiliCommentItem(
                     Icon(
                         imageVector = if (comment.likeAction == 2) Icons.Filled.ThumbDown
                         else Icons.Filled.ThumbDownOffAlt,
-                        contentDescription = "点踩",
+                        contentDescription = stringResource(R.string.bili_dislike),
                         tint = if (comment.likeAction == 2) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(16.dp),
@@ -421,7 +445,7 @@ private fun BiliCommentItem(
                 }
                 Spacer(Modifier.weight(1f))
                 TextButton(onClick = onReply) {
-                    Text("回复", style = MaterialTheme.typography.labelSmall)
+                    Text(stringResource(R.string.bili_reply), style = MaterialTheme.typography.labelSmall)
                 }
             }
         }

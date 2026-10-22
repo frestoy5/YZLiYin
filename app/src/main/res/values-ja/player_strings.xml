@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 日本語。ここに無いキーは values/（中国語）へフォールバック。 -->
+<resources>
+    <!-- 空态 / 通用按钮 -->
+    <string name="pl_nothing_playing">再生中の曲はありません</string>
+    <string name="pl_back">戻る</string>
+    <string name="pl_collapse">閉じる</string>
+    <string name="pl_cancel">キャンセル</string>
+    <string name="pl_save">保存</string>
+    <string name="pl_done">完了</string>
+    <string name="pl_none">なし</string>
+
+    <!-- 歌词面板提示 -->
+    <string name="pl_lyric_none">まだ歌詞はありません</string>
+    <string name="pl_lyric_loading">歌詞を読み込み中…</string>
+    <string name="pl_lyric_load_failed">歌詞を読み込めませんでした</string>
+
+    <!-- 歌手：点歌手名与按名字搜索 -->
+    <string name="pl_no_artist">この曲にはアーティスト情報がありません</string>
+    <string name="pl_artist_not_found">アーティスト「%1$s」が見つかりませんでした</string>
+    <string name="pl_pick_artist">アーティストを選択</string>
+    <string name="pl_searching_artist">アーティストを検索中…</string>
+    <string name="pl_this_up">このUP主</string>
+    <string name="pl_view_up_title">%1$s のプロフィールを見る</string>
+    <string name="pl_choose_app">どのアプリで開きますか？</string>
+    <string name="pl_watch_in_app">アプリ内で見る</string>
+    <string name="pl_watch_in_bili">Bilibiliアプリで見る</string>
+
+    <!-- 一起听房间状态条 -->
+    <string name="pl_lt_status">一緒に聴く · %1$s · ルーム %2$s</string>
+    <string name="pl_lt_host">ホスト</string>
+    <string name="pl_lt_listener">リスナー</string>
+
+    <!-- 顶栏图标描述 -->
+    <string name="pl_comment">コメント</string>
+    <string name="pl_more">その他の操作</string>
+
+    <!-- B 站投稿：打开方式 -->
+    <string name="pl_open_post_title">投稿を開く</string>
+    <string name="pl_open_post_msg">Bilibiliアプリで開きますか、それともこのアプリでそのまま再生しますか？</string>
+    <string name="pl_open_in_bili_app">Bilibiliアプリ</string>
+    <string name="pl_play_in_app">アプリ内で再生</string>
+    <string name="pl_view_post">投稿を見る</string>
+    <string name="pl_no_bili_app">Bilibiliページを開けるアプリが見つかりません</string>
+
+    <!-- 进度条下方胶囊按钮 -->
+    <string name="pl_back_to_cover">ジャケットに戻る</string>
+    <string name="pl_view_lyrics">歌詞を見る</string>
+
+    <!-- 播放控制（无障碍描述） -->
+    <string name="pl_shuffle">シャッフル再生</string>
+    <string name="pl_prev">前の曲</string>
+    <string name="pl_play">再生</string>
+    <string name="pl_pause">一時停止</string>
+    <string name="pl_next">次の曲</string>
+    <string name="pl_repeat_one">1曲リピート（タップで切替）</string>
+    <string name="pl_repeat_all">全曲リピート（タップで切替）</string>
+    <string name="pl_repeat_off">順番に再生（タップで切替）</string>
+
+    <!-- 三点菜单 -->
+    <string name="pl_listen_together">一緒に聴く</string>
+    <string name="pl_edit_info">曲情報を編集</string>
+    <string name="pl_quality">音質</string>
+    <string name="pl_speed">再生速度</string>
+    <string name="pl_lyric_style">歌詞スタイル</string>
+
+    <!-- 音质档位（label 存资源 id，选中与否按 id 比对） -->
+    <string name="pl_q_standard">標準</string>
+    <string name="pl_q_higher">高め</string>
+    <string name="pl_q_exhigh">最高音質</string>
+    <string name="pl_q_lossless">ロスレス</string>
+    <string name="pl_q_hires">Hi·Res</string>
+    <string name="pl_q_hi_res">Hi-Res</string>
+    <string name="pl_q_auto">自動</string>
+    <string name="pl_q_high">高</string>
+    <string name="pl_q_kugou_high">高音質</string>
+    <string name="pl_q_low">低</string>
+    <string name="pl_q_medium">中</string>
+    <string name="pl_q_128k">128K</string>
+    <string name="pl_q_320k">320K</string>
+    <string name="pl_q_64k">64K</string>
+    <string name="pl_q_132k">132K</string>
+    <string name="pl_q_192k">192K</string>
+    <string name="pl_q_default">デフォルト</string>
+
+    <!-- 右下角来源标识 -->
+    <string name="pl_source_from">%1$sから</string>
+    <string name="pl_source_from_note">%1$sから · %2$s</string>
+    <string name="pl_source_cache">ローカルキャッシュ</string>
+    <string name="pl_source_switched">切り替え済み</string>
+
+    <!-- 歌词样式摘要 -->
+    <string name="pl_style_wave">波打つ</string>
+    <string name="pl_style_glow">光る</string>
+
+    <!-- 编辑歌曲信息 -->
+    <string name="pl_edit_info_desc">変更は即座に反映されます：再生画面・ミニプレーヤー・通知・ライブラリが新しい情報で表示され、再生位置は変わりません。</string>
+    <string name="pl_field_name">曲名</string>
+    <string name="pl_field_artist">アーティスト</string>
+    <string name="pl_field_cover">カバーURL</string>
+    <string name="pl_restore_field">%1$sを元に戻す</string>
+    <string name="pl_restore_info">元の情報を戻す</string>
+
+    <!-- 歌词编辑器 -->
+    <string name="pl_edit_lyrics">歌詞を編集</string>
+    <string name="pl_lrc_label">LRC 歌詞</string>
+    <string name="pl_lrc_placeholder">[00:12.34]1行1フレーズ\n同じタイムスタンプの行は訳文になります</string>
+    <string name="pl_lrc_hint">形式は [分:秒.百分秒]歌詞、1行1フレーズ。同じタイムスタンプの行をもう1行書くと訳文として扱われます。</string>
+    <string name="pl_restore_lyrics">元の歌詞に戻す</string>
+    <string name="pl_lyrics_edited">編集済み</string>
+    <string name="pl_line_count">%1$s 行</string>
+
+    <!-- 歌词样式弹窗 -->
+    <string name="pl_font_size">文字サイズ</string>
+    <string name="pl_wave_amount">波の強さ</string>
+    <string name="pl_glow_amount">光の強さ</string>
+    <string name="pl_restore_default">デフォルトに戻す</string>
+    <string name="pl_show_translation">歌詞の訳文を表示</string>
+
+    <!-- 匹配歌词 -->
+    <string name="pl_replace_audio">音声を差し替え</string>
+    <string name="pl_replace_audio_desc">自動ソース切替で間違った曲になったとき、ここで検索して正しい曲に差し替えます。</string>
+    <string name="pl_replace_audio_keyword">検索キーワード</string>
+    <string name="pl_replace_audio_loading">各プラットフォームを検索中…</string>
+    <string name="pl_replace_audio_empty">差し替え可能な楽曲が見つかりません</string>
+    <string name="pl_replace_audio_done">差し替えました：%1$s</string>
+    <string name="pl_replace_audio_failed">差し替えに失敗したため、元の曲に戻しました</string>
+    <string name="pl_replace_audio_error">検索に失敗しました：%1$s</string>
+    <string name="pl_match_lyrics">歌詞を検索</string>
+    <string name="pl_match_lyrics_desc">キーワードで選ぶ</string>
+    <string name="pl_match_keyword">検索キーワード</string>
+    <string name="pl_match_keyword_hint">曲名・歌手・バージョンを変更できます</string>
+    <string name="pl_match_platforms">プラットフォーム</string>
+    <string name="pl_match_source_netease">網易雲Music</string>
+    <string name="pl_match_source_kugou">酷狗（クーごう）</string>
+    <string name="pl_match_search">検索</string>
+    <string name="pl_match_hint">キーワードで候補を検索して、合うものを選んでください。選ぶと現在の歌詞に置き換わり、あとから編集もできます。</string>
+    <string name="pl_match_loading">選択したプラットフォームで歌詞を検索中…</string>
+    <string name="pl_match_empty">使える歌詞が見つかりませんでした</string>
+    <string name="pl_match_error">検索に失敗しました：%1$s</string>
+    <string name="pl_match_no_source">プラットフォームを1つ以上選んでください</string>
+    <string name="pl_match_applied">新しい歌詞を適用しました</string>
+    <string name="pl_match_duration_delta">差分 %1$s</string>
+    <string name="pl_match_score">一致度 %1$d</string>
+    <string name="pl_match_confidence_high">確度が高い</string>
+    <string name="pl_match_confidence_medium">確度は中程度</string>
+    <string name="pl_match_confidence_low">確度が低いので要確認</string>
+    <string name="pl_match_has_translation">訳文あり</string>
+</resources>

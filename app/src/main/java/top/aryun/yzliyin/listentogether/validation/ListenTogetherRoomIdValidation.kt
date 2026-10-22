@@ -1,5 +1,6 @@
 package top.aryun.yzliyin.listentogether.validation
 
+import top.aryun.yzliyin.R
 import top.aryun.yzliyin.listentogether.LtMessages
 
 private val ROOM_ID_REGEX = Regex("^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$")
@@ -16,12 +17,16 @@ fun validateListenTogetherRoomId(roomId: String): ListenTogetherValidationError?
         normalized.length != LISTEN_TOGETHER_ROOM_ID_LENGTH -> {
             ListenTogetherValidationError(
                 messageFormat = LtMessages.listen_together_error_room_id_length,
-                args = listOf(LISTEN_TOGETHER_ROOM_ID_LENGTH)
+                args = listOf(LISTEN_TOGETHER_ROOM_ID_LENGTH),
+                messageRes = R.string.ltm_validate_room_id_length
             )
         }
 
         !ROOM_ID_REGEX.matches(normalized) -> {
-            ListenTogetherValidationError(LtMessages.listen_together_error_room_id_chars)
+            ListenTogetherValidationError(
+                messageFormat = LtMessages.listen_together_error_room_id_chars,
+                messageRes = R.string.ltm_validate_room_id_chars
+            )
         }
 
         else -> null

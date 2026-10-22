@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ui/screen/Player.kt（播放页：空态、歌词提示、歌手弹窗、进度/控制条、三点菜单、
+  音质档位、来源标识、编辑歌曲信息 / 歌词 / 歌词样式弹窗）。
+  中文是默认语言，values-ja / values-en 各自覆盖。
+-->
+<resources>
+    <!-- 空态 / 通用按钮 -->
+    <string name="pl_nothing_playing">当前没有播放的歌曲</string>
+    <string name="pl_back">返回</string>
+    <string name="pl_collapse">收起</string>
+    <string name="pl_cancel">取消</string>
+    <string name="pl_save">保存</string>
+    <string name="pl_done">完成</string>
+    <string name="pl_none">暂无</string>
+
+    <!-- 歌词面板提示 -->
+    <string name="pl_lyric_none">暂无歌词</string>
+    <string name="pl_lyric_loading">歌词加载中…</string>
+    <string name="pl_lyric_load_failed">歌词加载失败</string>
+
+    <!-- 歌手：点歌手名与按名字搜索 -->
+    <string name="pl_no_artist">这首歌没有歌手信息</string>
+    <string name="pl_artist_not_found">没找到歌手「%1$s」</string>
+    <string name="pl_pick_artist">选择歌手</string>
+    <string name="pl_searching_artist">正在查找歌手…</string>
+    <string name="pl_this_up">这位 UP 主</string>
+    <string name="pl_view_up_title">查看 %1$s 的主页</string>
+    <string name="pl_choose_app">选择在哪个应用里观看？</string>
+    <string name="pl_watch_in_app">在应用内观看</string>
+    <string name="pl_watch_in_bili">在 B 站内观看</string>
+
+    <!-- 一起听房间状态条 -->
+    <string name="pl_lt_status">一起听 · %1$s · 房间 %2$s</string>
+    <string name="pl_lt_host">房主</string>
+    <string name="pl_lt_listener">听众</string>
+
+    <!-- 顶栏图标描述 -->
+    <string name="pl_comment">评论</string>
+    <string name="pl_more">更多</string>
+
+    <!-- B 站投稿：打开方式 -->
+    <string name="pl_open_post_title">打开投稿</string>
+    <string name="pl_open_post_msg">跳到 B 站 App 观看，还是直接在本应用里播这条投稿？</string>
+    <string name="pl_open_in_bili_app">B 站 App</string>
+    <string name="pl_play_in_app">在应用内播放</string>
+    <string name="pl_view_post">查看投稿</string>
+    <string name="pl_no_bili_app">未检测到能打开 B 站页面的应用</string>
+
+    <!-- 进度条下方胶囊按钮 -->
+    <string name="pl_back_to_cover">返回封面</string>
+    <string name="pl_view_lyrics">查看歌词</string>
+
+    <!-- 播放控制（无障碍描述） -->
+    <string name="pl_shuffle">随机播放</string>
+    <string name="pl_prev">上一首</string>
+    <string name="pl_play">播放</string>
+    <string name="pl_pause">暂停</string>
+    <string name="pl_next">下一首</string>
+    <string name="pl_repeat_one">单曲循环（点击切换）</string>
+    <string name="pl_repeat_all">列表循环（点击切换）</string>
+    <string name="pl_repeat_off">顺序播放（点击切换）</string>
+
+    <!-- 三点菜单 -->
+    <string name="pl_listen_together">一起听</string>
+    <string name="pl_edit_info">编辑歌曲信息</string>
+    <string name="pl_quality">音质</string>
+    <string name="pl_speed">倍速</string>
+    <string name="pl_lyric_style">歌词样式</string>
+
+    <!-- 音质档位（label 存资源 id，选中与否按 id 比对） -->
+    <string name="pl_q_standard">标准</string>
+    <string name="pl_q_higher">较高</string>
+    <string name="pl_q_exhigh">极高</string>
+    <string name="pl_q_lossless">无损</string>
+    <string name="pl_q_hires">Hi·Res</string>
+    <string name="pl_q_hi_res">Hi-Res</string>
+    <string name="pl_q_auto">自动</string>
+    <string name="pl_q_high">高</string>
+    <string name="pl_q_kugou_high">高品</string>
+    <string name="pl_q_low">低</string>
+    <string name="pl_q_medium">中</string>
+    <string name="pl_q_128k">128K</string>
+    <string name="pl_q_320k">320K</string>
+    <string name="pl_q_64k">64K</string>
+    <string name="pl_q_132k">132K</string>
+    <string name="pl_q_192k">192K</string>
+    <string name="pl_q_default">默认</string>
+
+    <!-- 右下角来源标识 -->
+    <string name="pl_source_from">来自%1$s</string>
+    <string name="pl_source_from_note">来自%1$s · %2$s</string>
+    <string name="pl_source_cache">本地缓存</string>
+    <string name="pl_source_switched">已切换</string>
+
+    <!-- 歌词样式摘要 -->
+    <string name="pl_style_wave">波浪</string>
+    <string name="pl_style_glow">光亮</string>
+
+    <!-- 编辑歌曲信息 -->
+    <string name="pl_edit_info_desc">改完立即生效：播放页、迷你条、通知栏与曲库都会按新信息显示，不影响播放进度。</string>
+    <string name="pl_field_name">歌名</string>
+    <string name="pl_field_artist">歌手</string>
+    <string name="pl_field_cover">封面链接</string>
+    <string name="pl_restore_field">恢复%1$s原值</string>
+    <string name="pl_restore_info">恢复原信息</string>
+
+    <!-- 歌词编辑器 -->
+    <string name="pl_edit_lyrics">编辑歌词</string>
+    <string name="pl_lrc_label">LRC 歌词</string>
+    <string name="pl_lrc_placeholder">[00:12.34]歌词一行一句\n同一时间戳再写一行即为译文</string>
+    <string name="pl_lrc_hint">格式 [分:秒.百分秒]歌词，一行一句；同一时间戳再写一行会被当成译文。</string>
+    <string name="pl_restore_lyrics">恢复原歌词</string>
+    <string name="pl_lyrics_edited">已编辑</string>
+    <string name="pl_line_count">共 %1$s 行</string>
+
+    <!-- 歌词样式弹窗 -->
+    <string name="pl_font_size">字体大小</string>
+    <string name="pl_wave_amount">弯曲程度</string>
+    <string name="pl_glow_amount">光亮程度</string>
+    <string name="pl_restore_default">恢复默认</string>
+    <string name="pl_show_translation">显示歌词翻译</string>
+
+    <!-- 匹配歌词 -->
+    <string name="pl_replace_audio">更换音频</string>
+    <string name="pl_replace_audio_desc">自动换源跳到错误的歌曲时，在这里搜索并换回正确的。</string>
+    <string name="pl_replace_audio_keyword">搜索关键字</string>
+    <string name="pl_replace_audio_loading">正在搜索各平台…</string>
+    <string name="pl_replace_audio_empty">没有搜到可更换的歌曲</string>
+    <string name="pl_replace_audio_done">已更换：%1$s</string>
+    <string name="pl_replace_audio_failed">更换失败，已恢复原曲</string>
+    <string name="pl_replace_audio_error">搜索失败：%1$s</string>
+    <string name="pl_match_lyrics">匹配歌词</string>
+    <string name="pl_match_lyrics_desc">按关键字挑一条</string>
+    <string name="pl_match_keyword">匹配关键字</string>
+    <string name="pl_match_keyword_hint">可修改歌名、歌手或版本</string>
+    <string name="pl_match_platforms">匹配平台</string>
+    <string name="pl_match_source_netease">网易云</string>
+    <string name="pl_match_source_kugou">酷狗</string>
+    <string name="pl_match_search">搜索</string>
+    <string name="pl_match_hint">先按关键字搜出候选，再从中挑一条对的；选中即替换当前歌词，之后仍可在「编辑歌词」里改。</string>
+    <string name="pl_match_loading">正在按所选平台逐个匹配歌词…</string>
+    <string name="pl_match_empty">没有找到可用歌词</string>
+    <string name="pl_match_error">匹配失败：%1$s</string>
+    <string name="pl_match_no_source">请至少选择一个匹配平台</string>
+    <string name="pl_match_applied">已应用新歌词</string>
+    <string name="pl_match_duration_delta">相差 %1$s</string>
+    <string name="pl_match_score">匹配 %1$d</string>
+    <string name="pl_match_confidence_high">高置信度</string>
+    <string name="pl_match_confidence_medium">中置信度</string>
+    <string name="pl_match_confidence_low">低置信度，请核对</string>
+    <string name="pl_match_has_translation">带译文</string>
+</resources>

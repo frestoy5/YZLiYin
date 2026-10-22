@@ -10,6 +10,11 @@ val BrandAqua = Color(0xFF00C2A8)
 val BrandAmber = Color(0xFFFFB020)
 val BrandRose = Color(0xFFFF5C7A)
 
+// 网络状态三色：绿（快）/ 黄（一般）/ 红（未连接），首页徽标不再写「优秀 / 中等」文字
+val NetGreen = Color(0xFF2FBF5B)
+val NetYellow = Color(0xFFF0B429)
+val NetRed = Color(0xFFE5484D)
+
 // 深色（默认）
 val NightBackground = Color(0xFF0E0F13)
 val NightSurface = Color(0xFF15171D)

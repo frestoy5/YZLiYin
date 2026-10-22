@@ -1,5 +1,6 @@
 package top.aryun.yzliyin.listentogether.validation
 
+import top.aryun.yzliyin.R
 import top.aryun.yzliyin.listentogether.LtMessages
 
 const val LISTEN_TOGETHER_NICKNAME_MIN_LENGTH = 1
@@ -14,12 +15,16 @@ fun validateListenTogetherNickname(nickname: String): ListenTogetherValidationEr
                 args = listOf(
                     LISTEN_TOGETHER_NICKNAME_MIN_LENGTH,
                     LISTEN_TOGETHER_NICKNAME_MAX_LENGTH
-                )
+                ),
+                messageRes = R.string.ltm_validate_nickname_length
             )
         }
 
         !isValidListenTogetherNickname(normalized) -> {
-            ListenTogetherValidationError(LtMessages.listen_together_error_nickname_chars)
+            ListenTogetherValidationError(
+                messageFormat = LtMessages.listen_together_error_nickname_chars,
+                messageRes = R.string.ltm_validate_nickname_chars
+            )
         }
 
         else -> null

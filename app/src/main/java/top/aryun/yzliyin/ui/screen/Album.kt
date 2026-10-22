@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -40,6 +41,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
+import top.aryun.yzliyin.R
 import top.aryun.yzliyin.core.model.Album
 import top.aryun.yzliyin.core.model.Song
 import top.aryun.yzliyin.core.net.NeteaseApi
@@ -59,13 +61,13 @@ fun AlbumScreen(nav: NavController, id: String) {
 
     LaunchedEffect(id) {
         if (id.isBlank()) {
-            error = "缺少专辑 ID"
+            error = context.getString(R.string.alb_missing_id)
             return@LaunchedEffect
         }
         album = runCatching { NeteaseApi.albumDetail(id) }.getOrNull()
         runCatching { NeteaseApi.albumSongs(id) }
             .onSuccess { songs = it }
-            .onFailure { error = it.message ?: "加载专辑失败" }
+            .onFailure { error = it.message ?: context.getString(R.string.alb_load_fail) }
     }
 
     fun play(index: Int) {
@@ -74,16 +76,16 @@ fun AlbumScreen(nav: NavController, id: String) {
 
     Column(Modifier.fillMaxSize()) {
         TopAppBar(
-            title = { Text(album?.name ?: "专辑", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            title = { Text(album?.name ?: stringResource(R.string.alb_fallback_title), maxLines = 1, overflow = TextOverflow.Ellipsis) },
             navigationIcon = {
                 IconButton(onClick = { nav.popBackStack() }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.alb_back))
                 }
             },
             actions = {
                 if (songs.isNotEmpty()) {
                     IconButton(onClick = { play(0) }) {
-                        Icon(Icons.Filled.PlayArrow, contentDescription = "播放全部")
+                        Icon(Icons.Filled.PlayArrow, contentDescription = stringResource(R.string.alb_play_all))
                     }
                 }
             },
@@ -127,7 +129,8 @@ fun AlbumScreen(nav: NavController, id: String) {
                             Text(
                                 buildString {
                                     if (d.publishDate.isNotEmpty()) append(d.publishDate)
-                                    append(" · ${songs.size} 首")
+                                    append(" · ")
+                                    append(stringResource(R.string.alb_count_unit, songs.size))
                                 },
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,

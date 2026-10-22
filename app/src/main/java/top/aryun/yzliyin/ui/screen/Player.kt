@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.annotation.StringRes
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -50,14 +51,18 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -68,6 +73,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
@@ -87,13 +93,15 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -101,10 +109,18 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import top.aryun.yzliyin.R
 import top.aryun.yzliyin.core.AppGraph
 import top.aryun.yzliyin.core.data.LyricEdits
 import top.aryun.yzliyin.core.data.SessionStore
+import top.aryun.yzliyin.core.lyric.LyricCandidate
+import top.aryun.yzliyin.core.lyric.LyricConfidence
+import top.aryun.yzliyin.core.lyric.LyricMatch
+import top.aryun.yzliyin.core.lyric.LyricMatchSource
 import top.aryun.yzliyin.core.model.Artist
 import top.aryun.yzliyin.core.model.LyricLine
 import top.aryun.yzliyin.core.model.Parsers
@@ -116,9 +132,11 @@ import top.aryun.yzliyin.player.CrossSourceMatch
 import top.aryun.yzliyin.player.PlayState
 import top.aryun.yzliyin.player.PlayerController
 import top.aryun.yzliyin.ui.Routes
+import top.aryun.yzliyin.ui.rememberWindowWidthDp
 import top.aryun.yzliyin.util.NPLogger
 import top.aryun.yzliyin.ui.components.BiliQuadButton
 import top.aryun.yzliyin.ui.components.formatDuration
+import top.aryun.yzliyin.ui.components.labelText
 import kotlin.math.sin
 
 @Composable
@@ -144,8 +162,33 @@ fun PlayerScreen(nav: NavController) {
     var artistSearching by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
+    // 「更换音频」挂在屏幕层而不是 ⋮ 菜单里：取链时菜单会因 state.resolving
+    // 切换成指示圈而销毁，对话框与取链协程若挂在菜单上会被连带取消。
+    var showReplaceAudio by remember { mutableStateOf(false) }
+    if (showReplaceAudio && song != null) {
+        ReplaceAudioDialog(
+            song = song,
+            onPick = { picked ->
+                // 立马换：先关对话框，取链播放在屏幕层的 scope 里跑完
+                showReplaceAudio = false
+                scope.launch {
+                    val ok = runCatching {
+                        PlayerController.replaceCurrent(context, picked)
+                    }.getOrDefault(false)
+                    val msg = if (ok) {
+                        context.getString(R.string.pl_replace_audio_done, picked.name)
+                    } else {
+                        context.getString(R.string.pl_replace_audio_failed)
+                    }
+                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                }
+            },
+            onDismiss = { showReplaceAudio = false },
+        )
+    }
+
     fun noArtistToast() {
-        Toast.makeText(context, "这首歌没有歌手信息", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, context.getString(R.string.pl_no_artist), Toast.LENGTH_SHORT).show()
     }
 
     /**
@@ -157,7 +200,7 @@ fun PlayerScreen(nav: NavController) {
         val names = rawName.split('/', ',', '，', '、')
             .map { it.trim() }.filter { it.isNotEmpty() }.distinct()
         if (names.isEmpty()) {
-            Toast.makeText(context, "这首歌没有歌手信息", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.pl_no_artist), Toast.LENGTH_SHORT).show()
             return@searchArtistsByName
         }
         scope.launch {
@@ -172,7 +215,7 @@ fun PlayerScreen(nav: NavController) {
 
             when {
                 found.isEmpty() ->
-                    Toast.makeText(context, "没找到歌手「${names.first()}」", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.pl_artist_not_found, names.first()), Toast.LENGTH_SHORT).show()
 
                 // 只有一条且名字对得上，没有歧义，直接进主页
                 found.size == 1 && found[0].name == names.first() ->
@@ -223,35 +266,47 @@ fun PlayerScreen(nav: NavController) {
         // 用户改过歌词就用改过的：内容为空也算（等于把这首歌的歌词清空），不再回落源站
         LyricEdits.read(s.key)?.let { edited ->
             val parsed = Parsers.parseEditedLrc(edited)
-            if (parsed.isEmpty()) lyricTip = "暂无歌词" else {
+            if (parsed.isEmpty()) lyricTip = context.getString(R.string.pl_lyric_none) else {
                 lyrics = parsed
                 lyricTip = null
             }
             return@LaunchedEffect
         }
-        lyricTip = "歌词加载中…"
+        lyricTip = context.getString(R.string.pl_lyric_loading)
         runCatching { CrossSourceMatch.lyrics(s) }
             .onSuccess {
-                if (it.isEmpty()) lyricTip = "暂无歌词" else {
+                if (it.isEmpty()) lyricTip = context.getString(R.string.pl_lyric_none) else {
                     lyrics = it
                     lyricTip = null
                 }
             }
-            .onFailure { lyricTip = "歌词加载失败" }
+            .onFailure { lyricTip = context.getString(R.string.pl_lyric_load_failed) }
     }
 
     val listState = rememberLazyListState()
     val activeIndex = activeLyricIndex(lyrics, state.positionMs)
 
     // 平板 / 横屏（宽度 ≥ 600dp）：主区分成左右两栏，右边歌词常驻，不用「查看歌词」开关
-    val wide = LocalConfiguration.current.screenWidthDp >= WIDE_MIN_WIDTH_DP
+    // 宽度取真实窗口测量：与 App.kt 的侧边导航判定同源，避免一处刷新一处冻结的错位
+    val wide = rememberWindowWidthDp() >= WIDE_MIN_WIDTH_DP
     val lyricPaneVisible = showLyrics || wide
 
-    LaunchedEffect(activeIndex, lyricPaneVisible) {
-        val autoScroll = AppGraph.store.lyricAutoScroll
-        if (activeIndex >= 0 && lyricPaneVisible && autoScroll) {
-            runCatching { listState.animateScrollToItem(activeIndex, -220) }
-        }
+    // 歌词区实际高度（px）。滚动偏移与上下留白都按它算，不能再写死像素：
+    // -220px 是按手机歌词区挑的，手表这类小屏上会把当前行滚出画面。
+    var lyricPaneHeightPx by remember { mutableStateOf(0) }
+    val lyricPanePadding = if (lyricPaneHeightPx > 0) {
+        with(LocalDensity.current) { (lyricPaneHeightPx.toDp() * 0.45f).coerceAtMost(120.dp) }
+    } else {
+        120.dp
+    }
+
+    LaunchedEffect(activeIndex, lyricPaneVisible, lyricPaneHeightPx) {
+        if (activeIndex < 0 || !lyricPaneVisible || !AppGraph.store.lyricAutoScroll) return@LaunchedEffect
+        // 歌词区还没量到（面板刚显示）或量不到时不滚，免得按错的偏移跳
+        if (lyricPaneHeightPx <= 0) return@LaunchedEffect
+        // 手机上仍是 -220px；歌词区比它矮时（手表）收到半区高，当前行永远留在画面里
+        val offset = (lyricPaneHeightPx / 2).coerceAtMost(220)
+        runCatching { listState.animateScrollToItem(activeIndex, -offset) }
     }
 
     if (song == null) {
@@ -260,9 +315,9 @@ fun PlayerScreen(nav: NavController) {
                 Modifier.align(Alignment.Center),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("当前没有播放的歌曲", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.pl_nothing_playing), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(16.dp))
-                Button(onClick = { nav.popBackStack() }) { Text("返回") }
+                Button(onClick = { nav.popBackStack() }) { Text(stringResource(R.string.pl_back)) }
             }
             IconButton(
                 onClick = { nav.popBackStack() },
@@ -271,7 +326,7 @@ fun PlayerScreen(nav: NavController) {
                     .padding(4.dp)
                     .align(Alignment.TopStart),
             ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.pl_back))
             }
         }
         return
@@ -283,18 +338,18 @@ fun PlayerScreen(nav: NavController) {
 
     // B 站歌曲点 UP 主名：在应用内看投稿，还是跳去 B 站 App 看主页
     biliUpMid?.let { mid ->
-        val upName = song.artist.ifBlank { "这位 UP 主" }
+        val upName = song.artist.ifBlank { stringResource(R.string.pl_this_up) }
         AlertDialog(
             onDismissRequest = { biliUpMid = null },
-            title = { Text("查看 $upName 的主页") },
-            text = { Text("选择在哪个应用里观看？") },
+            title = { Text(stringResource(R.string.pl_view_up_title, upName)) },
+            text = { Text(stringResource(R.string.pl_choose_app)) },
             confirmButton = {
                 TextButton(
                     onClick = {
                         biliUpMid = null
                         nav.navigate(Routes.biliUp(mid.toString()))
                     },
-                ) { Text("在应用内观看") }
+                ) { Text(stringResource(R.string.pl_watch_in_app)) }
             },
             dismissButton = {
                 TextButton(
@@ -302,7 +357,7 @@ fun PlayerScreen(nav: NavController) {
                         biliUpMid = null
                         openBilibiliSpace(context, mid)
                     },
-                ) { Text("在 B 站内观看") }
+                ) { Text(stringResource(R.string.pl_watch_in_bili)) }
             },
         )
     }
@@ -311,7 +366,7 @@ fun PlayerScreen(nav: NavController) {
     artistPicker?.let { list ->
         AlertDialog(
             onDismissRequest = { artistPicker = null },
-            title = { Text("选择歌手") },
+            title = { Text(stringResource(R.string.pl_pick_artist)) },
             text = {
                 // 弹窗正文给的高度约束有限，先截断：合作歌手极少超过三五个，
                 // 搜名字时若命中一串同名歌手也不该把对话框撑出屏幕
@@ -328,7 +383,7 @@ fun PlayerScreen(nav: NavController) {
                 }
             },
             confirmButton = {},
-            dismissButton = { TextButton(onClick = { artistPicker = null }) { Text("取消") } },
+            dismissButton = { TextButton(onClick = { artistPicker = null }) { Text(stringResource(R.string.pl_cancel)) } },
         )
     }
 
@@ -336,16 +391,16 @@ fun PlayerScreen(nav: NavController) {
     if (artistSearching) {
         AlertDialog(
             onDismissRequest = { artistSearching = false },
-            title = { Text("选择歌手") },
+            title = { Text(stringResource(R.string.pl_pick_artist)) },
             text = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                     Spacer(Modifier.width(12.dp))
-                    Text("正在查找歌手…")
+                    Text(stringResource(R.string.pl_searching_artist))
                 }
             },
             confirmButton = {},
-            dismissButton = { TextButton(onClick = { artistSearching = false }) { Text("取消") } },
+            dismissButton = { TextButton(onClick = { artistSearching = false }) { Text(stringResource(R.string.pl_cancel)) } },
         )
     }
 
@@ -376,7 +431,7 @@ fun PlayerScreen(nav: NavController) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = { nav.popBackStack() }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "收起")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.pl_collapse))
                 }
                 Column(
                     Modifier.weight(1f),
@@ -423,7 +478,7 @@ fun PlayerScreen(nav: NavController) {
                     }) {
                         Icon(
                             Icons.Outlined.ChatBubbleOutline,
-                            contentDescription = "评论",
+                            contentDescription = stringResource(R.string.pl_comment),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
@@ -440,6 +495,7 @@ fun PlayerScreen(nav: NavController) {
                         song = song,
                         seedLyrics = lyrics,
                         onLyricsChanged = { lyricsRevision++ },
+                        onReplaceAudio = { showReplaceAudio = true },
                         style = lyricStyle,
                         onStyleChange = { next ->
                             lyricStyle = next
@@ -460,8 +516,13 @@ fun PlayerScreen(nav: NavController) {
                         .clickable { nav.navigate(Routes.LISTEN_TOGETHER) },
                 ) {
                     Text(
-                        text = "一起听 · ${if (ltSession.role == "controller") "房主" else "听众"}" +
-                            " · 房间 ${ltSession.roomId}",
+                        text = stringResource(
+                            R.string.pl_lt_status,
+                            stringResource(
+                                if (ltSession.role == "controller") R.string.pl_lt_host else R.string.pl_lt_listener,
+                            ),
+                            ltSession.roomId.orEmpty(),
+                        ),
                         Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -513,10 +574,12 @@ fun PlayerScreen(nav: NavController) {
                         listState = listState,
                         style = lyricStyle,
                         onLineClick = { PlayerController.seekTo(it) },
+                        verticalPadding = lyricPanePadding,
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
-                            .padding(horizontal = 16.dp),
+                            .padding(horizontal = 16.dp)
+                            .onSizeChanged { lyricPaneHeightPx = it.height },
                     )
                 }
             } else {
@@ -541,7 +604,10 @@ fun PlayerScreen(nav: NavController) {
                             listState = listState,
                             style = lyricStyle,
                             onLineClick = { PlayerController.seekTo(it) },
-                            modifier = Modifier.fillMaxSize(),
+                            verticalPadding = lyricPanePadding,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .onSizeChanged { lyricPaneHeightPx = it.height },
                         )
                     }
                 }
@@ -580,14 +646,33 @@ private const val WIDE_MIN_WIDTH_DP = 600
 private fun PlayerCover(song: Song, modifier: Modifier = Modifier) {
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
         val side = minOf(maxWidth, maxHeight)
-        AsyncImage(
-            model = song.cover,
-            contentDescription = song.name,
-            contentScale = ContentScale.Crop,
+        // 封面缺失或加载失败时给兜底占位，否则播放页是一整块空白
+        var coverFailed by remember(song.cover) { mutableStateOf(false) }
+        Box(
             modifier = Modifier
                 .size(side)
-                .clip(RoundedCornerShape(24.dp)),
-        )
+                .clip(RoundedCornerShape(24.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (song.cover.isNotBlank() && !coverFailed) {
+                AsyncImage(
+                    model = song.cover,
+                    contentDescription = song.name,
+                    contentScale = ContentScale.Crop,
+                    onSuccess = { coverFailed = false },
+                    onError = { coverFailed = true },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Filled.MusicNote,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(96.dp),
+                )
+            }
+        }
     }
 }
 
@@ -601,11 +686,13 @@ private fun LyricsPane(
     style: LyricStyle,
     onLineClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
+    /** 上下留白：够首尾歌词滚到画面中间就行，小屏（手表）按区高收，免得占掉大半高度。 */
+    verticalPadding: Dp = 120.dp,
 ) {
     if (lyrics.isEmpty()) {
         Box(modifier, contentAlignment = Alignment.Center) {
             Text(
-                tip ?: "暂无歌词",
+                tip ?: stringResource(R.string.pl_lyric_none),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
             )
@@ -615,7 +702,7 @@ private fun LyricsPane(
     LazyColumn(
         state = listState,
         modifier = modifier,
-        contentPadding = PaddingValues(vertical = 120.dp),
+        contentPadding = PaddingValues(vertical = verticalPadding),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
@@ -654,15 +741,15 @@ private fun PlayerTransport(
     if (showOpenPicker && biliBvid != null) {
         AlertDialog(
             onDismissRequest = { showOpenPicker = false },
-            title = { Text("打开投稿") },
-            text = { Text("跳到 B 站 App 观看，还是直接在本应用里播这条投稿？") },
+            title = { Text(stringResource(R.string.pl_open_post_title)) },
+            text = { Text(stringResource(R.string.pl_open_post_msg)) },
             confirmButton = {
                 TextButton(
                     onClick = {
                         showOpenPicker = false
                         openBilibiliVideo(context, biliBvid)
                     },
-                ) { Text("B 站 App") }
+                ) { Text(stringResource(R.string.pl_open_in_bili_app)) }
             },
             dismissButton = {
                 TextButton(
@@ -670,7 +757,7 @@ private fun PlayerTransport(
                         showOpenPicker = false
                         onOpenBiliInApp()
                     },
-                ) { Text("在应用内播放") }
+                ) { Text(stringResource(R.string.pl_play_in_app)) }
             },
         )
     }
@@ -715,7 +802,8 @@ private fun PlayerTransport(
                             .clickable { onToggleLyrics() },
                     ) {
                         Text(
-                            if (lyricsShown) "返回封面" else "查看歌词",
+                            if (lyricsShown) stringResource(R.string.pl_back_to_cover)
+                            else stringResource(R.string.pl_view_lyrics),
                             Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium,
@@ -732,7 +820,7 @@ private fun PlayerTransport(
                             .clickable { showOpenPicker = true },
                     ) {
                         Text(
-                            "查看投稿",
+                            stringResource(R.string.pl_view_post),
                             Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium,
@@ -751,7 +839,7 @@ private fun PlayerTransport(
             IconButton(onClick = { PlayerController.toggleShuffle() }) {
                 Icon(
                     Icons.Filled.Shuffle,
-                    contentDescription = "随机播放",
+                    contentDescription = stringResource(R.string.pl_shuffle),
                     tint = if (state.shuffle) {
                         MaterialTheme.colorScheme.primary
                     } else {
@@ -762,7 +850,7 @@ private fun PlayerTransport(
             IconButton(onClick = { PlayerController.prev() }) {
                 Icon(
                     Icons.Filled.SkipPrevious,
-                    contentDescription = "上一首",
+                    contentDescription = stringResource(R.string.pl_prev),
                     modifier = Modifier.size(34.dp),
                 )
             }
@@ -776,7 +864,11 @@ private fun PlayerTransport(
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         if (state.playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = if (state.playing) "暂停" else "播放",
+                        contentDescription = if (state.playing) {
+                            stringResource(R.string.pl_pause)
+                        } else {
+                            stringResource(R.string.pl_play)
+                        },
                         tint = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(34.dp),
                     )
@@ -785,7 +877,7 @@ private fun PlayerTransport(
             IconButton(onClick = { PlayerController.next() }) {
                 Icon(
                     Icons.Filled.SkipNext,
-                    contentDescription = "下一首",
+                    contentDescription = stringResource(R.string.pl_next),
                     modifier = Modifier.size(34.dp),
                 )
             }
@@ -794,9 +886,9 @@ private fun PlayerTransport(
                 Icon(
                     if (repeatOne) Icons.Filled.RepeatOne else Icons.Filled.Repeat,
                     contentDescription = when (state.repeatMode) {
-                        Player.REPEAT_MODE_ONE -> "单曲循环（点击切换）"
-                        Player.REPEAT_MODE_ALL -> "列表循环（点击切换）"
-                        else -> "顺序播放（点击切换）"
+                        Player.REPEAT_MODE_ONE -> stringResource(R.string.pl_repeat_one)
+                        Player.REPEAT_MODE_ALL -> stringResource(R.string.pl_repeat_all)
+                        else -> stringResource(R.string.pl_repeat_off)
                     },
                     tint = if (state.repeatMode != Player.REPEAT_MODE_OFF) {
                         MaterialTheme.colorScheme.primary
@@ -840,37 +932,45 @@ private fun activeLyricIndex(lyrics: List<LyricLine>, positionMs: Long): Int {
 
 // ================= 三点菜单 =================
 
-private data class QualityOption(val id: String, val label: String)
+private data class QualityOption(val id: String, @StringRes val label: Int)
 
 private val neteaseQualities = listOf(
-    QualityOption("standard", "标准"),
-    QualityOption("higher", "较高"),
-    QualityOption("exhigh", "极高"),
-    QualityOption("lossless", "无损"),
-    QualityOption("hires", "Hi·Res"),
+    QualityOption("standard", R.string.pl_q_standard),
+    QualityOption("higher", R.string.pl_q_higher),
+    QualityOption("exhigh", R.string.pl_q_exhigh),
+    QualityOption("lossless", R.string.pl_q_lossless),
+    QualityOption("hires", R.string.pl_q_hires),
 )
 
 private val kugouQualities = listOf(
-    QualityOption("auto", "自动"),
-    QualityOption("128", "128K"),
-    QualityOption("320", "320K"),
-    QualityOption("flac", "无损"),
-    QualityOption("high", "高品"),
-    QualityOption("super", "Hi-Res"),
+    QualityOption("auto", R.string.pl_q_auto),
+    QualityOption("128", R.string.pl_q_128k),
+    QualityOption("320", R.string.pl_q_320k),
+    QualityOption("flac", R.string.pl_q_lossless),
+    QualityOption("high", R.string.pl_q_kugou_high),
+    QualityOption("super", R.string.pl_q_hi_res),
 )
 
 private val biliQualities = listOf(
-    QualityOption("auto", "自动"),
-    QualityOption("64", "64K"),
-    QualityOption("132", "132K"),
-    QualityOption("192", "192K"),
+    QualityOption("auto", R.string.pl_q_auto),
+    QualityOption("64", R.string.pl_q_64k),
+    QualityOption("132", R.string.pl_q_132k),
+    QualityOption("192", R.string.pl_q_192k),
+)
+
+/** YouTube 音质档位：id 与移植栈 buildYouTubeQualityOptions 的 qualityKey 一致。 */
+private val youtubeQualities = listOf(
+    QualityOption("low", R.string.pl_q_low),
+    QualityOption("medium", R.string.pl_q_medium),
+    QualityOption("high", R.string.pl_q_high),
+    QualityOption("very_high", R.string.pl_q_exhigh),
 )
 
 /** 播放倍速档位。 */
 private val playbackSpeeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
 
 /**
- * 播放页右上角的「更多」菜单：一起听 / 编辑歌曲信息 / 音质 / 倍速 / 歌词样式。
+ * 播放页右上角的「更多」菜单：一起听 / 更换音频 / 匹配歌词 / 编辑歌曲信息 / 音质 / 倍速 / 歌词样式。
  * （原先的评论入口按需求已移除，评论仍可从歌单、榜单等列表页进入。）
  */
 @Composable
@@ -879,6 +979,7 @@ private fun PlayerMoreMenu(
     song: Song,
     seedLyrics: List<LyricLine>,
     onLyricsChanged: () -> Unit,
+    onReplaceAudio: () -> Unit,
     style: LyricStyle,
     onStyleChange: (LyricStyle) -> Unit,
 ) {
@@ -890,6 +991,7 @@ private fun PlayerMoreMenu(
     var showSpeed by remember { mutableStateOf(false) }
     var showLyricStyle by remember { mutableStateOf(false) }
     var showEditInfo by remember { mutableStateOf(false) }
+    var showLyricMatch by remember { mutableStateOf(false) }
 
     // 打开子菜单时收起主菜单，避免两层浮层叠在一起
     fun openQuality() { expanded = false; showQuality = true }
@@ -897,12 +999,12 @@ private fun PlayerMoreMenu(
 
     Box {
         IconButton(onClick = { expanded = true }) {
-            Icon(Icons.Filled.MoreVert, contentDescription = "更多")
+            Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.pl_more))
         }
 
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(
-                text = { Text("一起听") },
+                text = { Text(stringResource(R.string.pl_listen_together)) },
                 leadingIcon = { Icon(Icons.Filled.GraphicEq, contentDescription = null) },
                 onClick = {
                     expanded = false
@@ -910,7 +1012,23 @@ private fun PlayerMoreMenu(
                 },
             )
             DropdownMenuItem(
-                text = { Text("编辑歌曲信息") },
+                text = { Text(stringResource(R.string.pl_replace_audio)) },
+                leadingIcon = { Icon(Icons.Filled.SwapHoriz, contentDescription = null) },
+                onClick = {
+                    expanded = false
+                    onReplaceAudio()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.pl_match_lyrics)) },
+                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                onClick = {
+                    expanded = false
+                    showLyricMatch = true
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.pl_edit_info)) },
                 leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
                 onClick = {
                     expanded = false
@@ -918,7 +1036,7 @@ private fun PlayerMoreMenu(
                 },
             )
             DropdownMenuItem(
-                text = { Text("音质") },
+                text = { Text(stringResource(R.string.pl_quality)) },
                 leadingIcon = { Icon(Icons.Filled.HighQuality, contentDescription = null) },
                 trailingIcon = {
                     Text(
@@ -930,7 +1048,7 @@ private fun PlayerMoreMenu(
                 onClick = { openQuality() },
             )
             DropdownMenuItem(
-                text = { Text("倍速") },
+                text = { Text(stringResource(R.string.pl_speed)) },
                 leadingIcon = { Icon(Icons.Filled.Speed, contentDescription = null) },
                 trailingIcon = {
                     Text(
@@ -942,7 +1060,7 @@ private fun PlayerMoreMenu(
                 onClick = { openSpeed() },
             )
             DropdownMenuItem(
-                text = { Text("歌词样式") },
+                text = { Text(stringResource(R.string.pl_lyric_style)) },
                 leadingIcon = { Icon(Icons.Filled.FormatSize, contentDescription = null) },
                 trailingIcon = {
                     Text(
@@ -959,7 +1077,7 @@ private fun PlayerMoreMenu(
         DropdownMenu(expanded = showQuality, onDismissRequest = { showQuality = false }) {
             qualityOptionsFor(songSource).forEach { option ->
                 DropdownMenuItem(
-                    text = { Text(option.label) },
+                    text = { Text(stringResource(option.label)) },
                     leadingIcon = {
                         if (currentQualityId(songSource) == option.id) {
                             Icon(Icons.Filled.Check, contentDescription = null)
@@ -1007,6 +1125,14 @@ private fun PlayerMoreMenu(
                 onDismiss = { showEditInfo = false },
             )
         }
+
+        if (showLyricMatch) {
+            LyricMatchDialog(
+                song = song,
+                onLyricsChanged = onLyricsChanged,
+                onDismiss = { showLyricMatch = false },
+            )
+        }
     }
 }
 
@@ -1014,17 +1140,26 @@ private fun qualityOptionsFor(source: Source): List<QualityOption> = when (sourc
     Source.KUGOU -> kugouQualities
     Source.BILIBILI -> biliQualities
     Source.NETEASE -> neteaseQualities
+    Source.YOUTUBE -> youtubeQualities
+    // 本机音乐直接播文件，没有取链画质可言
+    Source.LOCAL -> emptyList()
 }
 
 private fun currentQualityId(source: Source): String = when (source) {
     Source.KUGOU -> AppGraph.store.kugouQuality
     Source.BILIBILI -> AppGraph.store.biliQuality
     Source.NETEASE -> AppGraph.store.playQuality
+    Source.YOUTUBE -> AppGraph.store.youtubeQuality
+    Source.LOCAL -> ""
 }
 
+/** 当前源选中的音质档位名；档位 label 是资源 id，这里转成当前语言的文案。 */
+@Composable
 private fun currentQualityLabel(source: Source): String {
     val id = currentQualityId(source)
-    return qualityOptionsFor(source).firstOrNull { it.id == id }?.label ?: "默认"
+    val label = qualityOptionsFor(source).firstOrNull { it.id == id }?.label
+        ?: R.string.pl_q_default
+    return stringResource(label)
 }
 
 private fun currentSpeedLabel(): String {
@@ -1039,6 +1174,9 @@ private fun applyQuality(source: Source, option: QualityOption) {
         Source.KUGOU -> store.kugouQuality = option.id
         Source.BILIBILI -> store.biliQuality = option.id
         Source.NETEASE -> store.playQuality = option.id
+        Source.YOUTUBE -> store.youtubeQuality = option.id
+        // 本机音乐没有音质档位，这一支只是让 when 覆盖到它
+        Source.LOCAL -> Unit
     }
     kotlinx.coroutines.MainScope().launch {
         runCatching { PlayerController.reapplyQuality() }
@@ -1064,9 +1202,9 @@ private fun SourceBadge(
     val source = resolvedSource ?: return
 
     val (label, note) = when {
-        fromCache -> source.label to "本地缓存"
-        source != songSource -> source.label to "已切换"
-        else -> source.label to null
+        fromCache -> source.labelText() to stringResource(R.string.pl_source_cache)
+        source != songSource -> source.labelText() to stringResource(R.string.pl_source_switched)
+        else -> source.labelText() to null
     }
 
     Row(
@@ -1090,13 +1228,10 @@ private fun SourceBadge(
                 )
                 Spacer(Modifier.width(5.dp))
                 Text(
-                    buildString {
-                        append("来自")
-                        append(label)
-                        note?.let {
-                            append(" · ")
-                            append(it)
-                        }
+                    if (note == null) {
+                        stringResource(R.string.pl_source_from, label)
+                    } else {
+                        stringResource(R.string.pl_source_from_note, label, note)
                     },
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1109,20 +1244,23 @@ private fun SourceBadge(
 // ================= 歌词样式（字号 / 弯曲 / 光亮） =================
 
 /**
- * 播放页歌词的三个外观档位，改完立即生效并落盘。
+ * 播放页歌词的外观档位，改完立即生效并落盘。
  *
  * 波浪与光亮只作用于**当前高亮的那一行**，其它行保持正常排版，
  * 免得整屏文字都在动，读不了。
+ * [showTranslation] 管原文下面那行译文显不显示（译文来自歌词接口，不负责现翻）。
  */
 internal data class LyricStyle(
     val fontSize: Float = 1f,
     val wave: Float = 0f,
     val glow: Float = 0f,
+    val showTranslation: Boolean = true,
 ) {
     fun save(store: SessionStore) {
         store.lyricFontSize = fontSize
         store.lyricWave = wave
         store.lyricGlow = glow
+        store.lyricShowTranslation = showTranslation
     }
 
     companion object {
@@ -1130,16 +1268,19 @@ internal data class LyricStyle(
             fontSize = store.lyricFontSize,
             wave = store.lyricWave,
             glow = store.lyricGlow,
+            showTranslation = store.lyricShowTranslation,
         )
     }
 }
 
 /** 菜单项右侧的摘要，例如「115% · 波浪 · 光亮」。 */
-private fun styleSummary(s: LyricStyle): String = buildList {
-    add("${(s.fontSize * 100).toInt()}%")
-    if (s.wave > 0f) add("波浪")
-    if (s.glow > 0f) add("光亮")
-}.joinToString(" · ")
+@Composable
+private fun styleSummary(s: LyricStyle): String {
+    val parts = mutableListOf("${(s.fontSize * 100).toInt()}%")
+    if (s.wave > 0f) parts.add(stringResource(R.string.pl_style_wave))
+    if (s.glow > 0f) parts.add(stringResource(R.string.pl_style_glow))
+    return parts.joinToString(" · ")
+}
 
 /** 三个滑杆 + 实时预览。 */
 /**
@@ -1158,6 +1299,7 @@ private fun EditSongInfoDialog(
 ) {
     val saved = remember(song.key) { AppGraph.store.songInfoEdit(song.key) }
     var showLyricsEditor by remember(song.key) { mutableStateOf(false) }
+    var showLyricMatch by remember(song.key) { mutableStateOf(false) }
     // 歌词是否已被手工编辑过（按钮右侧的状态提示）；读文件只在首次与编辑后各来一次
     var lyricsEdited by remember(song.key) { mutableStateOf(LyricEdits.read(song.key) != null) }
 
@@ -1172,7 +1314,7 @@ private fun EditSongInfoDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("编辑歌曲信息") },
+        title = { Text(stringResource(R.string.pl_edit_info)) },
         text = {
             Column(
                 Modifier
@@ -1193,15 +1335,15 @@ private fun EditSongInfoDialog(
                             .clip(RoundedCornerShape(12.dp)),
                     )
                     Text(
-                        "改完立即生效：播放页、迷你条、通知栏与曲库都会按新信息显示，不影响播放进度。",
+                        stringResource(R.string.pl_edit_info_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
 
-                EditInfoField("歌名", name, { name = it }, { name = baseName })
-                EditInfoField("歌手", artist, { artist = it }, { artist = baseArtist })
-                EditInfoField("封面链接", cover, { cover = it }, { cover = baseCover })
+                EditInfoField(R.string.pl_field_name, name, { name = it }, { name = baseName })
+                EditInfoField(R.string.pl_field_artist, artist, { artist = it }, { artist = baseArtist })
+                EditInfoField(R.string.pl_field_cover, cover, { cover = it }, { cover = baseCover })
 
                 OutlinedButton(
                     onClick = { showLyricsEditor = true },
@@ -1209,16 +1351,33 @@ private fun EditSongInfoDialog(
                 ) {
                     Icon(Icons.Filled.MusicNote, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("编辑歌词")
+                    Text(stringResource(R.string.pl_edit_lyrics))
                     Spacer(Modifier.weight(1f, fill = true))
                     Text(
                         text = when {
-                            lyricsEdited -> "已编辑"
-                            seedLyrics.isEmpty() -> "暂无"
-                            else -> "共 ${seedLyrics.size} 行"
+                            lyricsEdited -> stringResource(R.string.pl_lyrics_edited)
+                            seedLyrics.isEmpty() -> stringResource(R.string.pl_none)
+                            else -> stringResource(R.string.pl_line_count, seedLyrics.size)
                         },
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                OutlinedButton(
+                    onClick = { showLyricMatch = true },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(Icons.Filled.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.pl_match_lyrics))
+                    Spacer(Modifier.weight(1f, fill = true))
+                    Text(
+                        text = stringResource(R.string.pl_match_lyrics_desc),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        textAlign = TextAlign.End,
                     )
                 }
 
@@ -1232,7 +1391,7 @@ private fun EditSongInfoDialog(
                 ) {
                     Icon(Icons.Rounded.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("恢复原信息")
+                    Text(stringResource(R.string.pl_restore_info))
                 }
             }
         },
@@ -1242,9 +1401,9 @@ private fun EditSongInfoDialog(
                     commitSongInfoEdit(song, saved, name, artist, cover, baseName, baseArtist, baseCover)
                     onDismiss()
                 },
-            ) { Text("保存") }
+            ) { Text(stringResource(R.string.pl_save)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.pl_cancel)) } },
     )
 
     // 歌词编辑器叠在信息面板之上，保存/恢复后由它负责让播放页重取歌词
@@ -1257,6 +1416,18 @@ private fun EditSongInfoDialog(
                 onLyricsChanged()
             },
             onDismiss = { showLyricsEditor = false },
+        )
+    }
+
+    // 「匹配歌词」叠在最上层：选中候选后同样写进 LyricEdits，播放页重取歌词
+    if (showLyricMatch) {
+        LyricMatchDialog(
+            song = song,
+            onLyricsChanged = {
+                lyricsEdited = LyricEdits.read(song.key) != null
+                onLyricsChanged()
+            },
+            onDismiss = { showLyricMatch = false },
         )
     }
 }
@@ -1281,14 +1452,14 @@ private fun LyricsEditorDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("编辑歌词") },
+        title = { Text(stringResource(R.string.pl_edit_lyrics)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = text,
                     onValueChange = { text = it },
-                    label = { Text("LRC 歌词") },
-                    placeholder = { Text("[00:12.34]歌词一行一句\n同一时间戳再写一行即为译文") },
+                    label = { Text(stringResource(R.string.pl_lrc_label)) },
+                    placeholder = { Text(stringResource(R.string.pl_lrc_placeholder)) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(300.dp),
@@ -1303,10 +1474,10 @@ private fun LyricsEditorDialog(
                 ) {
                     Icon(Icons.Rounded.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("恢复原歌词")
+                    Text(stringResource(R.string.pl_restore_lyrics))
                 }
                 Text(
-                    "格式 [分:秒.百分秒]歌词，一行一句；同一时间戳再写一行会被当成译文。",
+                    stringResource(R.string.pl_lrc_hint),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -1319,16 +1490,454 @@ private fun LyricsEditorDialog(
                     onLyricsChanged()
                     onDismiss()
                 },
-            ) { Text("保存") }
+            ) { Text(stringResource(R.string.pl_save)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.pl_cancel)) } },
     )
 }
+
+/** 「更换音频」要搜的源：四个源都搜——跨源匹配可能跳到任何一个，换也得哪个源都能选。 */
+private val REPLACE_AUDIO_SOURCES = listOf(
+    Source.NETEASE,
+    Source.KUGOU,
+    Source.BILIBILI,
+    Source.YOUTUBE,
+)
+
+/** 单源搜索超时：YouTube 走抓取可能偏慢，超时当没结果，不拖垮整次搜索。 */
+private const val REPLACE_AUDIO_TIMEOUT_MS = 8_000L
+
+/**
+ * 「更换音频」：跨源匹配跳到错误的歌（现场版 / 翻唱 / 张冠李戴）时，
+ * 从各平台搜索结果里挑一首对的，就地顶替队列当前位并从头播放（其余队列不动）。
+ *
+ * 关键字默认填当前曲的「歌名 歌手」，打开就自动搜一轮；四个源并行、单源超时 8 秒，
+ * 超时的源当作没结果，四个源全失败才报错。当前正在播的这条会从结果里剔掉——换它等于没换。
+ *
+ * 点选即交给 [onPick] 并随手关掉对话框；取链与播放在**屏幕层**的协程里跑
+ * （PlayerScreen 挂载、用 PlayerScreen 的 scope 启动）——⋮ 菜单在取链时会因
+ * state.resolving 切成指示圈而销毁，协程若挂在菜单上会被连带取消。
+ */
+@Composable
+private fun ReplaceAudioDialog(
+    song: Song,
+    onPick: (Song) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    var keyword by remember(song.key) {
+        mutableStateOf(listOf(song.name, song.artist).filter { it.isNotBlank() }.joinToString(" "))
+    }
+    var searching by remember(song.key) { mutableStateOf(false) }
+    var searched by remember(song.key) { mutableStateOf(false) }
+    var error by remember(song.key) { mutableStateOf<String?>(null) }
+    var results by remember(song.key) { mutableStateOf<List<Song>>(emptyList()) }
+
+    fun search() {
+        if (searching || keyword.isBlank()) return
+        error = null
+        searched = false
+        results = emptyList()
+        searching = true
+        scope.launch {
+            val outcomes = REPLACE_AUDIO_SOURCES.map { source ->
+                async {
+                    withTimeoutOrNull(REPLACE_AUDIO_TIMEOUT_MS) {
+                        runCatching { CrossSourceMatch.search(source, keyword) }
+                    }
+                }
+            }.awaitAll()
+            if (outcomes.all { it == null || it.isFailure }) {
+                val reason = outcomes.filterNotNull().firstOrNull()
+                    ?.exceptionOrNull()?.message.orEmpty()
+                NPLogger.w("ReplaceAudio", "搜索失败：$reason")
+                error = context.getString(
+                    R.string.pl_replace_audio_error,
+                    reason.ifEmpty { "timeout" },
+                )
+                results = emptyList()
+            } else {
+                results = outcomes.filterNotNull()
+                    .mapNotNull { it.getOrNull() }
+                    .flatten()
+                    .filterNot { it.key == song.key }
+            }
+            searched = true
+            searching = false
+        }
+    }
+
+    // 打开就按默认关键字搜一轮，省掉一次点按
+    LaunchedEffect(song.key) { search() }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.pl_replace_audio)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    stringResource(R.string.pl_replace_audio_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                OutlinedTextField(
+                    value = keyword,
+                    onValueChange = { keyword = it },
+                    label = { Text(stringResource(R.string.pl_replace_audio_keyword)) },
+                    placeholder = { Text(stringResource(R.string.pl_match_keyword_hint)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                OutlinedButton(
+                    onClick = { search() },
+                    enabled = !searching,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(Icons.Filled.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.pl_match_search))
+                }
+
+                when {
+                    searching -> Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            stringResource(R.string.pl_replace_audio_loading),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    error != null -> Text(
+                        error.orEmpty(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+
+                    results.isEmpty() && searched -> Text(
+                        stringResource(R.string.pl_replace_audio_empty),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+
+                    else -> LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 280.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        itemsIndexed(results, key = { _, it -> it.key }) { _, picked ->
+                            ReplaceAudioResultRow(song = picked, onClick = {
+                                // 立马换：点选即换、对话框随手关，取链播放在调用方协程里跑
+                                onPick(picked)
+                                onDismiss()
+                            })
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.pl_cancel))
+            }
+        },
+    )
+}
+
+/** 「更换音频」结果里的一条：标题 + 歌手 · 源 · 时长。 */
+@Composable
+private fun ReplaceAudioResultRow(song: Song, onClick: () -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 6.dp),
+    ) {
+        Text(
+            song.name,
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            listOf(
+                song.artist.ifBlank { null },
+                song.source.labelText(),
+                song.durationMs.takeIf { it > 0 }?.let { formatDuration(it) },
+            ).filterNotNull().joinToString(" · "),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+/**
+ * 「匹配歌词」：把关键字丢给网易云 / 酷狗搜出多条候选，由用户挑一条对的替换当前歌词。
+ *
+ * 做的事和播放页自动取词一样（跨源找一首匹配的歌再下载它的 LRC + 译文），
+ * 区别是**不替用户做决定**：自动匹配挑到现场版 / 翻唱时，这里可以自己点一条对的。
+ * 选中即写进 [LyricEdits]（与手工编辑同一份存储），播放页立刻重取歌词，
+ * 之后仍可在「编辑歌词」里继续改，或「恢复原歌词」回到源站。
+ */
+@Composable
+private fun LyricMatchDialog(
+    song: Song,
+    onLyricsChanged: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    var keyword by remember(song.key) {
+        mutableStateOf(listOf(song.name, song.artist).filter { it.isNotBlank() }.joinToString(" "))
+    }
+    var platforms by remember(song.key) { mutableStateOf(LyricMatchSource.entries.toSet()) }
+    var searching by remember(song.key) { mutableStateOf(false) }
+    var searched by remember(song.key) { mutableStateOf(false) }
+    var error by remember(song.key) { mutableStateOf<String?>(null) }
+    var results by remember(song.key) { mutableStateOf<List<LyricCandidate>>(emptyList()) }
+
+    fun search() {
+        if (searching) return
+        if (platforms.isEmpty()) {
+            error = context.getString(R.string.pl_match_no_source)
+            return
+        }
+        error = null
+        searched = false
+        results = emptyList()
+        searching = true
+        scope.launch {
+            val found = runCatching {
+                LyricMatch.search(song, keyword, LyricMatchSource.entries.filter { it in platforms })
+            }.onFailure {
+                NPLogger.w("LyricMatch", "匹配失败：${it.message}")
+                error = context.getString(R.string.pl_match_error, it.message.orEmpty())
+            }.getOrNull().orEmpty()
+            results = found
+            searched = true
+            searching = false
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.pl_match_lyrics)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = keyword,
+                    onValueChange = { keyword = it },
+                    label = { Text(stringResource(R.string.pl_match_keyword)) },
+                    placeholder = { Text(stringResource(R.string.pl_match_keyword_hint)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                Column {
+                    Text(
+                        stringResource(R.string.pl_match_platforms),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    LyricMatchSource.entries.forEach { source ->
+                        val checked = source in platforms
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    platforms = if (checked) platforms - source else platforms + source
+                                },
+                        ) {
+                            Checkbox(
+                                checked = checked,
+                                onCheckedChange = { on -> platforms = if (on) platforms + source else platforms - source },
+                            )
+                            Text(matchSourceLabel(source), style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+
+                OutlinedButton(
+                    onClick = { search() },
+                    enabled = !searching,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(Icons.Filled.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.pl_match_search))
+                }
+
+                when {
+                    searching -> Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            stringResource(R.string.pl_match_loading),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    error != null -> Text(
+                        error.orEmpty(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+
+                    // 还没搜过：先说明这一步要干什么
+                    !searched -> Text(
+                        stringResource(R.string.pl_match_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+
+                    results.isEmpty() -> Text(
+                        stringResource(R.string.pl_match_empty),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+
+                    else -> LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 280.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        itemsIndexed(results, key = { _, it -> it.identity }) { _, candidate ->
+                            LyricMatchResultRow(candidate = candidate, onClick = {
+                                LyricEdits.save(song.key, Parsers.toLrc(candidate.lines))
+                                onLyricsChanged()
+                                Toast.makeText(
+                                    context,
+                                    context.getString(R.string.pl_match_applied),
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                                onDismiss()
+                            })
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.pl_cancel)) } },
+    )
+}
+
+/** 「匹配歌词」候选列表里的一条：标题 + 歌手 + 来源 / 时长差 / 置信度 / 行数。 */
+@Composable
+private fun LyricMatchResultRow(candidate: LyricCandidate, onClick: () -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 6.dp),
+    ) {
+        Text(
+            candidate.title,
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            candidate.artist.ifBlank { stringResource(R.string.pl_none) },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(top = 2.dp),
+        ) {
+            MatchTag(matchSourceLabel(candidate.source), primary = true)
+            MatchTag(
+                stringResource(R.string.pl_match_score, candidate.score),
+                primary = false,
+            )
+            MatchTag(
+                stringResource(
+                    when (candidate.confidence) {
+                        LyricConfidence.HIGH -> R.string.pl_match_confidence_high
+                        LyricConfidence.MEDIUM -> R.string.pl_match_confidence_medium
+                        LyricConfidence.LOW -> R.string.pl_match_confidence_low
+                    },
+                ),
+                primary = false,
+            )
+        }
+        // 换行放第二排：弹窗正文宽度有限，一行塞不下来源 / 分数 / 置信度 / 时长差 / 行数
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(top = 2.dp),
+        ) {
+            candidate.durationDeltaMs?.let { delta ->
+                Text(
+                    stringResource(R.string.pl_match_duration_delta, formatDuration(delta)),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Text(
+                stringResource(R.string.pl_line_count, "${candidate.lines.size}"),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (candidate.translatedLines > 0) {
+                Text(
+                    stringResource(R.string.pl_match_has_translation),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
+    }
+}
+
+/** 候选行里的小标签。 */
+@Composable
+private fun MatchTag(text: String, primary: Boolean) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelSmall,
+        color = if (primary) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        },
+    )
+}
+
+/** 平台名，取自字符串资源。 */
+@Composable
+private fun matchSourceLabel(source: LyricMatchSource): String = stringResource(
+    when (source) {
+        LyricMatchSource.NETEASE -> R.string.pl_match_source_netease
+        LyricMatchSource.KUGOU -> R.string.pl_match_source_kugou
+    },
+)
 
 /** 编辑面板里的单行输入框，右侧图标一键还原该项的原值。 */
 @Composable
 private fun EditInfoField(
-    label: String,
+    @StringRes label: Int,
     value: String,
     onValueChange: (String) -> Unit,
     onRestore: () -> Unit,
@@ -1336,12 +1945,15 @@ private fun EditInfoField(
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text(label) },
+        label = { Text(stringResource(label)) },
         singleLine = true,
         modifier = Modifier.fillMaxWidth(),
         trailingIcon = {
             IconButton(onClick = onRestore) {
-                Icon(Icons.Rounded.Refresh, contentDescription = "恢复${label}原值")
+                Icon(
+                    Icons.Rounded.Refresh,
+                    contentDescription = stringResource(R.string.pl_restore_field, stringResource(label)),
+                )
             }
         },
     )
@@ -1350,8 +1962,11 @@ private fun EditInfoField(
 /**
  * 打开这条投稿。先试 B 站的自定义 scheme（没装 App 这一步就会失败），
  * 再退回 https 直链（装了由应用链接拉起 App，没装就进浏览器）；都没有时提示。
+ *
+ * [BiliUpScreen][top.aryun.yzliyin.ui.screen.BiliUpScreen] 的播放方式选择里也复用它，
+ * 故放宽为 internal，避免在两处各抄一份兜底逻辑。
  */
-private fun openBilibiliVideo(context: Context, bvid: String) {
+internal fun openBilibiliVideo(context: Context, bvid: String) {
     val urls = listOf(
         "bilibili://www.bilibili.com/video/$bvid",
         "https://www.bilibili.com/video/$bvid",
@@ -1364,7 +1979,27 @@ private fun openBilibiliVideo(context: Context, bvid: String) {
         }.isSuccess
         if (launched) return
     }
-    Toast.makeText(context, "未检测到能打开 B 站页面的应用", Toast.LENGTH_SHORT).show()
+    Toast.makeText(context, context.getString(R.string.pl_no_bili_app), Toast.LENGTH_SHORT).show()
+}
+
+/**
+ * 在 B 站 App / 浏览器里打开某个直播间。
+ * 与 [openBilibiliVideo] 同一套兜底：先试 `bilibili://live/<房间号>`，再退回网页链接。
+ */
+internal fun openBilibiliLive(context: Context, roomId: Long) {
+    val urls = listOf(
+        "bilibili://live/$roomId",
+        "https://live.bilibili.com/$roomId",
+    )
+    for (url in urls) {
+        val launched = runCatching {
+            context.startActivity(
+                Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        }.isSuccess
+        if (launched) return
+    }
+    Toast.makeText(context, context.getString(R.string.pl_no_bili_app), Toast.LENGTH_SHORT).show()
 }
 
 /**
@@ -1384,7 +2019,7 @@ private fun openBilibiliSpace(context: Context, mid: Long) {
         }.isSuccess
         if (launched) return
     }
-    Toast.makeText(context, "未检测到能打开 B 站页面的应用", Toast.LENGTH_SHORT).show()
+    Toast.makeText(context, context.getString(R.string.pl_no_bili_app), Toast.LENGTH_SHORT).show()
 }
 
 /** 落库并刷新当前队列；歌名留空时回退原名，避免出现空白标题。 */
@@ -1430,29 +2065,54 @@ private fun LyricStyleDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("歌词样式") },
+        title = { Text(stringResource(R.string.pl_lyric_style)) },
         text = {
             Column {
                 StyleSlider(
-                    label = "字体大小",
+                    label = stringResource(R.string.pl_font_size),
                     valueLabel = "${(style.fontSize * 100).toInt()}%",
                     value = style.fontSize,
                     range = SessionStore.LYRIC_FONT_MIN..SessionStore.LYRIC_FONT_MAX,
                 ) { onStyleChange(style.copy(fontSize = it)) }
 
                 StyleSlider(
-                    label = "弯曲程度",
+                    label = stringResource(R.string.pl_wave_amount),
                     valueLabel = "${(style.wave * 100).toInt()}%",
                     value = style.wave,
                     range = 0f..1f,
                 ) { onStyleChange(style.copy(wave = it)) }
 
                 StyleSlider(
-                    label = "光亮程度",
+                    label = stringResource(R.string.pl_glow_amount),
                     valueLabel = "${(style.glow * 100).toInt()}%",
                     value = style.glow,
                     range = 0f..1f,
                 ) { onStyleChange(style.copy(glow = it)) }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onStyleChange(style.copy(showTranslation = !style.showTranslation)) }
+                        .padding(top = 4.dp),
+                ) {
+                    Icon(
+                        Icons.Filled.Translate,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        stringResource(R.string.pl_show_translation),
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Switch(
+                        checked = style.showTranslation,
+                        onCheckedChange = { onStyleChange(style.copy(showTranslation = it)) },
+                    )
+                }
 
                 Spacer(Modifier.height(8.dp))
                 LyricLineView(
@@ -1463,9 +2123,9 @@ private fun LyricStyleDialog(
                 )
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("完成") } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.pl_done)) } },
         dismissButton = {
-            TextButton(onClick = { onStyleChange(LyricStyle()) }) { Text("恢复默认") }
+            TextButton(onClick = { onStyleChange(LyricStyle()) }) { Text(stringResource(R.string.pl_restore_default)) }
         },
     )
 }
@@ -1495,7 +2155,7 @@ internal fun StyleSlider(
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.End,
-            modifier = Modifier.width(44.dp),
+            modifier = Modifier.width(56.dp),
         )
     }
 }
@@ -1561,16 +2221,19 @@ internal fun LyricLineView(
             )
         }
 
-        line.translation?.let { translation ->
-            Spacer(Modifier.height(2.dp))
-            Text(
-                translation,
-                fontSize = size * 0.78f,
-                fontWeight = FontWeight.Normal,
-                color = color.copy(alpha = if (active) 0.9f else 0.72f),
-                textAlign = TextAlign.Center,
-                style = textStyle,
-            )
+        // 译文开关关掉时整段不渲染（不是调透明度），免得留一截空白
+        if (style.showTranslation) {
+            line.translation?.let { translation ->
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    translation,
+                    fontSize = size * 0.78f,
+                    fontWeight = FontWeight.Normal,
+                    color = color.copy(alpha = if (active) 0.9f else 0.72f),
+                    textAlign = TextAlign.Center,
+                    style = textStyle,
+                )
+            }
         }
     }
 }

@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 日本語。ここに無いキーは values/（中国語）へフォールバック。 -->
+<resources>
+    <!-- タイトルバー -->
+    <string name="ltd_title">一緒に聴くデバッグ</string>
+    <string name="ltd_back">戻る</string>
+
+    <!-- ステータス（接続 / 役割 / ルーム状態） -->
+    <string name="ltd_conn_disconnected">未接続</string>
+    <string name="ltd_conn_connecting">接続中</string>
+    <string name="ltd_conn_connected">接続済み</string>
+    <string name="ltd_role_host">ホスト</string>
+    <string name="ltd_role_listener">聴き手</string>
+    <string name="ltd_role_none">役割なし</string>
+    <string name="ltd_role_unknown">不明な役割</string>
+    <string name="ltd_room_status_offline">ホストオフライン</string>
+    <string name="ltd_room_status_closed">閉じ済み</string>
+    <string name="ltd_room_status_active">稼働中</string>
+    <string name="ltd_room_status_none">未参加</string>
+    <string name="ltd_playing">再生中</string>
+    <string name="ltd_paused">一時停止</string>
+    <string name="ltd_playback_state_local_playing">再生中（ローカル）</string>
+    <string name="ltd_playback_state_local_paused">一時停止中（ローカル）</string>
+    <string name="ltd_playback_state_room_playing">再生中（ルーム）</string>
+    <string name="ltd_playback_state_room_paused">一時停止中（ルーム）</string>
+
+    <!-- ヘッダーのステータス -->
+    <string name="ltd_section_status">ステータス</string>
+    <string name="ltd_room_hash">ルーム #%1$s</string>
+    <string name="ltd_not_in_room">ルームに未参加</string>
+    <string name="ltd_room_version">バージョン v%1$s</string>
+
+    <!-- クイック操作 -->
+    <string name="ltd_section_quick_actions">クイック操作</string>
+    <string name="ltd_action_testing_server">サーバー到達性を確認中…</string>
+    <string name="ltd_server_reachable">サーバーに到達可能：%1$s</string>
+    <string name="ltd_server_unreachable">サーバーに到達できません：%1$s</string>
+    <string name="ltd_btn_test_server">サーバー到達性を確認</string>
+    <string name="ltd_ping_sent">ping を送信しました</string>
+    <string name="ltd_ping_send_fail">ping の送信に失敗（WS 未接続）</string>
+    <string name="ltd_ws_requested">WebSocket への接続をリクエストしました</string>
+    <string name="ltd_btn_connect_ws">WSに接続</string>
+    <string name="ltd_ws_disconnected">WebSocket を切断しました</string>
+    <string name="ltd_btn_disconnect_ws">WSを切断</string>
+    <string name="ltd_ws_url_empty">WSアドレスが空です</string>
+    <string name="ltd_ws_url">WSアドレス</string>
+    <string name="ltd_ws_url_copied">WSアドレスをコピーしました</string>
+    <string name="ltd_btn_copy_ws_url">WSアドレスをコピー</string>
+
+    <!-- ルーム操作 -->
+    <string name="ltd_section_connected_actions">接続中の操作</string>
+    <string name="ltd_section_room_actions">ルーム操作</string>
+    <string name="ltd_create_room_queue_note">ルーム作成には現在のキューのスナップショットが必要</string>
+    <string name="ltd_create_room_queue_value">キュー %1$s 曲 · 現在のインデックス %2$s</string>
+    <string name="ltd_action_creating_room">ルームを作成して接続中…</string>
+    <string name="ltd_room_created">ルームを作成しました：%1$s</string>
+    <string name="ltd_btn_create_and_connect">作成して接続</string>
+    <string name="ltd_action_parsing_invite">招待を解析して参加中…</string>
+    <string name="ltd_no_valid_invite_in_clipboard">クリップボードに有効な一緒に聴く招待リンクがありません</string>
+    <string name="ltd_room_joined">ルームに参加しました：%1$s</string>
+    <string name="ltd_btn_paste_invite_join">招待を貼り付けて参加</string>
+    <string name="ltd_action_refreshing_room">ルーム状態を更新中…</string>
+    <string name="ltd_no_room_now">現在ルームはありません</string>
+    <string name="ltd_room_state_refreshed">ルーム状態を更新しました：ok=%1$s、version=%2$s</string>
+    <string name="ltd_btn_refresh_room">ルーム状態を更新</string>
+    <string name="ltd_left_room">ルームを退出しました</string>
+    <string name="ltd_btn_leave_room">ルームを退出</string>
+    <string name="ltd_send_test_event">テストイベントを送信</string>
+    <string name="ltd_heartbeat_ws_sent">ハートビートを WS で送信しました</string>
+    <string name="ltd_ws_not_connected_send_fail">WS 未接続のため送信できません</string>
+    <string name="ltd_btn_heartbeat_ws">ハートビート → WS</string>
+    <string name="ltd_action_sending_http_heartbeat">HTTP でハートビートを送信中…</string>
+    <string name="ltd_heartbeat_http_sent">ハートビートを HTTP で送信しました</string>
+    <string name="ltd_heartbeat_http_fail">HTTP ハートビートに失敗：%1$s</string>
+    <string name="ltd_btn_heartbeat_http">ハートビート → HTTP</string>
+    <string name="ltd_track_missing_stable_key">現在の曲に stableKey がありません</string>
+    <string name="ltd_play_link_requested">再生リンクをリクエストしました（forceRefresh）</string>
+    <string name="ltd_btn_request_play_link_ws">再生リンクをリクエスト → WS</string>
+
+    <!-- 招待と共有 -->
+    <string name="ltd_section_invite_share">招待と共有</string>
+    <string name="ltd_not_in_room_no_invite">ルームに未参加のため、共有できる招待情報はありません</string>
+    <string name="ltd_invite_link_unavailable_toast">招待リンクを利用できません（ルーム番号またはシークレットがありません）</string>
+    <string name="ltd_invite_link">招待リンク</string>
+    <string name="ltd_invite_link_copied">招待リンクをコピーしました</string>
+    <string name="ltd_btn_copy_invite_link">招待リンクをコピー</string>
+    <string name="ltd_invite_secret">招待シークレット</string>
+    <string name="ltd_invite_secret_copied">招待シークレットをコピーしました</string>
+    <string name="ltd_btn_copy_invite_secret">招待シークレットをコピー</string>
+    <string name="ltd_room_id">ルーム番号</string>
+    <string name="ltd_room_id_copied">ルーム番号をコピーしました</string>
+    <string name="ltd_btn_copy_room_id">ルーム番号をコピー</string>
+    <string name="ltd_friend">リスナー</string>
+    <string name="ltd_share_text">%1$s があなたを一緒に聴くに招待します（ルーム %2$s）</string>
+    <string name="ltd_invite_label">一緒に聴く招待</string>
+    <string name="ltd_share_text_copied">共有文をコピーしました</string>
+    <string name="ltd_btn_copy_share_text">共有文をコピー</string>
+    <string name="ltd_btn_parse_invite">招待を貼り付けて解析</string>
+    <string name="ltd_invite_parse_room">解析成功：ルーム %1$s</string>
+    <string name="ltd_invite_parse_inviter">、招待者 %1$s</string>
+    <string name="ltd_invite_parse_server">、サーバー %1$s</string>
+    <string name="ltd_invite_parse_default">デフォルト</string>
+    <string name="ltd_invite_parse_bad_base_url">（baseUrl が無効のため無視）</string>
+    <string name="ltd_invite_link_unavailable">招待リンクを利用できません</string>
+
+    <!-- ルーム設定 -->
+    <string name="ltd_section_room_settings">ルーム設定</string>
+    <string name="ltd_settings_host_note">ホストが変更でき、変更はすぐにルームへ反映されます</string>
+    <string name="ltd_settings_host_only_note">ルーム設定はホストのみ変更できます</string>
+    <string name="ltd_settings_local_default_note">ルームに未参加：ここに保存されるのはルーム作成時のデフォルト設定です</string>
+    <string name="ltd_allow_member_control_title">聴き手の再生操作を許可</string>
+    <string name="ltd_allow_member_control_desc">オフにすると聴き手はホストの再生に追従します</string>
+    <string name="ltd_auto_pause_title">メンバー変動で自動一時停止</string>
+    <string name="ltd_auto_pause_desc">メンバーの参加・退出時にローカル再生を自動一時停止します</string>
+    <string name="ltd_share_audio_links_title">オーディオリンクを共有</string>
+    <string name="ltd_share_audio_links_desc">直接開けるオーディオURLを共有し、聴き手側の再取得を減らします</string>
+    <string name="ltd_settings_saved_local">ローカルのデフォルト設定を保存しました</string>
+    <string name="ltd_btn_save_local_default">ローカルのデフォルトとして保存</string>
+    <string name="ltd_btn_sync_to_room">ルームに同期</string>
+    <string name="ltd_updating_room_settings">ルーム設定を更新中…</string>
+    <string name="ltd_room_settings_updated">ルーム設定を更新しました</string>
+    <string name="ltd_room_settings_update_fail">ルーム設定の更新に失敗：%1$s</string>
+    <string name="ltd_room_settings_summary">ルームの現在の設定：allowMemberControl=%1$s、autoPauseOnMemberChange=%2$s、shareAudioLinks=%3$s</string>
+    <string name="ltd_websocket_not_connected">websocket 未接続</string>
+
+    <!-- ローカルIDとサーバー -->
+    <string name="ltd_section_identity_server">ローカルIDとサーバー</string>
+    <string name="ltd_server_url_label">サーバーURL（空欄でデフォルト）</string>
+    <string name="ltd_effective_base_url">実際に適用中：%1$s</string>
+    <string name="ltd_nickname">ニックネーム</string>
+    <string name="ltd_identity_uuid">識別UUID</string>
+    <string name="ltd_identity_server_saved">ローカルのIDとサーバー設定を保存しました</string>
+    <string name="ltd_btn_save_locally">ローカルに保存</string>
+    <string name="ltd_leave_room_to_reset_identity">識別IDをリセットするには先にルームを退出してください</string>
+    <string name="ltd_identity_uuid_reset">識別UUIDをリセットしました</string>
+    <string name="ltd_btn_reset_identity_uuid">識別UUIDをリセット</string>
+    <string name="ltd_default">デフォルト</string>
+    <string name="ltd_saved_summary">保存済み：サーバー=%1$s、ニックネーム=%2$s、UUID=%3$s</string>
+
+    <!-- セッション状態 -->
+    <string name="ltd_section_session_state">セッション状態</string>
+    <string name="ltd_field_connection_state">接続状態</string>
+    <string name="ltd_field_role">役割</string>
+    <string name="ltd_field_room_status">ルーム状態</string>
+    <string name="ltd_field_version">バージョン</string>
+    <string name="ltd_field_member_count">メンバー数</string>
+    <string name="ltd_field_queue_length">キューの長さ</string>
+    <string name="ltd_field_playback_state">再生状態</string>
+    <string name="ltd_recent_error">直近のエラー</string>
+    <string name="ltd_room_notice">ルーム通知</string>
+    <string name="ltd_field_current_track">再生中の曲</string>
+    <string name="ltd_field_effective_server">適用中のサーバー</string>
+    <string name="ltd_field_session_nickname">セッションのニックネーム</string>
+
+    <!-- 再生中の曲 payload -->
+    <string name="ltd_section_current_track_payload">再生中の曲（ルーム payload）</string>
+    <string name="ltd_field_title">曲名</string>
+    <string name="ltd_field_artist">アーティスト</string>
+    <string name="ltd_field_album">アルバム</string>
+    <string name="ltd_field_duration">再生時間</string>
+    <string name="ltd_field_stream_urls_count">streamUrls 件数</string>
+    <string name="ltd_field_local_playback">ローカル再生中</string>
+
+    <!-- メンバー一覧 -->
+    <string name="ltd_section_members">メンバー一覧</string>
+    <string name="ltd_no_members">メンバーはいません</string>
+    <string name="ltd_field_total_members">メンバー合計</string>
+    <string name="ltd_member_debug_line">役割=%1$s · userId=%2$s · uuid=%3$s · 参加 %4$s</string>
+
+    <!-- 再生キュー -->
+    <string name="ltd_section_queue">再生キュー</string>
+    <string name="ltd_queue_count_local">%1$s（ローカル）</string>
+    <string name="ltd_queue_local_note">ルームに未参加。ローカルのキューは %1$s 曲、現在のインデックスは %2$s。ルーム作成時には初期キューとしてアップロードされます。</string>
+    <string name="ltd_room_queue_empty">ルームのキューは空です</string>
+    <string name="ltd_current_track_line">再生中の曲 · %1$s · %2$s</string>
+    <string name="ltd_queue_more">さらに %1$s 曲あります。展開してすべて表示</string>
+
+    <!-- JSONスナップショット -->
+    <string name="ltd_section_json_snapshot">JSONスナップショット</string>
+    <string name="ltd_debug_snapshot_label">一緒に聴くデバッグスナップショット</string>
+    <string name="ltd_snapshot_copied">JSONスナップショットをコピーしました</string>
+    <string name="ltd_btn_copy_snapshot">スナップショットをコピー</string>
+    <string name="ltd_snapshot_hint">展開して session / room / local / playback の完全な JSON を表示</string>
+
+    <!-- 折りたたみとコピー -->
+    <string name="ltd_collapse">折りたたむ</string>
+    <string name="ltd_expand">展開</string>
+    <string name="ltd_copy_empty">%1$s が空です</string>
+</resources>

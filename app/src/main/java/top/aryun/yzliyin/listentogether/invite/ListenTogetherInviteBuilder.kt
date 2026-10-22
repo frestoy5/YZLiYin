@@ -1,10 +1,12 @@
 package top.aryun.yzliyin.listentogether.invite
 
 import android.net.Uri
+import top.aryun.yzliyin.R
 import top.aryun.yzliyin.listentogether.network.http.normalizeBaseUrl
 import top.aryun.yzliyin.listentogether.validation.requireValidListenTogetherJoinSecret
 import top.aryun.yzliyin.listentogether.validation.requireValidListenTogetherNickname
 import top.aryun.yzliyin.listentogether.validation.requireValidListenTogetherRoomId
+import top.aryun.yzliyin.util.AppLocale
 import java.util.UUID
 
 private const val LISTEN_TOGETHER_INVITE_SCHEME = "neriplayer"
@@ -16,7 +18,10 @@ fun buildListenTogetherUserUuid(): String {
 }
 
 fun buildDefaultListenTogetherNickname(): String {
-    return "听友${UUID.randomUUID().toString().replace("-", "").take(4).uppercase()}"
+    return AppLocale.string(
+        R.string.lt_invite_default_nickname,
+        UUID.randomUUID().toString().replace("-", "").take(4).uppercase(),
+    )
 }
 
 fun buildListenTogetherInviteUri(

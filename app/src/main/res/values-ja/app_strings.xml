@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 日本語。ここに無いキーは values/（中国語）へフォールバック。 -->
+<resources>
+    <!-- 底部/侧边导航 tab -->
+    <string name="app_tab_home">ホーム</string>
+    <string name="app_tab_search">検索</string>
+    <string name="app_tab_library">ライブラリ</string>
+    <string name="app_tab_settings">設定</string>
+
+    <!-- 一起听深链邀请弹窗 -->
+    <string name="app_invite_title">一緒に聴くに参加</string>
+    <string name="app_invite_friend">友達</string>
+    <string name="app_invite_text">%1$s があなたを部屋 %2$s に招待しました</string>
+    <string name="app_invite_join_fail">部屋に参加できませんでした</string>
+    <string name="app_invite_joining">参加中…</string>
+    <string name="app_invite_join">参加</string>
+    <string name="app_invite_ignore">無視</string>
+
+    <!-- 播放卡片上方的无网络提示 -->
+    <string name="app_offline">オフラインです</string>
+
+    <!-- 長い曲の再生確認：2段階ダイアログ（再生する → 計算問題） -->
+    <string name="app_durwarn_title">再生時間のお知らせ</string>
+    <string name="app_durwarn_text">「%1$s」は %2$s あり、設定した %3$s に達しています。再生しますか？</string>
+    <string name="app_durwarn_ok">再生する</string>
+    <string name="app_durwarn_cancel">再生しない</string>
+    <string name="app_durmath_title">再生の確認</string>
+    <string name="app_durmath_prompt">あと一歩。この計算を正解すると再生が始まります：%1$s =</string>
+    <string name="app_durmath_wrong">答えが違います。もう一度計算してください</string>
+    <string name="app_durmath_ok">再生を開始</string>
+    <string name="app_durmath_cancel">再生しない</string>
+</resources>

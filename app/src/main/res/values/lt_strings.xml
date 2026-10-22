@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ui/screen/ListenTogether.kt（一起听房间页：房间信息、成员、队列、控制与弹窗）。
+  中文是默认语言，values-ja / values-en 各自覆盖。
+-->
+<resources>
+    <!-- 页头 -->
+    <string name="lt_back">返回</string>
+    <string name="lt_title">一起听</string>
+    <string name="lt_debug">调试</string>
+    <string name="lt_op_failed">操作失败</string>
+
+    <!-- 服务端 -->
+    <string name="lt_server">服务端</string>
+    <string name="lt_server_default">当前使用默认服务器：%1$s</string>
+    <string name="lt_server_custom">当前使用自定义服务器：%1$s</string>
+    <string name="lt_server_url_label">自定义服务端地址</string>
+    <string name="lt_test_server">测试服务器</string>
+    <string name="lt_save">保存</string>
+    <string name="lt_server_reset">已恢复默认服务器</string>
+    <string name="lt_server_saved">服务端地址已保存</string>
+
+    <!-- 身份（昵称、UUID） -->
+    <string name="lt_identity">身份</string>
+    <string name="lt_nickname">昵称</string>
+    <string name="lt_invite_default_nickname">听友%1$s</string>
+    <string name="lt_identity_uuid">身份 UUID：%1$s…</string>
+    <string name="lt_not_generated">尚未生成</string>
+    <string name="lt_save_nickname">保存昵称</string>
+    <string name="lt_nickname_saved">昵称已保存</string>
+    <string name="lt_leave_to_reset">离开房间后才能重置身份</string>
+    <string name="lt_reset_identity">重置身份 UUID</string>
+    <string name="lt_reset_identity_message">重置后旧的唯一身份标识符将失效，并替换为新的身份标识。是否继续？</string>
+    <string name="lt_reset">重置</string>
+    <string name="lt_cancel">取消</string>
+    <string name="lt_identity_reset_done">身份 UUID 已重置</string>
+
+    <!-- 顶部提示条 / Toast -->
+    <string name="lt_left_room">已离开房间</string>
+    <string name="lt_room_updated">房间设置已更新</string>
+    <string name="lt_room_update_failed">设置更新失败</string>
+    <string name="lt_clipboard_no_invite">剪贴板里没有有效的一起听邀请</string>
+
+    <!-- 建房 / 入房结果 -->
+    <string name="lt_create_room_failed">创建房间失败</string>
+    <string name="lt_room_created">已创建房间 %1$s</string>
+    <string name="lt_join_room_failed">加入房间失败</string>
+    <string name="lt_room_joined">已加入房间 %1$s</string>
+    <string name="lt_invite_url_invalid">邀请里的服务端地址无效，请手动配置后再加入</string>
+
+    <!-- 房间信息 -->
+    <string name="lt_room">房间</string>
+    <string name="lt_room_id">房间号</string>
+    <string name="lt_role">角色</string>
+    <string name="lt_role_host">房主</string>
+    <string name="lt_role_listener">听众</string>
+    <string name="lt_connection_state">连接状态</string>
+    <string name="lt_connected">已连接</string>
+    <string name="lt_connecting">连接中</string>
+    <string name="lt_disconnected">未连接</string>
+    <string name="lt_room_status">房间状态</string>
+    <string name="lt_status_active">正常</string>
+    <string name="lt_status_host_offline">房主离线</string>
+    <string name="lt_status_closed">已关闭</string>
+    <string name="lt_member_count">成员数</string>
+    <string name="lt_queue_count">队列数量</string>
+    <string name="lt_current_song">当前歌曲</string>
+    <string name="lt_artist">歌手</string>
+    <string name="lt_playback_state">播放状态</string>
+    <string name="lt_playing">播放中</string>
+    <string name="lt_paused">已暂停</string>
+    <string name="lt_close_reason">关闭原因</string>
+
+    <!-- 房间操作按钮 -->
+    <string name="lt_copy_invite">复制邀请</string>
+    <string name="lt_copy_secret">复制密钥</string>
+    <string name="lt_leave_room">离开房间</string>
+
+    <!-- 房间设置开关 -->
+    <string name="lt_room_settings">房间设置</string>
+    <string name="lt_allow_member_control">允许成员控制</string>
+    <string name="lt_allow_member_control_desc">关闭后听众不能暂停、切歌或拖动进度</string>
+    <string name="lt_allow_member_control_desc_create">听众可以暂停、切歌、拖动进度（需房主同意同步）</string>
+    <string name="lt_auto_pause">成员变动自动暂停</string>
+    <string name="lt_auto_pause_desc">有成员加入或离开时自动暂停播放</string>
+    <string name="lt_share_audio_links">共享本机解析的音频链接</string>
+    <string name="lt_share_audio_links_desc">听众可直接使用房主解析的链接播放，无需自己找源</string>
+
+    <!-- 成员与队列 -->
+    <string name="lt_members">成员</string>
+    <string name="lt_me">我</string>
+    <string name="lt_queue">队列</string>
+    <string name="lt_queue_more">… 其余 %1$s 首未显示</string>
+
+    <!-- 创建房间 -->
+    <string name="lt_create_room">创建房间</string>
+    <string name="lt_create_room_empty">当前没有播放队列，先播放一首歌再创建房间</string>
+    <string name="lt_create_room_hint">以当前播放队列建房（%1$s 首，第 %2$s 首为房间当前曲目）</string>
+    <string name="lt_host_can_copy_invite">房主可以复制邀请发给好友</string>
+
+    <!-- 加入房间 -->
+    <string name="lt_join_room">加入房间</string>
+    <string name="lt_room_id_label">房间 ID</string>
+    <string name="lt_room_id_hint">6 位字母数字</string>
+    <string name="lt_invite_secret">邀请密钥</string>
+    <string name="lt_paste_invite">粘贴邀请加入</string>
+
+    <!-- 复制到剪贴板 -->
+    <string name="lt_invite_info">邀请信息</string>
+    <string name="lt_copy_empty">%1$s 为空</string>
+    <string name="lt_copy_done">已复制%1$s</string>
+</resources>

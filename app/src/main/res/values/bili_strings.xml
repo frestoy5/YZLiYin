@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  B 站相关界面：评论区（BiliCommentScreen）、UP 主主页（BiliUpScreen）、
+  页内投稿播放（BiliVideoScreen）、一键三连/四连按钮（BiliQuad）。
+  中文是默认语言，values-ja / values-en 各自覆盖。
+-->
+<resources>
+    <!-- 通用（几个界面共用） -->
+    <string name="bili_back">返回</string>
+    <string name="bili_retry">重试</string>
+    <string name="bili_like">点赞</string>
+    <string name="bili_dislike">点踩</string>
+    <string name="bili_reply">回复</string>
+
+    <!-- 评论区 -->
+    <string name="bili_comments_title">评论</string>
+    <string name="bili_comments_load_fail">加载评论失败</string>
+    <string name="bili_comments_login_required">该操作需要先登录 B 站账号</string>
+    <string name="bili_comments_action_fail">操作失败</string>
+    <string name="bili_comments_missing">缺少稿件信息</string>
+    <string name="bili_comments_empty">还没有评论，来抢沙发</string>
+    <string name="bili_comments_loading">加载中…</string>
+    <string name="bili_comments_load_more">加载更多评论</string>
+    <string name="bili_comments_reply_to">回复 @%1$s</string>
+    <string name="bili_comments_cancel_reply">取消回复</string>
+    <string name="bili_comments_hint">友善评论，说点什么…</string>
+    <string name="bili_comments_hint_not_login">未登录 · 暂无法发表评论</string>
+    <string name="bili_comments_sent">评论已发送</string>
+    <string name="bili_comments_send_fail">发送失败</string>
+    <string name="bili_comments_not_login">未登录 B 站账号 · 可浏览评论</string>
+    <string name="bili_comments_go_login">去登录</string>
+    <string name="bili_comments_hot">热评</string>
+
+    <!-- UP 主主页 -->
+    <string name="bili_up_load_fail">加载失败</string>
+    <string name="bili_up_no_videos">这位 UP 主还没有公开投稿</string>
+    <string name="bili_up_no_dynamics">这位 UP 主还没有动态</string>
+    <string name="bili_up_missing_id">缺少 UP 主 ID</string>
+    <string name="bili_up_default_name">UP 主</string>
+    <string name="bili_up_tab_videos">投稿</string>
+    <string name="bili_up_tab_feed">动态</string>
+    <string name="bili_up_vip">大会员</string>
+    <string name="bili_stat_following">关注</string>
+    <string name="bili_stat_follower">粉丝</string>
+    <string name="bili_stat_likes">获赞</string>
+    <string name="bili_up_ip_location">IP 属地：%1$s</string>
+    <string name="bili_up_video">视频</string>
+
+    <!-- 页内投稿播放 -->
+    <string name="bili_video_load_fail">取不到这条投稿的播放地址（可能需要大会员、登录或地区限制）</string>
+    <string name="bili_video_title_fallback">哔哩哔哩投稿</string>
+    <string name="bili_video_comment">评论</string>
+
+    <!-- 一键三连/四连 -->
+    <string name="bili_quad">一键三连</string>
+    <string name="bili_quad_login_required">三连需要先登录 B 站账号</string>
+    <string name="bili_quad_missing">缺少稿件信息，无法投币点赞</string>
+    <string name="bili_coin">投币</string>
+    <string name="bili_favorite">收藏</string>
+    <string name="bili_repost">转发到动态</string>
+    <string name="bili_quad_pick_none">至少勾选一项</string>
+    <string name="bili_quad_confirm">确定</string>
+    <string name="bili_quad_cancel">取消</string>
+    <string name="bili_quad_running">正在投币点赞…</string>
+    <string name="bili_quad_step_ok">%1$s 成功</string>
+    <string name="bili_quad_step_fail">%1$s 失败：%2$s</string>
+    <string name="bili_quad_close">关闭</string>
+    <string name="bili_quad_step_all">三连</string>
+    <string name="bili_quad_failed">失败</string>
+    <plurals name="bili_quad_coin_count">
+        <item quantity="other">%1$s 枚</item>
+    </plurals>
+    <!-- 点投稿后的播放方式选择 -->
+    <string name="bili_play_where">选择播放方式</string>
+    <string name="bili_play_biliapp">B站播放</string>
+    <string name="bili_play_listen">聆听</string>
+    <string name="bili_play_upload">播放投稿</string>
+
+    <!-- 直播：首页「正在直播」列表 + 进房选择 + 直播间页 -->
+    <string name="live_home_section">正在直播中</string>
+    <string name="live_on_air">正在直播</string>
+    <string name="live_pick_title">从哪进直播间</string>
+    <string name="live_in_app">1. 本软件内观看</string>
+    <string name="live_in_bili_app">2. 在 B 站 APP 打开</string>
+    <string name="live_cancel">取消</string>
+    <string name="live_load_fail">加载直播间信息失败</string>
+    <string name="live_not_started">主播还没开播</string>
+    <string name="live_no_stream">当前没有可用的直播线路</string>
+    <string name="live_watch_in_bili">在 B 站打开</string>
+    <string name="live_follow">关注</string>
+    <string name="live_following">已关注</string>
+    <string name="live_input_hint">说点什么…</string>
+    <string name="live_send">发送</string>
+    <string name="live_send_fail">弹幕发送失败</string>
+    <string name="live_not_login">未登录 B 站账号 · 无法发言</string>
+    <string name="live_reloading">正在打开直播间…</string>
+    <string name="live_no_danmaku">还没有人说话</string>
+    <string name="live_room_offline">直播已结束</string>
+    <string name="live_watchers">%1$s 人在看</string>
+</resources>

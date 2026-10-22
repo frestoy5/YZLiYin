@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English. Any key missing here falls back to Chinese (values/) rather than showing blank. -->
+<resources>
+    <!-- Listen Together: room/session status messages mapped from machine strings -->
+    <string name="ltm_display_host_offline">The host is offline; the room closes in about %1$s minutes</string>
+    <string name="ltm_display_member_joined">%1$s joined the room</string>
+    <string name="ltm_display_member_left">%1$s left the room</string>
+    <string name="ltm_display_auth_failed">Could not authenticate with the room — ask the host to invite you again</string>
+    <string name="ltm_display_room_not_found">The room does not exist or has already ended</string>
+
+    <!--
+      LtMessages 里那批常量的**展示**译法。
+      常量本身保留中文不动：服务端/会话会把它们原样回传，listenTogetherDisplayMessage
+      要拿它们做 == 匹配（见 normalized == LtMessages... 两处）。这里只翻「匹配上之后显示什么」，
+      而输出只流向 ListenTogether 房间页的 Text()，不回写会话，所以不会反噬匹配。
+    -->
+    <string name="ltm_notice_controller_reconnected">The host reconnected; sync has resumed</string>
+    <string name="ltm_notice_controller_left">The host left; the room has ended</string>
+    <string name="ltm_notice_room_closed">The host has been away too long; the room closed automatically</string>
+    <string name="ltm_err_controller_offline">The host is offline — please wait for them to reconnect</string>
+    <string name="ltm_err_member_control_disabled">The host has disabled listener controls</string>
+    <string name="ltm_err_reconnecting">The Listen Together connection dropped; reconnecting…</string>
+    <string name="ltm_err_rejoining">The Listen Together session expired; rejoining the room…</string>
+
+    <!-- Player: link/playback failure reasons shown on the player screen -->
+    <string name="ply_err_netease_vip">This song requires a NetEase Cloud Music membership; your account can’t play it</string>
+    <string name="ply_err_bili_stream">Couldn’t fetch the Bilibili audio stream (may be supporter-only, region-locked, or require sign-in)</string>
+    <string name="ply_err_youtube_stream">Couldn’t fetch the YouTube audio stream (YouTube may be unreachable from your network, or sign-in is required)</string>
+    <string name="ply_err_url_invalid">The playback link is invalid — this song may not be licensed for playback</string>
+    <string name="ply_err_all_sources_failed">Playback failed here, and the same song wasn’t found on any other source</string>
+    <string name="ply_err_player_init">The player failed to initialize — please try again</string>
+    <string name="ply_err_playback">Playback failed (%1$s)</string>
+    <!-- 一起听：建房/入房参数校验错误（validation/ListenTogetherValidationError） -->
+    <string name="ltm_validate_join_secret_required">Invite secret cannot be empty</string>
+    <string name="ltm_validate_join_secret_length">Invite secret must be %1$d characters or fewer</string>
+    <string name="ltm_validate_nickname_length">Nickname length must be %1$d-%2$d characters</string>
+    <string name="ltm_validate_nickname_chars">Nickname may only contain letters and numbers</string>
+    <string name="ltm_validate_room_id_length">Room ID must be %1$d characters</string>
+    <string name="ltm_validate_room_id_chars">Room ID may only contain uppercase letters and numbers</string>
+    <string name="ltm_validate_user_uuid_required">User UUID cannot be empty</string>
+    <string name="ltm_validate_user_uuid_invalid">User UUID format is invalid</string>
+    <string name="ltm_validate_current_track_missing">No song is currently playing, so Listen Together cannot be created</string>
+    <string name="ltm_validate_current_track_not_shareable">Songs that cannot be shared cannot be used for Listen Together — switch to an online song</string>
+    <string name="ltm_validate_current_track_unavailable">The current song is not in the queue, so Listen Together cannot be created</string>
+</resources>

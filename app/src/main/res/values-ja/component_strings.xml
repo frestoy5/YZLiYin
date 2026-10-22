@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 日本語。ここに無いキーは values/（中国語）へフォールバック。 -->
+<resources>
+    <string name="cmp_pause">一時停止</string>
+    <string name="cmp_play">再生</string>
+    <string name="cmp_next">次の曲</string>
+</resources>

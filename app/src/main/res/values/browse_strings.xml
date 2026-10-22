@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ui/screen/Home.kt、Search.kt、Artist.kt、Album.kt、Comment.kt、PlaylistDetail.kt
+  （首页 / 搜索 / 歌手 / 专辑 / 评论 / 歌单详情）。
+  中文是默认语言，values-ja / values-en 各自覆盖。
+-->
+<resources>
+    <!-- 首页 Home.kt -->
+    <string name="home_refresh_desc">刷新</string>
+    <string name="home_hot_search">热搜</string>
+    <string name="home_hot_rank">最新热度</string>
+    <string name="home_play_all">播放全部</string>
+    <string name="home_hot_rank_note">全网实时热度 · 每 10 分钟更新</string>
+    <string name="home_new_songs">新歌速递</string>
+    <string name="home_rec_playlists">推荐歌单</string>
+    <string name="home_refresh_batch">换一批</string>
+    <string name="home_loading">加载中…</string>
+    <string name="home_offline_retry">网络不可达，请稍后下拉重试</string>
+    <string name="home_not_connected">未连接</string>
+    <string name="home_checking">检测中…</string>
+    <string name="home_latency">%1$sms</string>
+
+    <!-- 搜索 Search.kt -->
+    <string name="srch_tab_songs">歌曲</string>
+    <string name="srch_tab_playlists">歌单</string>
+    <string name="srch_tab_artists">歌手</string>
+    <string name="srch_tab_albums">专辑</string>
+    <string name="srch_hint">搜索歌曲、歌手、专辑</string>
+    <string name="srch_clear">清空</string>
+    <string name="srch_back">返回</string>
+    <string name="srch_fail">搜索失败</string>
+    <string name="srch_suggest">猜你想搜</string>
+    <string name="srch_hot">热门搜索</string>
+    <string name="srch_history_hint">点一下直接搜，长按可删除单条</string>
+    <string name="srch_in_source">在%1$s中搜索歌曲</string>
+    <string name="srch_prompt">输入关键词开始搜索</string>
+    <string name="srch_empty">没有找到相关结果</string>
+    <string name="srch_count_unit">%1$s 首</string>
+    <string name="srch_all_sources">全部</string>
+    <string name="srch_view_all">查看全部 %1$s 首</string>
+    <string name="srch_source_timeout">搜索超时</string>
+    <string name="srch_artist_meta">单曲 %1$s · 专辑 %2$s</string>
+
+    <!-- 搜索按钮（输入框右侧）与历史搜索 -->
+    <string name="srch_action">搜索</string>
+    <string name="srch_history">历史搜索</string>
+    <string name="srch_history_clear">清除</string>
+
+    <!-- 歌手 Artist.kt -->
+    <string name="art_missing_id">缺少歌手 ID</string>
+    <string name="art_load_songs_fail">加载歌曲失败</string>
+    <string name="art_load_albums_fail">加载专辑失败</string>
+    <string name="art_fallback_title">歌手</string>
+    <string name="art_back">返回</string>
+    <string name="art_play_all">播放全部</string>
+    <string name="art_tab_songs">热门歌曲</string>
+    <string name="art_tab_albums">专辑 %1$s</string>
+    <string name="art_meta">单曲 %1$s · 专辑 %2$s</string>
+    <string name="art_no_songs">暂无歌曲</string>
+    <string name="art_count_unit">%1$s 首</string>
+    <string name="art_no_albums">暂无专辑</string>
+
+    <!-- 专辑 Album.kt -->
+    <string name="alb_missing_id">缺少专辑 ID</string>
+    <string name="alb_load_fail">加载专辑失败</string>
+    <string name="alb_fallback_title">专辑</string>
+    <string name="alb_back">返回</string>
+    <string name="alb_play_all">播放全部</string>
+    <string name="alb_count_unit">%1$s 首</string>
+
+    <!-- 评论 Comment.kt -->
+    <string name="cmt_load_fail">加载评论失败</string>
+    <string name="cmt_missing_id">缺少歌曲 ID</string>
+    <string name="cmt_title">评论</string>
+    <string name="cmt_back">返回</string>
+    <string name="cmt_loading">加载中…</string>
+    <string name="cmt_empty">还没有评论，来抢沙发</string>
+    <string name="cmt_prev">上一页</string>
+    <string name="cmt_next">下一页</string>
+    <string name="cmt_input_hint">说点什么…</string>
+    <string name="cmt_input_locked">未登录 · 暂无法发表评论</string>
+    <string name="cmt_send_fail">发送失败</string>
+    <string name="cmt_not_logged_in">未登录网易云账号 · 可浏览评论</string>
+    <string name="cmt_sign_in">去登录</string>
+    <string name="cmt_hot">热评</string>
+    <string name="cmt_reply">回复：%1$s</string>
+
+    <!-- 歌单详情 PlaylistDetail.kt -->
+    <string name="pld_load_fail">加载歌单失败</string>
+    <string name="pld_missing_id">缺少歌单 ID</string>
+    <string name="pld_dl_start">正在下载 %1$s 首…</string>
+    <string name="pld_dl_no_link">取不到播放链接</string>
+    <string name="pld_dl_write_fail">写入本地失败</string>
+    <string name="pld_dl_unknown">未知错误</string>
+    <string name="pld_dl_done">下载完成：成功 %1$s 首</string>
+    <string name="pld_dl_fail">，失败 %1$s 首（%2$s）</string>
+    <string name="pld_selected">已选 %1$s 首</string>
+    <string name="pld_exit_select">退出多选</string>
+    <string name="pld_back">返回</string>
+    <string name="pld_unselect_all">取消全选</string>
+    <string name="pld_select_all">全选</string>
+    <string name="pld_downloading">下载中…</string>
+    <string name="pld_download">下载</string>
+    <string name="pld_play_all">播放全部</string>
+    <string name="pld_meta_play">播放 %1$s · %2$s 首</string>
+    <string name="pld_meta_count">%1$s 首</string>
+    <string name="pld_refresh">刷新</string>
+    <string name="pld_comments">评论</string>
+    <string name="pld_empty">这个歌单没有可播放的曲目</string>
+</resources>

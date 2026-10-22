@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English. Missing keys fall back to Chinese (values/). -->
+<resources>
+    <string name="cmp_pause">Pause</string>
+    <string name="cmp_play">Play</string>
+    <string name="cmp_next">Next track</string>
+</resources>

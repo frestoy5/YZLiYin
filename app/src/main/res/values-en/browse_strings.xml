@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English. Any key missing here falls back to Chinese (values/) rather than showing blank. -->
+<resources>
+    <!-- Home screen (Home.kt) -->
+    <string name="home_refresh_desc">Refresh</string>
+    <string name="home_hot_search">Trending searches</string>
+    <string name="home_hot_rank">Trending now</string>
+    <string name="home_play_all">Play all</string>
+    <string name="home_hot_rank_note">Real-time popularity · updated every 10 min</string>
+    <string name="home_new_songs">New songs</string>
+    <string name="home_rec_playlists">Recommended playlists</string>
+    <string name="home_refresh_batch">Refresh</string>
+    <string name="home_loading">Loading…</string>
+    <string name="home_offline_retry">No network connection. Pull down to retry later</string>
+    <string name="home_not_connected">Offline</string>
+    <string name="home_checking">Checking…</string>
+    <string name="home_latency">%1$sms</string>
+
+    <!-- Search (Search.kt) -->
+    <string name="srch_tab_songs">Songs</string>
+    <string name="srch_tab_playlists">Playlists</string>
+    <string name="srch_tab_artists">Artists</string>
+    <string name="srch_tab_albums">Albums</string>
+    <string name="srch_hint">Search songs, artists, albums</string>
+    <string name="srch_clear">Clear</string>
+    <string name="srch_back">Back</string>
+    <string name="srch_fail">Search failed</string>
+    <string name="srch_suggest">Suggested searches</string>
+    <string name="srch_hot">Popular searches</string>
+    <string name="srch_history_hint">Tap to search again, long-press to remove one</string>
+    <string name="srch_in_source">Search songs in %1$s</string>
+    <string name="srch_prompt">Enter a keyword to search</string>
+    <string name="srch_empty">No results found</string>
+    <string name="srch_count_unit">%1$s songs</string>
+    <string name="srch_all_sources">All</string>
+    <string name="srch_view_all">View all %1$s songs</string>
+    <string name="srch_source_timeout">Search timed out</string>
+    <string name="srch_artist_meta">%1$s songs · %2$s albums</string>
+
+    <!-- Search button (right of the input) and search history -->
+    <string name="srch_action">Search</string>
+    <string name="srch_history">Search history</string>
+    <string name="srch_history_clear">Clear</string>
+
+    <!-- Artist (Artist.kt) -->
+    <string name="art_missing_id">Missing artist ID</string>
+    <string name="art_load_songs_fail">Could not load songs</string>
+    <string name="art_load_albums_fail">Could not load albums</string>
+    <string name="art_fallback_title">Artist</string>
+    <string name="art_back">Back</string>
+    <string name="art_play_all">Play all</string>
+    <string name="art_tab_songs">Popular songs</string>
+    <string name="art_tab_albums">Albums %1$s</string>
+    <string name="art_meta">%1$s songs · %2$s albums</string>
+    <string name="art_no_songs">No songs yet</string>
+    <string name="art_count_unit">%1$s songs</string>
+    <string name="art_no_albums">No albums yet</string>
+
+    <!-- Album (Album.kt) -->
+    <string name="alb_missing_id">Missing album ID</string>
+    <string name="alb_load_fail">Could not load album</string>
+    <string name="alb_fallback_title">Album</string>
+    <string name="alb_back">Back</string>
+    <string name="alb_play_all">Play all</string>
+    <string name="alb_count_unit">%1$s songs</string>
+
+    <!-- Comments (Comment.kt) -->
+    <string name="cmt_load_fail">Could not load comments</string>
+    <string name="cmt_missing_id">Missing song ID</string>
+    <string name="cmt_title">Comments</string>
+    <string name="cmt_back">Back</string>
+    <string name="cmt_loading">Loading…</string>
+    <string name="cmt_empty">No comments yet — be the first</string>
+    <string name="cmt_prev">Previous</string>
+    <string name="cmt_next">Next</string>
+    <string name="cmt_input_hint">Say something…</string>
+    <string name="cmt_input_locked">Sign in to comment</string>
+    <string name="cmt_send_fail">Could not send</string>
+    <string name="cmt_not_logged_in">Not signed in to NetEase Cloud Music · you can browse comments</string>
+    <string name="cmt_sign_in">Sign in</string>
+    <string name="cmt_hot">Hot comment</string>
+    <string name="cmt_reply">Reply: %1$s</string>
+
+    <!-- Playlist detail (PlaylistDetail.kt) -->
+    <string name="pld_load_fail">Could not load playlist</string>
+    <string name="pld_missing_id">Missing playlist ID</string>
+    <string name="pld_dl_start">Downloading %1$s songs…</string>
+    <string name="pld_dl_no_link">Could not get a playback link</string>
+    <string name="pld_dl_write_fail">Failed to save locally</string>
+    <string name="pld_dl_unknown">Unknown error</string>
+    <string name="pld_dl_done">Download complete: %1$s succeeded</string>
+    <string name="pld_dl_fail">, %1$s failed (%2$s)</string>
+    <string name="pld_selected">%1$s selected</string>
+    <string name="pld_exit_select">Exit selection</string>
+    <string name="pld_back">Back</string>
+    <string name="pld_unselect_all">Clear selection</string>
+    <string name="pld_select_all">Select all</string>
+    <string name="pld_downloading">Downloading…</string>
+    <string name="pld_download">Download</string>
+    <string name="pld_play_all">Play all</string>
+    <string name="pld_meta_play">%1$s plays · %2$s songs</string>
+    <string name="pld_meta_count">%1$s songs</string>
+    <string name="pld_refresh">Refresh</string>
+    <string name="pld_comments">Comments</string>
+    <string name="pld_empty">No playable tracks in this playlist</string>
+</resources>

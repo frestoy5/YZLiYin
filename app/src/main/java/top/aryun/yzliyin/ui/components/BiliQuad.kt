@@ -33,9 +33,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import kotlinx.coroutines.launch
+import top.aryun.yzliyin.R
 import top.aryun.yzliyin.core.net.BiliApi
 import top.aryun.yzliyin.core.net.BiliQuadStep
 import top.aryun.yzliyin.ui.Routes
@@ -81,7 +84,13 @@ fun BiliQuadButton(
                     repost = repost,
                 )
             }.getOrElse {
-                listOf(BiliQuadStep("三连", ok = false, message = it.message ?: "失败"))
+                listOf(
+                    BiliQuadStep(
+                        context.getString(R.string.bili_quad_step_all),
+                        ok = false,
+                        message = it.message ?: context.getString(R.string.bili_quad_failed),
+                    ),
+                )
             }
             steps = result
             running = false
@@ -92,12 +101,20 @@ fun BiliQuadButton(
         onClick = {
             if (running) return@IconButton
             if (!BiliApi.isLoggedIn) {
-                Toast.makeText(context, "三连需要先登录 B 站账号", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.bili_quad_login_required),
+                    Toast.LENGTH_SHORT,
+                ).show()
                 nav.navigate(Routes.login(Routes.LOGIN_BILIBILI_QR)) { launchSingleTop = true }
                 return@IconButton
             }
             if (bvid.isBlank()) {
-                Toast.makeText(context, "缺少稿件信息，无法投币点赞", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.bili_quad_missing),
+                    Toast.LENGTH_SHORT,
+                ).show()
                 return@IconButton
             }
             showPicker = true
@@ -107,18 +124,18 @@ fun BiliQuadButton(
         if (running) {
             CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = tint)
         } else {
-            Icon(Icons.Filled.AutoAwesome, contentDescription = "一键三连", tint = tint)
+            Icon(Icons.Filled.AutoAwesome, contentDescription = stringResource(R.string.bili_quad), tint = tint)
         }
     }
 
     if (showPicker) {
         AlertDialog(
             onDismissRequest = { showPicker = false },
-            title = { Text("一键三连") },
+            title = { Text(stringResource(R.string.bili_quad)) },
             text = {
                 Column {
-                    QuadOptionRow("点赞", like) { like = it }
-                    QuadOptionRow("投币", coinOn) { coinOn = it }
+                    QuadOptionRow(stringResource(R.string.bili_like), like) { like = it }
+                    QuadOptionRow(stringResource(R.string.bili_coin), coinOn) { coinOn = it }
                     // 投币选 1 枚还是 2 枚：勾上投币后才出现
                     if (coinOn) {
                         Row(Modifier.fillMaxWidth().padding(start = 48.dp)) {
@@ -132,7 +149,11 @@ fun BiliQuadButton(
                                         onClick = { coinCount = count },
                                     )
                                     Text(
-                                        "$count 枚",
+                                        pluralStringResource(
+                                            R.plurals.bili_quad_coin_count,
+                                            count,
+                                            count.toString(),
+                                        ),
                                         style = MaterialTheme.typography.bodyMedium,
                                     )
                                     Spacer(Modifier.width(8.dp))
@@ -140,24 +161,30 @@ fun BiliQuadButton(
                             }
                         }
                     }
-                    QuadOptionRow("收藏", favorite) { favorite = it }
-                    QuadOptionRow("转发到动态", repost) { repost = it }
+                    QuadOptionRow(stringResource(R.string.bili_favorite), favorite) { favorite = it }
+                    QuadOptionRow(stringResource(R.string.bili_repost), repost) { repost = it }
                 }
             },
             confirmButton = {
                 TextButton(
                     onClick = {
                         if (!like && !coinOn && !favorite && !repost) {
-                            Toast.makeText(context, "至少勾选一项", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(
+                                context,
+                                context.getString(R.string.bili_quad_pick_none),
+                                Toast.LENGTH_SHORT,
+                            ).show()
                             return@TextButton
                         }
                         showPicker = false
                         run()
                     },
-                ) { Text("确定") }
+                ) { Text(stringResource(R.string.bili_quad_confirm)) }
             },
             dismissButton = {
-                TextButton(onClick = { showPicker = false }) { Text("取消") }
+                TextButton(onClick = { showPicker = false }) {
+                    Text(stringResource(R.string.bili_quad_cancel))
+                }
             },
         )
     }
@@ -166,13 +193,13 @@ fun BiliQuadButton(
     if (running || result != null) {
         AlertDialog(
             onDismissRequest = { if (!running) steps = null },
-            title = { Text("一键三连") },
+            title = { Text(stringResource(R.string.bili_quad)) },
             text = {
                 if (running) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                         Spacer(Modifier.width(12.dp))
-                        Text("正在投币点赞…")
+                        Text(stringResource(R.string.bili_quad_running))
                     }
                 } else {
                     Column {
@@ -191,8 +218,11 @@ fun BiliQuadButton(
                                 )
                                 Spacer(Modifier.width(8.dp))
                                 Text(
-                                    text = if (step.ok) "${step.name}成功"
-                                    else "${step.name}失败：${step.message}",
+                                    text = if (step.ok) {
+                                        stringResource(R.string.bili_quad_step_ok, step.name)
+                                    } else {
+                                        stringResource(R.string.bili_quad_step_fail, step.name, step.message)
+                                    },
                                     style = MaterialTheme.typography.bodyMedium,
                                 )
                             }
@@ -203,7 +233,9 @@ fun BiliQuadButton(
             confirmButton = {},
             dismissButton = {
                 if (!running) {
-                    TextButton(onClick = { steps = null }) { Text("关闭") }
+                    TextButton(onClick = { steps = null }) {
+                        Text(stringResource(R.string.bili_quad_close))
+                    }
                 }
             },
         )

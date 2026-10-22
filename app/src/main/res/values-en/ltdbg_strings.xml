@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English. Any key missing here falls back to Chinese (values/) rather than showing blank. -->
+<resources>
+    <!-- Title bar -->
+    <string name="ltd_title">Listen Together Debug</string>
+    <string name="ltd_back">Back</string>
+
+    <!-- Status text (connection / role / room status) -->
+    <string name="ltd_conn_disconnected">Disconnected</string>
+    <string name="ltd_conn_connecting">Connecting</string>
+    <string name="ltd_conn_connected">Connected</string>
+    <string name="ltd_role_host">Host</string>
+    <string name="ltd_role_listener">Listener</string>
+    <string name="ltd_role_none">No role</string>
+    <string name="ltd_role_unknown">Unknown role</string>
+    <string name="ltd_room_status_offline">Host offline</string>
+    <string name="ltd_room_status_closed">Closed</string>
+    <string name="ltd_room_status_active">Active</string>
+    <string name="ltd_room_status_none">Not joined</string>
+    <string name="ltd_playing">Playing</string>
+    <string name="ltd_paused">Paused</string>
+    <string name="ltd_playback_state_local_playing">Playing (local)</string>
+    <string name="ltd_playback_state_local_paused">Paused (local)</string>
+    <string name="ltd_playback_state_room_playing">Playing (room)</string>
+    <string name="ltd_playback_state_room_paused">Paused (room)</string>
+
+    <!-- Header status -->
+    <string name="ltd_section_status">Status</string>
+    <string name="ltd_room_hash">Room #%1$s</string>
+    <string name="ltd_not_in_room">Not in a room</string>
+    <string name="ltd_room_version">Version v%1$s</string>
+
+    <!-- Quick actions -->
+    <string name="ltd_section_quick_actions">Quick actions</string>
+    <string name="ltd_action_testing_server">Testing server reachability…</string>
+    <string name="ltd_server_reachable">Server reachable: %1$s</string>
+    <string name="ltd_server_unreachable">Server unreachable: %1$s</string>
+    <string name="ltd_btn_test_server">Test server reachability</string>
+    <string name="ltd_ping_sent">ping sent</string>
+    <string name="ltd_ping_send_fail">Failed to send ping (WS not connected)</string>
+    <string name="ltd_ws_requested">Requested WebSocket connection</string>
+    <string name="ltd_btn_connect_ws">Connect WS</string>
+    <string name="ltd_ws_disconnected">WebSocket disconnected</string>
+    <string name="ltd_btn_disconnect_ws">Disconnect WS</string>
+    <string name="ltd_ws_url_empty">WS URL is empty</string>
+    <string name="ltd_ws_url">WS URL</string>
+    <string name="ltd_ws_url_copied">WS URL copied</string>
+    <string name="ltd_btn_copy_ws_url">Copy WS URL</string>
+
+    <!-- Room actions -->
+    <string name="ltd_section_connected_actions">Connected actions</string>
+    <string name="ltd_section_room_actions">Room actions</string>
+    <string name="ltd_create_room_queue_note">Creating a room snapshots the current queue</string>
+    <string name="ltd_create_room_queue_value">Queue: %1$s tracks · index %2$s</string>
+    <string name="ltd_action_creating_room">Creating room and connecting…</string>
+    <string name="ltd_room_created">Room created: %1$s</string>
+    <string name="ltd_btn_create_and_connect">Create and connect</string>
+    <string name="ltd_action_parsing_invite">Parsing invite and joining…</string>
+    <string name="ltd_no_valid_invite_in_clipboard">No valid Listen Together invite link in the clipboard</string>
+    <string name="ltd_room_joined">Joined room: %1$s</string>
+    <string name="ltd_btn_paste_invite_join">Paste invite and join</string>
+    <string name="ltd_action_refreshing_room">Refreshing room state…</string>
+    <string name="ltd_no_room_now">No room right now</string>
+    <string name="ltd_room_state_refreshed">Room state refreshed: ok=%1$s, version=%2$s</string>
+    <string name="ltd_btn_refresh_room">Refresh room state</string>
+    <string name="ltd_left_room">Left the room</string>
+    <string name="ltd_btn_leave_room">Leave room</string>
+    <string name="ltd_send_test_event">Send test event</string>
+    <string name="ltd_heartbeat_ws_sent">Heartbeat sent over WS</string>
+    <string name="ltd_ws_not_connected_send_fail">WS not connected — send failed</string>
+    <string name="ltd_btn_heartbeat_ws">Heartbeat → WS</string>
+    <string name="ltd_action_sending_http_heartbeat">Sending heartbeat over HTTP…</string>
+    <string name="ltd_heartbeat_http_sent">Heartbeat sent over HTTP</string>
+    <string name="ltd_heartbeat_http_fail">HTTP heartbeat failed: %1$s</string>
+    <string name="ltd_btn_heartbeat_http">Heartbeat → HTTP</string>
+    <string name="ltd_track_missing_stable_key">Current track is missing stableKey</string>
+    <string name="ltd_play_link_requested">Play link requested (forceRefresh)</string>
+    <string name="ltd_btn_request_play_link_ws">Request play link → WS</string>
+
+    <!-- Invite and share -->
+    <string name="ltd_section_invite_share">Invite and share</string>
+    <string name="ltd_not_in_room_no_invite">Not in a room — nothing to share</string>
+    <string name="ltd_invite_link_unavailable_toast">Invite link unavailable (missing room ID or secret)</string>
+    <string name="ltd_invite_link">Invite link</string>
+    <string name="ltd_invite_link_copied">Invite link copied</string>
+    <string name="ltd_btn_copy_invite_link">Copy invite link</string>
+    <string name="ltd_invite_secret">Invite secret</string>
+    <string name="ltd_invite_secret_copied">Invite secret copied</string>
+    <string name="ltd_btn_copy_invite_secret">Copy invite secret</string>
+    <string name="ltd_room_id">Room ID</string>
+    <string name="ltd_room_id_copied">Room ID copied</string>
+    <string name="ltd_btn_copy_room_id">Copy room ID</string>
+    <string name="ltd_friend">A friend</string>
+    <string name="ltd_share_text">%1$s invites you to Listen Together (room %2$s)</string>
+    <string name="ltd_invite_label">Listen Together invite</string>
+    <string name="ltd_share_text_copied">Share text copied</string>
+    <string name="ltd_btn_copy_share_text">Copy share text</string>
+    <string name="ltd_btn_parse_invite">Paste and parse invite</string>
+    <string name="ltd_invite_parse_room">Parse succeeded: room %1$s</string>
+    <string name="ltd_invite_parse_inviter">, inviter %1$s</string>
+    <string name="ltd_invite_parse_server">, server %1$s</string>
+    <string name="ltd_invite_parse_default">default</string>
+    <string name="ltd_invite_parse_bad_base_url">" (invalid baseUrl, ignored)"</string>
+    <string name="ltd_invite_link_unavailable">Invite link unavailable</string>
+
+    <!-- Room settings -->
+    <string name="ltd_section_room_settings">Room settings</string>
+    <string name="ltd_settings_host_note">The host can edit these; changes sync to the room immediately</string>
+    <string name="ltd_settings_host_only_note">Only the host can change room settings</string>
+    <string name="ltd_settings_local_default_note">Not in a room: what you save here becomes the default for new rooms</string>
+    <string name="ltd_allow_member_control_title">Allow listeners to control playback</string>
+    <string name="ltd_allow_member_control_desc">When off, listeners only follow the host</string>
+    <string name="ltd_auto_pause_title">Auto-pause on member change</string>
+    <string name="ltd_auto_pause_desc">Pauses local playback when a member joins or leaves</string>
+    <string name="ltd_share_audio_links_title">Share audio links</string>
+    <string name="ltd_share_audio_links_desc">Share direct audio URLs to reduce extra link fetching for listeners</string>
+    <string name="ltd_settings_saved_local">Local defaults saved</string>
+    <string name="ltd_btn_save_local_default">Save as local default</string>
+    <string name="ltd_btn_sync_to_room">Sync to room</string>
+    <string name="ltd_updating_room_settings">Updating room settings…</string>
+    <string name="ltd_room_settings_updated">Room settings updated</string>
+    <string name="ltd_room_settings_update_fail">Failed to update room settings: %1$s</string>
+    <string name="ltd_room_settings_summary">Current room settings: allowMemberControl=%1$s, autoPauseOnMemberChange=%2$s, shareAudioLinks=%3$s</string>
+    <string name="ltd_websocket_not_connected">websocket not connected</string>
+
+    <!-- Local identity and server -->
+    <string name="ltd_section_identity_server">Local identity and server</string>
+    <string name="ltd_server_url_label">Server URL (blank for default)</string>
+    <string name="ltd_effective_base_url">In effect: %1$s</string>
+    <string name="ltd_nickname">Nickname</string>
+    <string name="ltd_identity_uuid">Identity UUID</string>
+    <string name="ltd_identity_server_saved">Local identity and server settings saved</string>
+    <string name="ltd_btn_save_locally">Save locally</string>
+    <string name="ltd_leave_room_to_reset_identity">Leave the room before resetting your identity</string>
+    <string name="ltd_identity_uuid_reset">Identity UUID reset</string>
+    <string name="ltd_btn_reset_identity_uuid">Reset identity UUID</string>
+    <string name="ltd_default">default</string>
+    <string name="ltd_saved_summary">Saved: server=%1$s, nickname=%2$s, UUID=%3$s</string>
+
+    <!-- Session state -->
+    <string name="ltd_section_session_state">Session state</string>
+    <string name="ltd_field_connection_state">Connection state</string>
+    <string name="ltd_field_role">Role</string>
+    <string name="ltd_field_room_status">Room status</string>
+    <string name="ltd_field_version">Version</string>
+    <string name="ltd_field_member_count">Members</string>
+    <string name="ltd_field_queue_length">Queue length</string>
+    <string name="ltd_field_playback_state">Playback state</string>
+    <string name="ltd_recent_error">Recent error</string>
+    <string name="ltd_room_notice">Room notice</string>
+    <string name="ltd_field_current_track">Current track</string>
+    <string name="ltd_field_effective_server">Effective server</string>
+    <string name="ltd_field_session_nickname">Session nickname</string>
+
+    <!-- Current track payload -->
+    <string name="ltd_section_current_track_payload">Current track (room payload)</string>
+    <string name="ltd_field_title">Title</string>
+    <string name="ltd_field_artist">Artist</string>
+    <string name="ltd_field_album">Album</string>
+    <string name="ltd_field_duration">Duration</string>
+    <string name="ltd_field_stream_urls_count">streamUrls count</string>
+    <string name="ltd_field_local_playback">Local playback</string>
+
+    <!-- Members -->
+    <string name="ltd_section_members">Members</string>
+    <string name="ltd_no_members">No members yet</string>
+    <string name="ltd_field_total_members">Total members</string>
+    <string name="ltd_member_debug_line">Role=%1$s · userId=%2$s · uuid=%3$s · joined %4$s</string>
+
+    <!-- Queue -->
+    <string name="ltd_section_queue">Queue</string>
+    <string name="ltd_queue_count_local">%1$s (local)</string>
+    <string name="ltd_queue_local_note">Not in a room. The local queue has %1$s tracks at index %2$s; it is uploaded as the initial queue when you create a room.</string>
+    <string name="ltd_room_queue_empty">Room queue is empty</string>
+    <string name="ltd_current_track_line">Current track · %1$s · %2$s</string>
+    <string name="ltd_queue_more">%1$s more — expand to see them all</string>
+
+    <!-- JSON snapshot -->
+    <string name="ltd_section_json_snapshot">JSON snapshot</string>
+    <string name="ltd_debug_snapshot_label">Listen Together debug snapshot</string>
+    <string name="ltd_snapshot_copied">JSON snapshot copied</string>
+    <string name="ltd_btn_copy_snapshot">Copy snapshot</string>
+    <string name="ltd_snapshot_hint">Expand for the full session / room / local / playback JSON</string>
+
+    <!-- Collapsible sections and copy -->
+    <string name="ltd_collapse">Collapse</string>
+    <string name="ltd_expand">Expand</string>
+    <string name="ltd_copy_empty">%1$s is empty</string>
+</resources>

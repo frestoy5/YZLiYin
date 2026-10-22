@@ -1,6 +1,8 @@
 package top.aryun.yzliyin.ui
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -12,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.LibraryMusic
@@ -24,6 +27,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -37,8 +41,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -52,12 +57,16 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import top.aryun.yzliyin.R
 import top.aryun.yzliyin.core.AppGraph
 import top.aryun.yzliyin.core.model.Source
 import top.aryun.yzliyin.core.net.NetworkStatus
 import top.aryun.yzliyin.listentogether.ListenTogetherInviteBus
+import top.aryun.yzliyin.player.PlaybackGate
 import top.aryun.yzliyin.player.PlayerController
 import top.aryun.yzliyin.ui.components.MiniPlayer
+import top.aryun.yzliyin.ui.components.formatDuration
+import top.aryun.yzliyin.ui.components.minutesLabel
 import top.aryun.yzliyin.ui.screen.AlbumScreen
 import top.aryun.yzliyin.ui.screen.ArtistScreen
 import top.aryun.yzliyin.ui.screen.BiliCommentScreen
@@ -67,6 +76,7 @@ import top.aryun.yzliyin.ui.screen.CommentScreen
 import top.aryun.yzliyin.ui.screen.HomeScreen
 import top.aryun.yzliyin.ui.screen.ListenTogetherDebugScreen
 import top.aryun.yzliyin.ui.screen.ListenTogetherScreen
+import top.aryun.yzliyin.ui.screen.LiveRoomScreen
 import top.aryun.yzliyin.ui.screen.LoginScreen
 import top.aryun.yzliyin.ui.screen.PlaylistDetailScreen
 import top.aryun.yzliyin.ui.screen.LibraryScreen
@@ -102,6 +112,10 @@ object Routes {
     const val BILI_UP = "biliUp/{mid}"
     fun biliUp(mid: String) = "biliUp/$mid"
 
+    /** B 站直播间（应用内）：liveRoom/{roomId}。 */
+    const val LIVE_ROOM = "liveRoom/{roomId}"
+    fun liveRoom(roomId: Long) = "liveRoom/$roomId"
+
     /** B 站评论区：biliComments/{bvid}/{name}，name 走 URL 编码。 */
     const val BILI_COMMENTS = "biliComments/{bvid}/{name}"
     fun biliComments(bvid: String, name: String) =
@@ -112,6 +126,7 @@ object Routes {
     const val LOGIN_NETEASE_QR = "netease_qr"
     const val LOGIN_KUGOU_QR = "kugou_qr"
     const val LOGIN_BILIBILI_QR = "bilibili_qr"
+    const val LOGIN_YOUTUBE_WEB = "youtube_web"
 
     /** 歌单/收藏夹详情带源标识，各源的同一数字 id 不会互相串。 */
     const val PLAYLIST = "playlist/{source}/{id}"
@@ -129,15 +144,24 @@ object Routes {
 
 private val topLevel = setOf(Routes.HOME, Routes.SEARCH, Routes.LIBRARY, Routes.SETTINGS)
 
-/** 顶层 tab（标准 Material 3 NavigationBar）。 */
-private data class TopTab(val route: String, val label: String, val icon: ImageVector)
+/**
+ * 顶层 tab（标准 Material 3 NavigationBar）。
+ *
+ * label 存资源 id 而不是字符串：这个列表是顶层 val、不在组合期，
+ * 取文案要到使用处再 stringResource，才能跟着设置里选的语言走。
+ */
+private data class TopTab(
+    val route: String,
+    @StringRes val label: Int,
+    val icon: ImageVector,
+)
 
 /** 顶层 tab：贴底 NavigationBar 与宽屏侧边 NavigationRail 共用同一批。 */
 private val topLevelTabs = listOf(
-    TopTab(Routes.HOME, "首页", Icons.Rounded.Home),
-    TopTab(Routes.SEARCH, "搜索", Icons.Rounded.Search),
-    TopTab(Routes.LIBRARY, "曲库", Icons.Rounded.LibraryMusic),
-    TopTab(Routes.SETTINGS, "设置", Icons.Rounded.Settings),
+    TopTab(Routes.HOME, R.string.app_tab_home, Icons.Rounded.Home),
+    TopTab(Routes.SEARCH, R.string.app_tab_search, Icons.Rounded.Search),
+    TopTab(Routes.LIBRARY, R.string.app_tab_library, Icons.Rounded.LibraryMusic),
+    TopTab(Routes.SETTINGS, R.string.app_tab_settings, Icons.Rounded.Settings),
 )
 
 /** 宽屏阈值（Material medium 窗口下限）：达到即换侧边导航并给内容限宽。 */
@@ -172,12 +196,11 @@ fun App() {
     pendingInvite?.let { invite ->
         AlertDialog(
             onDismissRequest = { ListenTogetherInviteBus.consume() },
-            title = { Text("加入一起听") },
+            title = { Text(stringResource(R.string.app_invite_title)) },
             text = {
-                Text(
-                    "${invite.inviterNickname?.takeIf { it.isNotBlank() } ?: "好友"} " +
-                        "邀请你加入房间 ${invite.roomId}"
-                )
+                val inviter = invite.inviterNickname?.takeIf { it.isNotBlank() }
+                    ?: stringResource(R.string.app_invite_friend)
+                Text(stringResource(R.string.app_invite_text, inviter, invite.roomId))
             },
             confirmButton = {
                 TextButton(
@@ -191,19 +214,113 @@ fun App() {
                                     prefs = AppGraph.listenTogetherPrefs,
                                     invite = invite,
                                 )
-                            }.getOrElse { it.message ?: "加入房间失败" }
+                            }.getOrElse { it.message ?: context.getString(R.string.app_invite_join_fail) }
                             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                             inviteJoining = false
                             ListenTogetherInviteBus.consume()
                             nav.navigate(Routes.LISTEN_TOGETHER)
                         }
                     },
-                ) { Text(if (inviteJoining) "加入中…" else "加入") }
+                ) {
+                    Text(
+                        if (inviteJoining) stringResource(R.string.app_invite_joining)
+                        else stringResource(R.string.app_invite_join),
+                    )
+                }
             },
             dismissButton = {
-                TextButton(onClick = { ListenTogetherInviteBus.consume() }) { Text("忽略") }
+                TextButton(onClick = { ListenTogetherInviteBus.consume() }) {
+                    Text(stringResource(R.string.app_invite_ignore))
+                }
             },
         )
+    }
+
+    // 长时长播放确认：第一问「确定播放吗」，第二问一道数学题，两问都过了才开播
+    val durWarn by PlaybackGate.pending.collectAsStateWithLifecycle()
+    var durMath by remember { mutableStateOf(false) }
+    var durAnswer by remember { mutableStateOf("") }
+    var durWrong by remember { mutableStateOf(false) }
+    // 换一个请求（或请求被取消）就回到第一问，别把上一题的答案带到下一首
+    LaunchedEffect(durWarn) {
+        durMath = false
+        durAnswer = ""
+        durWrong = false
+    }
+    durWarn?.let { request ->
+        if (!durMath) {
+            AlertDialog(
+                onDismissRequest = { PlaybackGate.cancel() },
+                title = { Text(stringResource(R.string.app_durwarn_title)) },
+                text = {
+                    Text(
+                        stringResource(
+                            R.string.app_durwarn_text,
+                            request.song.name,
+                            formatDuration(request.durationMs),
+                            minutesLabel((request.limitMs / 60_000L).toInt()),
+                        ),
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = { durMath = true }) {
+                        Text(stringResource(R.string.app_durwarn_ok))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { PlaybackGate.cancel() }) {
+                        Text(stringResource(R.string.app_durwarn_cancel))
+                    }
+                },
+            )
+        } else {
+            AlertDialog(
+                onDismissRequest = { PlaybackGate.cancel() },
+                title = { Text(stringResource(R.string.app_durmath_title)) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            stringResource(
+                                R.string.app_durmath_prompt,
+                                "${request.left} ${request.op} ${request.right}",
+                            ),
+                        )
+                        OutlinedTextField(
+                            value = durAnswer,
+                            onValueChange = {
+                                durAnswer = it.filter(Char::isDigit).take(6)
+                                durWrong = false
+                            },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            isError = durWrong,
+                            supportingText = if (durWrong) {
+                                { Text(stringResource(R.string.app_durmath_wrong)) }
+                            } else {
+                                null
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            if (durAnswer.trim().toIntOrNull() == request.answer) {
+                                PlaybackGate.proceed()
+                            } else {
+                                durWrong = true
+                            }
+                        },
+                    ) { Text(stringResource(R.string.app_durmath_ok)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { PlaybackGate.cancel() }) {
+                        Text(stringResource(R.string.app_durmath_cancel))
+                    }
+                },
+            )
+        }
     }
 
     val backStackEntry by nav.currentBackStackEntryAsState()
@@ -211,14 +328,16 @@ fun App() {
     val showBar = route in topLevel
 
     // 平板 / 横屏：宽度达到 600dp 即视为宽屏 —— 导航挪到左侧，内容限宽居中，避免大屏被拉伸
+    // 宽度取自真实窗口测量（rememberWindowWidthDp）而非 Configuration：语言重包可能把
+    // 尺寸配置冻在启动那一刻，平板旋转后就再也读不到新宽度，宽屏样式会整个丢掉。
     // 界面放大后一块屏幕能装下的 dp 更少，因此按缩放后的逻辑宽度判断，宽窄形态才符合实际观感
-    val screenWidthDp = (LocalConfiguration.current.screenWidthDp / AppTheme.uiScale).roundToInt()
+    val screenWidthDp = (rememberWindowWidthDp() / AppTheme.uiScale).roundToInt()
     val isWide = screenWidthDp >= WIDE_SCREEN_MIN_DP
     val railVisible = isWide && showBar
     // 宽屏内容列的可用宽度（扣掉侧边导航栏），据此算左右留白；
     // 手机上 maxWidth < 640 → 留白恒为 0，布局与原先完全一致。
-    // 全屏页（B 站投稿播放）不吃这套限宽，否则平板上视频两侧会露出底色。
-    val fullScreen = route == Routes.BILI_VIDEO
+    // 全屏页（B 站投稿播放 / 直播间）不吃这套限宽，否则平板上画面两侧会露出底色。
+    val fullScreen = route == Routes.BILI_VIDEO || route == Routes.LIVE_ROOM
     val contentWidthDp = screenWidthDp - if (railVisible) RAIL_WIDTH_DP else 0
     val sidePadDp = if (fullScreen) {
         0
@@ -228,11 +347,11 @@ fun App() {
     // 侧栏是盖在 NavHost 上面的，起点要额外让开它，内容才在可视区里真正居中
     val startPadDp = sidePadDp + if (railVisible) RAIL_WIDTH_DP else 0
 
-    // 播放页在宽屏上要排成「左封面 + 进度 / 右歌词」两栏，B 站投稿的页内播放页要铺满画面；
-    // 640dp 的内容限宽会把它们挤得过窄、四周留黑边，因此这两屏不吃限宽，用满整屏宽度
-    // （其它页面保持两侧留白居中）
+    // 播放页在宽屏上要排成「左封面 + 进度 / 右歌词」两栏，B 站投稿的页内播放页与
+    // 直播间要铺满画面；640dp 的内容限宽会把它们挤得过窄、四周留黑边，因此这几屏
+    // 不吃限宽，用满整屏宽度（其它页面保持两侧留白居中）
     val playerFullBleed = isWide &&
-        (route == Routes.PLAYER || route == Routes.BILI_VIDEO)
+        (route == Routes.PLAYER || route == Routes.BILI_VIDEO || route == Routes.LIVE_ROOM)
     val navStartPadDp = if (playerFullBleed) 0f else startPadDp.toFloat()
     val navEndPadDp = if (playerFullBleed) 0f else sidePadDp.toFloat()
 
@@ -275,6 +394,15 @@ fun App() {
                 )
             }
             composable(Routes.PLAYER) { PlayerScreen(nav) }
+            composable(
+                route = Routes.LIVE_ROOM,
+                arguments = listOf(navArgument("roomId") { type = NavType.LongType }),
+            ) { entry ->
+                LiveRoomScreen(
+                    roomId = entry.arguments?.getLong("roomId") ?: 0L,
+                    onBack = { nav.popBackStack() },
+                )
+            }
             composable(
                 route = Routes.BILI_VIDEO,
                 arguments = listOf(
@@ -352,8 +480,8 @@ fun App() {
                                 restoreState = true
                             }
                         },
-                        icon = { Icon(tab.icon, contentDescription = tab.label) },
-                        label = { Text(tab.label) },
+                        icon = { Icon(tab.icon, contentDescription = stringResource(tab.label)) },
+                        label = { Text(stringResource(tab.label)) },
                     )
                 }
             }
@@ -364,6 +492,7 @@ fun App() {
             route != Routes.PLAYER &&
             route != Routes.LOGIN &&
             route != Routes.BILI_VIDEO &&
+            route != Routes.LIVE_ROOM &&
             route != Routes.LISTEN_TOGETHER &&
             route != Routes.LISTEN_TOGETHER_DEBUG &&
             !route.startsWith("comments") &&
@@ -385,7 +514,7 @@ fun App() {
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Text(
-                                "当前处于无网络状态",
+                                stringResource(R.string.app_offline),
                                 Modifier.padding(vertical = 6.dp),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onErrorContainer,
@@ -413,8 +542,8 @@ fun App() {
                                         restoreState = true
                                     }
                                 },
-                                icon = { Icon(tab.icon, contentDescription = tab.label) },
-                                label = { Text(tab.label) },
+                                icon = { Icon(tab.icon, contentDescription = stringResource(tab.label)) },
+                                label = { Text(stringResource(tab.label)) },
                             )
                         }
                     }

@@ -1,5 +1,6 @@
 package top.aryun.yzliyin.listentogether.validation
 
+import top.aryun.yzliyin.R
 import top.aryun.yzliyin.listentogether.LtMessages
 
 const val LISTEN_TOGETHER_JOIN_SECRET_MAX_LENGTH = 256
@@ -8,13 +9,17 @@ fun validateListenTogetherJoinSecret(value: String?): ListenTogetherValidationEr
     val normalized = value?.trim().orEmpty()
     return when {
         normalized.isBlank() -> {
-            ListenTogetherValidationError(LtMessages.listen_together_error_join_secret_required)
+            ListenTogetherValidationError(
+                messageFormat = LtMessages.listen_together_error_join_secret_required,
+                messageRes = R.string.ltm_validate_join_secret_required
+            )
         }
 
         normalized.length > LISTEN_TOGETHER_JOIN_SECRET_MAX_LENGTH -> {
             ListenTogetherValidationError(
                 messageFormat = LtMessages.listen_together_error_join_secret_length,
-                args = listOf(LISTEN_TOGETHER_JOIN_SECRET_MAX_LENGTH)
+                args = listOf(LISTEN_TOGETHER_JOIN_SECRET_MAX_LENGTH),
+                messageRes = R.string.ltm_validate_join_secret_length
             )
         }
 

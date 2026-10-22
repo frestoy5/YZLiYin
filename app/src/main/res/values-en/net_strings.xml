@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  User-facing messages from the core/net layer (BiliApi / BiliClient / KugouApi / NeteaseApi).
+  English. Any key missing here falls back to Chinese (values/) rather than showing blank.
+-->
+<resources>
+    <!-- BiliApi.kt -->
+    <string name="net_qr_expired">QR code expired, please refresh</string>
+    <string name="net_bili_default_name">Bilibili</string>
+    <string name="net_quad_like">Like</string>
+    <string name="net_quad_coin">Coin</string>
+    <string name="net_quad_favorite">Favorite</string>
+    <string name="net_quad_repost">Repost to feed</string>
+    <string name="net_no_fav_folder">No favorite folder available</string>
+    <string name="net_no_dynamic_repost">This video has no feed post, so it cannot be reposted</string>
+    <string name="net_failed">Failed</string>
+    <string name="net_missing_up_mid">Missing creator ID</string>
+    <string name="net_missing_video_id">Missing video ID</string>
+
+    <!-- BiliClient.kt -->
+    <string name="net_risk_blocked_request">Requests blocked by risk control (-412). Please try again later</string>
+    <string name="net_risk_blocked_action">Action blocked by risk control (-412). Please try again later</string>
+    <string name="net_repost">Repost</string>
+    <string name="net_bili_empty_response">Bilibili returned an empty response</string>
+    <string name="net_bili_invalid_json">Bilibili response is not valid JSON</string>
+    <string name="net_bili_endpoint_failed">%1$s failed: code=%2$s, message=%3$s</string>
+    <string name="net_bili_nav_missing_wbi">nav did not return a valid wbi_img</string>
+    <string name="net_bili_webticket_missing_nav">WebTicket did not return a valid nav</string>
+    <string name="net_bili_qr_missing">Bilibili did not return a QR code</string>
+
+    <!-- KugouApi.kt -->
+    <string name="net_kugou_missing_hash">Kugou Music track is missing its audio hash</string>
+    <string name="net_kugou_paid">This song requires purchase or a Kugou Music membership; your account can only preview it</string>
+    <string name="net_kugou_security_check">Kugou Music requires a security check; your device may not be registered. Please try again later</string>
+    <string name="net_kugou_no_stream">Could not get a Kugou Music stream (possibly no copyright)</string>
+    <string name="net_kugou_no_credential">Kugou Music did not return login credentials</string>
+    <string name="net_kugou_default_name">Kugou user</string>
+
+    <!-- NeteaseApi.kt -->
+    <string name="net_comment_sent">Comment posted</string>
+    <string name="net_comment_need_login">Sign in first to post a comment</string>
+    <string name="net_comment_send_failed">Failed to post the comment (%1$s)</string>
+    <string name="net_resolve_failed">Could not get the stream, please try again later</string>
+    <string name="net_no_copyright">This song is not available for streaming (no copyright)</string>
+    <string name="net_netease_vip">This song requires a NetEase Cloud Music membership; your account can only preview it</string>
+    <string name="net_netease_invalid_id">Invalid NetEase Cloud Music track id</string>
+    <string name="net_invalid_song_id">Invalid song id</string>
+    <string name="net_captcha_send_failed">Failed to send the code</string>
+    <string name="net_captcha_sent">Code sent</string>
+    <string name="net_captcha_incorrect">Incorrect code</string>
+    <string name="net_login_failed">Sign-in failed</string>
+    <string name="net_login_no_cookie">Sign-in returned no valid Cookie; please use web sign-in instead</string>
+</resources>

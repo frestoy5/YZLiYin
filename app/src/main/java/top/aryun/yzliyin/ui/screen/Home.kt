@@ -47,7 +47,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -56,16 +58,20 @@ import androidx.navigation.NavController
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import top.aryun.yzliyin.R
 import top.aryun.yzliyin.core.model.Playlist
 import top.aryun.yzliyin.core.model.Song
+import top.aryun.yzliyin.core.net.BiliApi
+import top.aryun.yzliyin.core.net.BiliLiveRoom
 import top.aryun.yzliyin.core.net.NetworkStatus
 import top.aryun.yzliyin.core.net.NeteaseApi
 import top.aryun.yzliyin.player.PlayerController
 import top.aryun.yzliyin.ui.Routes
+import top.aryun.yzliyin.ui.components.LiveRoomEntryDialog
 import top.aryun.yzliyin.ui.components.SectionHeader
-import top.aryun.yzliyin.ui.theme.BrandAmber
-import top.aryun.yzliyin.ui.theme.BrandAqua
-import top.aryun.yzliyin.ui.theme.BrandRose
+import top.aryun.yzliyin.ui.theme.NetGreen
+import top.aryun.yzliyin.ui.theme.NetRed
+import top.aryun.yzliyin.ui.theme.NetYellow
 
 /** 网易云热歌榜（最新热度）。 */
 private const val HOT_RANK_ID = "3778678"
@@ -80,10 +86,13 @@ fun HomeScreen(nav: NavController) {
     var hotSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
     var fresh by remember { mutableStateOf<List<Song>>(emptyList()) }
     var playlists by remember { mutableStateOf<List<Playlist>>(emptyList()) }
+    var lives by remember { mutableStateOf<List<BiliLiveRoom>>(emptyList()) }
+    // 点了哪张直播卡片还没决定从哪进（软件内 / B 站 App）
+    var livePicker by remember { mutableStateOf<Long?>(null) }
     var refreshKey by remember { mutableStateOf(0) }
     var loading by remember { mutableStateOf(true) }
 
-    // 首次进入与右上角「刷新」共用同一条加载链路：四块内容一起重拉，
+    // 首次进入与右上角「刷新」共用同一条加载链路：几块内容一起重拉，
     // 拉不到就保留上一次的结果，免得刷新一次失败就把整页清空。
     LaunchedEffect(refreshKey) {
         if (refreshKey == 0) loading = true
@@ -98,10 +107,15 @@ fun HomeScreen(nav: NavController) {
             val p = async {
                 runCatching { NeteaseApi.recommendedPlaylists(limit = 10) }.getOrDefault(emptyList())
             }
+            // 直播是可失败的一块：拿不到就整块不显示，不拖累其它几块
+            val l = async {
+                runCatching { BiliApi.liveRooms(page = 1, pageSize = 12) }.getOrDefault(emptyList())
+            }
             h.await().takeIf { it.isNotEmpty() }?.let { hots = it }
             hs.await().takeIf { it.isNotEmpty() }?.let { hotSongs = it }
             n.await().takeIf { it.isNotEmpty() }?.let { fresh = it }
             p.await().takeIf { it.isNotEmpty() }?.let { playlists = it }
+            l.await().takeIf { it.isNotEmpty() }?.let { lives = it }
         }
         loading = false
     }
@@ -150,7 +164,7 @@ fun HomeScreen(nav: NavController) {
                 ) {
                     Icon(
                         Icons.Rounded.Refresh,
-                        contentDescription = "刷新",
+                        contentDescription = stringResource(R.string.home_refresh_desc),
                         modifier = Modifier.rotate(if (loading) spin else 0f),
                     )
                 }
@@ -159,7 +173,7 @@ fun HomeScreen(nav: NavController) {
 
         if (hots.isNotEmpty()) {
             item {
-                SectionHeader(title = "热搜")
+                SectionHeader(title = stringResource(R.string.home_hot_search))
                 LazyRow(contentPadding = PaddingValues(horizontal = 16.dp)) {
                     items(hots, key = { it }) { word ->
                         SuggestionChip(
@@ -179,15 +193,30 @@ fun HomeScreen(nav: NavController) {
             }
         }
 
+        // 「正在直播中」：B 站直播入口，点了先问从哪进
+        if (lives.isNotEmpty()) {
+            item {
+                SectionHeader(title = stringResource(R.string.live_home_section))
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    items(lives, key = { it.roomId }) { room ->
+                        LiveRoomCard(room = room, onClick = { livePicker = room.roomId })
+                    }
+                }
+            }
+        }
+
         if (hotSongs.isNotEmpty()) {
             item {
                 SectionHeader(
-                    title = "最新热度",
-                    action = "播放全部",
+                    title = stringResource(R.string.home_hot_rank),
+                    action = stringResource(R.string.home_play_all),
                     onAction = { play(hotSongs, 0) },
                 )
                 Text(
-                    "全网实时热度 · 每 10 分钟更新",
+                    stringResource(R.string.home_hot_rank_note),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp),
@@ -238,7 +267,7 @@ fun HomeScreen(nav: NavController) {
 
         if (fresh.isNotEmpty()) {
             item {
-                SectionHeader(title = "新歌速递", action = "播放全部", onAction = { play(fresh, 0) })
+                SectionHeader(title = stringResource(R.string.home_new_songs), action = stringResource(R.string.home_play_all), onAction = { play(fresh, 0) })
                 LazyRow(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -285,13 +314,13 @@ fun HomeScreen(nav: NavController) {
 
         item {
             SectionHeader(
-                title = "推荐歌单",
-                action = "换一批",
+                title = stringResource(R.string.home_rec_playlists),
+                action = stringResource(R.string.home_refresh_batch),
                 onAction = { refreshKey++ },
             )
             if (playlists.isEmpty() && loading) {
                 Text(
-                    "加载中…",
+                    stringResource(R.string.home_loading),
                     Modifier.padding(horizontal = 16.dp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -341,7 +370,7 @@ fun HomeScreen(nav: NavController) {
         if (!loading && hotSongs.isEmpty() && fresh.isEmpty() && playlists.isEmpty()) {
             item {
                 Text(
-                    "网络不可达，请稍后下拉重试",
+                    stringResource(R.string.home_offline_retry),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(24.dp),
@@ -349,24 +378,27 @@ fun HomeScreen(nav: NavController) {
             }
         }
     }
+
+    // 进直播间前先问从哪进：1. 本软件内观看  2. 在 B 站 APP 打开（与 UP 主页共用一个弹窗）
+    LiveRoomEntryDialog(roomId = livePicker, nav = nav, onDismiss = { livePicker = null })
 }
 
-/** 首页标题旁的网络状态徽标：延迟 + 等级（优秀 / 中等 / 未连接）。 */
+/** 首页标题旁的网络状态徽标：延迟数值 + 状态色点（绿快 / 黄一般 / 红未连接），不再写「优秀 / 中等」。 */
 @Composable
 private fun NetworkBadge() {
     val level = NetworkStatus.level
     val latency = NetworkStatus.latencyMs
     val color = when (level) {
-        NetworkStatus.Level.GOOD -> BrandAqua
-        NetworkStatus.Level.FAIR -> BrandAmber
-        NetworkStatus.Level.OFFLINE -> BrandRose
+        NetworkStatus.Level.GOOD -> NetGreen
+        NetworkStatus.Level.FAIR -> NetYellow
+        NetworkStatus.Level.OFFLINE -> NetRed
         NetworkStatus.Level.CHECKING -> MaterialTheme.colorScheme.onSurfaceVariant
     }
     val text = when (level) {
-        NetworkStatus.Level.GOOD -> "${latency ?: 0}ms · 优秀"
-        NetworkStatus.Level.FAIR -> "${latency ?: 0}ms · 中等"
-        NetworkStatus.Level.OFFLINE -> "未连接"
-        NetworkStatus.Level.CHECKING -> "检测中…"
+        NetworkStatus.Level.GOOD, NetworkStatus.Level.FAIR ->
+            stringResource(R.string.home_latency, latency ?: 0)
+        NetworkStatus.Level.OFFLINE -> stringResource(R.string.home_not_connected)
+        NetworkStatus.Level.CHECKING -> stringResource(R.string.home_checking)
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
@@ -382,5 +414,93 @@ private fun NetworkBadge() {
             color = color,
             maxLines = 1,
         )
+    }
+}
+
+/** 首页「正在直播中」的一张卡片：封面 + LIVE 角标 + 标题 + 主播/分区。 */
+@Composable
+private fun LiveRoomCard(room: BiliLiveRoom, onClick: () -> Unit) {
+    Column(
+        Modifier
+            .width(152.dp)
+            .clickable(onClick = onClick),
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .aspectRatio(16f / 9f)
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+        ) {
+            AsyncImage(
+                model = room.cover,
+                contentDescription = room.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+            Box(
+                Modifier
+                    .align(Alignment.TopStart)
+                    .padding(6.dp)
+                    .background(Color(0xFFFF3B30), RoundedCornerShape(4.dp))
+                    .padding(horizontal = 5.dp, vertical = 1.dp),
+            ) {
+                Text(
+                    "LIVE",
+                    color = Color.White,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            Box(
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(6.dp)
+                    .background(Color(0xA6000000), RoundedCornerShape(4.dp))
+                    .padding(horizontal = 5.dp, vertical = 1.dp),
+            ) {
+                val watched = room.watchedText.ifBlank { room.online.toString() }
+                Text(
+                    // 接口有时直接给 text_large「1.6万人看过」，本身就带「人」，别再拼一遍
+                    if ('人' in watched) {
+                        watched
+                    } else {
+                        stringResource(R.string.live_watchers, watched)
+                    },
+                    color = Color.White,
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            room.title,
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 2,
+            minLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(Modifier.height(4.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            AsyncImage(
+                model = room.anchorFace,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(16.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+            )
+            Spacer(Modifier.width(5.dp))
+            Text(
+                listOf(room.anchorName, room.areaName)
+                    .filter { it.isNotBlank() }
+                    .joinToString(" · "),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }

@@ -64,6 +64,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -75,6 +76,7 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import top.aryun.yzliyin.R
 import top.aryun.yzliyin.core.AppGraph
 import top.aryun.yzliyin.listentogether.invite.buildListenTogetherInviteUri
 import top.aryun.yzliyin.listentogether.invite.parseListenTogetherInvite
@@ -107,7 +109,8 @@ import java.util.Locale
  * 成员列表、队列列表与 JSON 快照。
  *
  * 只读展示 + 直接调用 [AppGraph.listenTogether] 的会话管理器，不改变一起听主流程。
- * 文案统一硬编码中文（本项目不做多语言），颜色沿用设置页的「暗色纯白 / 亮色纯黑」约定。
+ * 文案走字符串资源（`ltd_*`，见 values[-ja|-en]/ltdbg_strings.xml），颜色沿用设置页的「暗色纯白 / 亮色纯黑」约定。
+ * 诊断输出里的状态转储（`status=$status`、JSON 快照、字段名等）保持原样不翻译——那些是协议字段、不是界面文案。
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -223,9 +226,16 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
     }
 
     fun pushRoomSettings(updated: ListenTogetherRoomSettings) {
-        runAction("正在更新房间设置") {
+        runAction(context.getString(R.string.ltd_updating_room_settings)) {
             val result = manager.updateRoomSettings(updated)
-            if (result.ok) "房间设置已更新" else "房间设置更新失败：${result.error ?: "websocket 未连接"}"
+            if (result.ok) {
+                context.getString(R.string.ltd_room_settings_updated)
+            } else {
+                context.getString(
+                    R.string.ltd_room_settings_update_fail,
+                    result.error ?: context.getString(R.string.ltd_websocket_not_connected),
+                )
+            }
         }
     }
 
@@ -286,11 +296,11 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
     ) {
         TopAppBar(
             title = {
-                Text("一起听调试", fontWeight = FontWeight.Bold, color = textColor)
+                Text(stringResource(R.string.ltd_title), fontWeight = FontWeight.Bold, color = textColor)
             },
             navigationIcon = {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回", tint = textColor)
+                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.ltd_back), tint = textColor)
                 }
             },
             actions = {
@@ -319,7 +329,7 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
         }
 
         // ===== 头部状态 =====
-        SectionHeader("头部状态")
+        SectionHeader(stringResource(R.string.ltd_section_status))
         FlowRow(
             modifier = Modifier
                 .fillMaxWidth()
@@ -336,20 +346,21 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = session.roomId?.let { "房间 #$it" } ?: "未加入房间",
+                text = session.roomId?.let { stringResource(R.string.ltd_room_hash, it) }
+                    ?: stringResource(R.string.ltd_not_in_room),
                 style = MaterialTheme.typography.bodySmall,
                 color = subColor,
                 modifier = Modifier.weight(1f),
             )
             Text(
-                text = "版本 v${room?.version ?: -1}",
+                text = stringResource(R.string.ltd_room_version, room?.version ?: -1),
                 style = MaterialTheme.typography.bodySmall,
                 color = subColor,
             )
         }
 
         // ===== 快捷动作 =====
-        SectionHeader("快捷动作")
+        SectionHeader(stringResource(R.string.ltd_section_quick_actions))
         DebugCard {
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
@@ -358,12 +369,12 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
             ) {
                 OutlinedButton(
                     onClick = {
-                        runAction("正在测服务端可达性") {
+                        runAction(context.getString(R.string.ltd_action_testing_server)) {
                             val result = api.testServerAvailability(effectiveBaseUrl)
                             if (result.ok) {
-                                "服务端可达：$effectiveBaseUrl"
+                                context.getString(R.string.ltd_server_reachable, effectiveBaseUrl)
                             } else {
-                                "服务端不可达：${result.message}"
+                                context.getString(R.string.ltd_server_unreachable, result.message)
                             }
                         }
                     },
@@ -371,11 +382,17 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
                 ) {
                     Icon(Icons.Outlined.NetworkCheck, contentDescription = null)
                     Spacer(Modifier.width(6.dp))
-                    Text("测服务端可达性")
+                    Text(stringResource(R.string.ltd_btn_test_server))
                 }
                 OutlinedButton(
                     onClick = {
-                        toast(if (manager.sendPing()) "ping 已发送" else "ping 发送失败（WS 未连接）")
+                        toast(
+                            if (manager.sendPing()) {
+                                context.getString(R.string.ltd_ping_sent)
+                            } else {
+                                context.getString(R.string.ltd_ping_send_fail)
+                            }
+                        )
                     },
                     enabled = session.connectionState == ListenTogetherConnectionState.CONNECTED,
                 ) {
@@ -386,51 +403,57 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
                 OutlinedButton(
                     onClick = {
                         manager.connectWebSocket()
-                        toast("已请求连接 WebSocket")
+                        toast(context.getString(R.string.ltd_ws_requested))
                     },
                     enabled = !session.wsUrl.isNullOrBlank(),
                 ) {
                     Icon(Icons.Outlined.Refresh, contentDescription = null)
                     Spacer(Modifier.width(6.dp))
-                    Text("连接 WS")
+                    Text(stringResource(R.string.ltd_btn_connect_ws))
                 }
                 OutlinedButton(
                     onClick = {
                         manager.disconnectWebSocket()
-                        toast("已断开 WebSocket")
+                        toast(context.getString(R.string.ltd_ws_disconnected))
                     },
                     enabled = session.connectionState != ListenTogetherConnectionState.DISCONNECTED,
                 ) {
                     Icon(Icons.Outlined.StopCircle, contentDescription = null)
                     Spacer(Modifier.width(6.dp))
-                    Text("断开 WS")
+                    Text(stringResource(R.string.ltd_btn_disconnect_ws))
                 }
                 OutlinedButton(
                     onClick = {
                         val wsUrl = session.wsUrl
                         if (wsUrl.isNullOrBlank()) {
-                            toast("WS 地址为空")
+                            toast(context.getString(R.string.ltd_ws_url_empty))
                         } else {
-                            debugCopy(context, "WS 地址", wsUrl)
-                            toast("已复制 WS 地址")
+                            debugCopy(context, context.getString(R.string.ltd_ws_url), wsUrl)
+                            toast(context.getString(R.string.ltd_ws_url_copied))
                         }
                     },
                     enabled = !session.wsUrl.isNullOrBlank(),
                 ) {
                     Icon(Icons.Outlined.ContentCopy, contentDescription = null)
                     Spacer(Modifier.width(6.dp))
-                    Text("复制 WS 地址")
+                    Text(stringResource(R.string.ltd_btn_copy_ws_url))
                 }
             }
         }
 
         // ===== 房间动作 =====
-        SectionHeader(if (inRoom) "已连接动作" else "房间动作")
+        SectionHeader(
+            stringResource(if (inRoom) R.string.ltd_section_connected_actions else R.string.ltd_section_room_actions),
+        )
         DebugCard {
             if (!inRoom) {
                 DebugFieldRow(
-                    label = "创建房间需要当前队列快照",
-                    value = "队列 ${playState.queue.size} 首 · 当前下标 ${playState.index}",
+                    label = stringResource(R.string.ltd_create_room_queue_note),
+                    value = stringResource(
+                        R.string.ltd_create_room_queue_value,
+                        playState.queue.size.toString(),
+                        playState.index.toString(),
+                    ),
                     textColor = subColor,
                 )
                 roomCreationError?.let {
@@ -442,7 +465,7 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
                 ) {
                     Button(
                         onClick = {
-                            runAction("正在创建房间并连接") {
+                            runAction(context.getString(R.string.ltd_action_creating_room)) {
                                 persistLocalSettings()
                                 manager.createRoom(
                                     baseUrl = effectiveBaseUrl,
@@ -456,7 +479,10 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
                                     currentSong = playState.current,
                                 )
                                 manager.connectWebSocket()
-                                "房间已创建：${manager.sessionState.value.roomId ?: "-"}"
+                                context.getString(
+                                    R.string.ltd_room_created,
+                                    manager.sessionState.value.roomId ?: "-",
+                                )
                             }
                         },
                         enabled = runningAction == null &&
@@ -468,13 +494,13 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
                     ) {
                         Icon(Icons.Outlined.PlayArrow, contentDescription = null)
                         Spacer(Modifier.width(6.dp))
-                        Text("创建并连接")
+                        Text(stringResource(R.string.ltd_btn_create_and_connect))
                     }
                     Button(
                         onClick = {
-                            runAction("正在解析邀请并加入") {
+                            runAction(context.getString(R.string.ltd_action_parsing_invite)) {
                                 val invite = parseListenTogetherInvite(debugReadClipboard(context))
-                                    ?: return@runAction "剪贴板里没有有效的一起听邀请链接"
+                                    ?: return@runAction context.getString(R.string.ltd_no_valid_invite_in_clipboard)
                                 val joinUuid = userUuidInput
                                     .takeIf { validateListenTogetherUserUuid(it) == null }
                                     ?: prefs.getOrCreateUserUuid()
@@ -493,7 +519,7 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
                                     joinSecret = invite.joinSecret,
                                 )
                                 manager.connectWebSocket()
-                                "已加入房间：${invite.roomId}"
+                                context.getString(R.string.ltd_room_joined, invite.roomId)
                             }
                         },
                         enabled = runningAction == null &&
@@ -503,7 +529,7 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
                     ) {
                         Icon(Icons.Outlined.Link, contentDescription = null)
                         Spacer(Modifier.width(6.dp))
-                        Text("粘贴邀请并加入")
+                        Text(stringResource(R.string.ltd_btn_paste_invite_join))
                     }
                 }
             } else {
@@ -513,14 +539,18 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
                 ) {
                     Button(
                         onClick = {
-                            runAction("正在刷新房间状态") {
+                            runAction(context.getString(R.string.ltd_action_refreshing_room)) {
                                 prefs.setNickname(nicknameInput)
                                 val roomId = session.roomId
                                 if (roomId.isNullOrBlank()) {
-                                    "当前没有房间"
+                                    context.getString(R.string.ltd_no_room_now)
                                 } else {
                                     val response = manager.refreshRoomState(effectiveBaseUrl, roomId)
-                                    "房间状态已刷新：ok=${response.ok}，version=${response.state?.version ?: "-"}"
+                                    context.getString(
+                                        R.string.ltd_room_state_refreshed,
+                                        response.ok,
+                                        response.state?.version ?: "-",
+                                    )
                                 }
                             }
                         },
@@ -529,24 +559,24 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
                     ) {
                         Icon(Icons.Outlined.Refresh, contentDescription = null)
                         Spacer(Modifier.width(6.dp))
-                        Text("刷新房间状态")
+                        Text(stringResource(R.string.ltd_btn_refresh_room))
                     }
                     Button(
                         onClick = {
                             manager.leaveRoom()
-                            toast("已离开房间")
+                            toast(context.getString(R.string.ltd_left_room))
                         },
                         enabled = session.connectionState != ListenTogetherConnectionState.CONNECTING,
                         modifier = Modifier.weight(1f),
                     ) {
                         Icon(Icons.Outlined.StopCircle, contentDescription = null)
                         Spacer(Modifier.width(6.dp))
-                        Text("离开房间")
+                        Text(stringResource(R.string.ltd_btn_leave_room))
                     }
                 }
 
                 HorizontalDivider()
-                Text("发送测试事件", style = MaterialTheme.typography.bodyMedium, color = textColor)
+                Text(stringResource(R.string.ltd_send_test_event), style = MaterialTheme.typography.bodyMedium, color = textColor)
                 FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -560,33 +590,46 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
                                 includeQueue = true,
                             )
                             val sent = manager.sendControlEventOverWebSocket(event)
-                            toast(if (sent) "心跳已通过 WS 发送" else "WS 未连接，发送失败")
+                            toast(
+                                if (sent) {
+                                    context.getString(R.string.ltd_heartbeat_ws_sent)
+                                } else {
+                                    context.getString(R.string.ltd_ws_not_connected_send_fail)
+                                }
+                            )
                         },
                         enabled = session.connectionState == ListenTogetherConnectionState.CONNECTED,
                     ) {
-                        Text("心跳 → WS")
+                        Text(stringResource(R.string.ltd_btn_heartbeat_ws))
                     }
                     OutlinedButton(
                         onClick = {
-                            runAction("正在通过 HTTP 发送心跳") {
+                            runAction(context.getString(R.string.ltd_action_sending_http_heartbeat)) {
                                 val event = manager.buildHeartbeatEvent(
                                     state = if (playState.playing) "playing" else "paused",
                                     positionMs = playState.positionMs,
                                     includeQueue = false,
                                 )
                                 val response = manager.sendControlEvent(event)
-                                if (response.ok) "心跳已通过 HTTP 发送" else "HTTP 心跳失败：${response.error ?: "-"}"
+                                if (response.ok) {
+                                    context.getString(R.string.ltd_heartbeat_http_sent)
+                                } else {
+                                    context.getString(
+                                        R.string.ltd_heartbeat_http_fail,
+                                        response.error ?: "-",
+                                    )
+                                }
                             }
                         },
                         enabled = runningAction == null && !session.token.isNullOrBlank(),
                     ) {
-                        Text("心跳 → HTTP")
+                        Text(stringResource(R.string.ltd_btn_heartbeat_http))
                     }
                     val stableKey = room?.track?.stableKey
                     OutlinedButton(
                         onClick = {
                             if (stableKey.isNullOrBlank()) {
-                                toast("当前曲目缺少 stableKey")
+                                toast(context.getString(R.string.ltd_track_missing_stable_key))
                             } else {
                                 val event = manager.buildRequestLinkEvent(
                                     stableKey = stableKey,
@@ -595,22 +638,28 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
                                     forceRefresh = true,
                                 )
                                 val sent = manager.sendControlEventOverWebSocket(event)
-                                toast(if (sent) "已请求播放链接（forceRefresh）" else "WS 未连接，发送失败")
+                                toast(
+                                    if (sent) {
+                                        context.getString(R.string.ltd_play_link_requested)
+                                    } else {
+                                        context.getString(R.string.ltd_ws_not_connected_send_fail)
+                                    }
+                                )
                             }
                         },
                         enabled = !stableKey.isNullOrBlank(),
                     ) {
-                        Text("请求播放链接 → WS")
+                        Text(stringResource(R.string.ltd_btn_request_play_link_ws))
                     }
                 }
             }
         }
 
         // ===== 邀请复制 =====
-        SectionHeader("邀请与分享")
+        SectionHeader(stringResource(R.string.ltd_section_invite_share))
         DebugCard {
             if (!inRoom) {
-                StateTip("未加入房间，没有可分享的邀请信息")
+                StateTip(stringResource(R.string.ltd_not_in_room_no_invite))
             } else {
                 FlowRow(
                     modifier = Modifier.fillMaxWidth(),
@@ -621,75 +670,86 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
                         onClick = {
                             val uri = inviteUri
                             if (uri == null) {
-                                toast("邀请链接不可用（缺少房间号或密钥）")
+                                toast(context.getString(R.string.ltd_invite_link_unavailable_toast))
                             } else {
-                                debugCopy(context, "邀请链接", uri)
-                                toast("已复制邀请链接")
+                                debugCopy(context, context.getString(R.string.ltd_invite_link), uri)
+                                toast(context.getString(R.string.ltd_invite_link_copied))
                             }
                         },
                         enabled = inviteUri != null,
                     ) {
                         Icon(Icons.Outlined.ContentCopy, contentDescription = null)
                         Spacer(Modifier.width(6.dp))
-                        Text("复制邀请链接")
+                        Text(stringResource(R.string.ltd_btn_copy_invite_link))
                     }
                     OutlinedButton(
                         onClick = {
-                            debugCopy(context, "邀请密钥", session.joinSecret.orEmpty())
-                            toast("已复制邀请密钥")
+                            debugCopy(context, context.getString(R.string.ltd_invite_secret), session.joinSecret.orEmpty())
+                            toast(context.getString(R.string.ltd_invite_secret_copied))
                         },
                         enabled = !session.joinSecret.isNullOrBlank(),
                     ) {
-                        Text("复制邀请密钥")
+                        Text(stringResource(R.string.ltd_btn_copy_invite_secret))
                     }
                     OutlinedButton(
                         onClick = {
-                            debugCopy(context, "房间号", session.roomId.orEmpty())
-                            toast("已复制房间号")
+                            debugCopy(context, context.getString(R.string.ltd_room_id), session.roomId.orEmpty())
+                            toast(context.getString(R.string.ltd_room_id_copied))
                         },
                         enabled = !session.roomId.isNullOrBlank(),
                     ) {
-                        Text("复制房间号")
+                        Text(stringResource(R.string.ltd_btn_copy_room_id))
                     }
                     OutlinedButton(
                         onClick = {
                             val roomId = session.roomId.orEmpty()
                             val shareText = buildString {
-                                append("${session.nickname ?: "听友"} 邀请你一起听（房间 $roomId）")
+                                append(
+                                    context.getString(
+                                        R.string.ltd_share_text,
+                                        session.nickname ?: context.getString(R.string.ltd_friend),
+                                        roomId,
+                                    )
+                                )
                                 inviteUri?.let {
                                     append("\n")
                                     append(it)
                                 }
                             }
-                            debugCopy(context, "一起听邀请", shareText)
-                            toast("已复制分享文案")
+                            debugCopy(context, context.getString(R.string.ltd_invite_label), shareText)
+                            toast(context.getString(R.string.ltd_share_text_copied))
                         },
                         enabled = inviteUri != null,
                     ) {
-                        Text("复制分享文案")
+                        Text(stringResource(R.string.ltd_btn_copy_share_text))
                     }
                     OutlinedButton(
                         onClick = {
                             val invite = parseListenTogetherInvite(debugReadClipboard(context))
                             if (invite == null) {
-                                toast("剪贴板里没有有效的一起听邀请链接")
+                                toast(context.getString(R.string.ltd_no_valid_invite_in_clipboard))
                             } else {
                                 toast(
                                     buildString {
-                                        append("解析成功：房间 ${invite.roomId}")
-                                        append("，邀请人 ${invite.inviterNickname ?: "-"}")
-                                        append("，服务端 ${invite.baseUrl ?: "默认"}")
-                                        if (invite.hasInvalidBaseUrl) append("（baseUrl 非法，已忽略）")
+                                        append(context.getString(R.string.ltd_invite_parse_room, invite.roomId))
+                                        append(context.getString(R.string.ltd_invite_parse_inviter, invite.inviterNickname ?: "-"))
+                                        append(
+                                            context.getString(
+                                                R.string.ltd_invite_parse_server,
+                                                invite.baseUrl ?: context.getString(R.string.ltd_invite_parse_default),
+                                            )
+                                        )
+                                        if (invite.hasInvalidBaseUrl) append(context.getString(R.string.ltd_invite_parse_bad_base_url))
                                     }
                                 )
                             }
                         },
                     ) {
-                        Text("粘贴解析邀请")
+                        Text(stringResource(R.string.ltd_btn_parse_invite))
                     }
                 }
                 Text(
-                    text = inviteUri ?: "邀请链接不可用",
+                    text = inviteUri ?: stringResource(R.string.ltd_invite_link_unavailable),
                     style = MaterialTheme.typography.bodySmall,
                     fontFamily = FontFamily.Monospace,
                     color = subColor,
@@ -700,21 +760,21 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
         }
 
         // ===== 房间设置 =====
-        SectionHeader("房间设置")
+        SectionHeader(stringResource(R.string.ltd_section_room_settings))
         DebugCard {
             Text(
-                text = if (inRoom) {
-                    if (isController) "房主可修改，改动会立即同步到房间" else "仅房主可修改房间设置"
-                } else {
-                    "未加入房间：这里保存的是建房默认设置"
+                text = when {
+                    !inRoom -> stringResource(R.string.ltd_settings_local_default_note)
+                    isController -> stringResource(R.string.ltd_settings_host_note)
+                    else -> stringResource(R.string.ltd_settings_host_only_note)
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = subColor,
             )
             val settingsEnabled = runningAction == null && (!inRoom || isController)
             DebugSwitchRow(
-                title = "允许听众控制播放",
-                desc = "关闭后听众只能跟随房主播放",
+                title = stringResource(R.string.ltd_allow_member_control_title),
+                desc = stringResource(R.string.ltd_allow_member_control_desc),
                 checked = allowMemberControl,
                 enabled = settingsEnabled,
                 textColor = textColor,
@@ -729,8 +789,8 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
                 }
             }
             DebugSwitchRow(
-                title = "成员变动自动暂停",
-                desc = "有成员加入或离开时自动暂停本地播放",
+                title = stringResource(R.string.ltd_auto_pause_title),
+                desc = stringResource(R.string.ltd_auto_pause_desc),
                 checked = autoPauseOnMemberChange,
                 enabled = settingsEnabled,
                 textColor = textColor,
@@ -745,8 +805,8 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
                 }
             }
             DebugSwitchRow(
-                title = "分享音频链接",
-                desc = "分享可直连的音频地址，减少听众端二次取链",
+                title = stringResource(R.string.ltd_share_audio_links_title),
+                desc = stringResource(R.string.ltd_share_audio_links_desc),
                 checked = shareAudioLinks,
                 enabled = settingsEnabled,
                 textColor = textColor,
@@ -767,12 +827,12 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
                 OutlinedButton(
                     onClick = {
                         persistLocalSettings()
-                        toast("本地默认设置已保存")
+                        toast(context.getString(R.string.ltd_settings_saved_local))
                     },
                     enabled = runningAction == null,
                     modifier = Modifier.weight(1f),
                 ) {
-                    Text("保存为本地默认")
+                    Text(stringResource(R.string.ltd_btn_save_local_default))
                 }
                 if (inRoom && isController) {
                     OutlinedButton(
@@ -788,31 +848,34 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
                         enabled = runningAction == null,
                         modifier = Modifier.weight(1f),
                     ) {
-                        Text("同步到房间")
+                        Text(stringResource(R.string.ltd_btn_sync_to_room))
                     }
                 }
             }
             Text(
-                text = "房间当前设置：允许听众控制=${roomSettings.allowMemberControl}，" +
-                    "成员变动暂停=${roomSettings.autoPauseOnMemberChange}，" +
-                    "分享音频链接=${roomSettings.shareAudioLinks}",
+                text = stringResource(
+                    R.string.ltd_room_settings_summary,
+                    roomSettings.allowMemberControl,
+                    roomSettings.autoPauseOnMemberChange,
+                    roomSettings.shareAudioLinks,
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 color = subColor,
             )
         }
 
         // ===== 本地身份与服务器 =====
-        SectionHeader("本地身份与服务器")
+        SectionHeader(stringResource(R.string.ltd_section_identity_server))
         DebugCard {
             OutlinedTextField(
                 value = serverInput,
                 onValueChange = { serverInput = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("服务端地址（留空用默认）") },
+                label = { Text(stringResource(R.string.ltd_server_url_label)) },
                 singleLine = true,
             )
             Text(
-                text = "实际生效：$effectiveBaseUrl",
+                text = stringResource(R.string.ltd_effective_base_url, effectiveBaseUrl),
                 style = MaterialTheme.typography.bodySmall,
                 color = subColor,
             )
@@ -820,7 +883,7 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
                 value = nicknameInput,
                 onValueChange = { nicknameInput = it.trim().take(24) },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("昵称") },
+                label = { Text(stringResource(R.string.ltd_nickname)) },
                 singleLine = true,
                 isError = nicknameError != null,
             )
@@ -829,7 +892,7 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
                 value = userUuidInput,
                 onValueChange = { userUuidInput = it.trim() },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("身份 UUID") },
+                label = { Text(stringResource(R.string.ltd_identity_uuid)) },
                 singleLine = true,
                 isError = userUuidError != null,
             )
@@ -841,34 +904,38 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
                 OutlinedButton(
                     onClick = {
                         persistLocalSettings()
-                        toast("本地身份与服务器设置已保存")
+                        toast(context.getString(R.string.ltd_identity_server_saved))
                     },
                     enabled = runningAction == null &&
                         (nicknameInput.isBlank() || nicknameError == null) &&
                         (userUuidInput.isBlank() || userUuidError == null),
                     modifier = Modifier.weight(1f),
                 ) {
-                    Text("保存到本地")
+                    Text(stringResource(R.string.ltd_btn_save_locally))
                 }
                 OutlinedButton(
                     onClick = {
                         if (inRoom) {
-                            toast("需要先离开房间才能重置身份")
+                            toast(context.getString(R.string.ltd_leave_room_to_reset_identity))
                         } else {
                             userUuidInput = prefs.resetUserUuid()
-                            toast("已重置身份 UUID")
+                            toast(context.getString(R.string.ltd_identity_uuid_reset))
                         }
                     },
                     enabled = runningAction == null && !inRoom,
                     modifier = Modifier.weight(1f),
                 ) {
-                    Text("重置身份 UUID")
+                    Text(stringResource(R.string.ltd_btn_reset_identity_uuid))
                 }
             }
+            val defaultLabel = stringResource(R.string.ltd_default)
             Text(
-                text = "已保存：服务端=${savedServerInput.ifBlank { "默认" }}，" +
-                    "昵称=${savedNickname.ifBlank { "-" }}，" +
-                    "UUID=${savedUserUuid.ifBlank { "-" }}",
+                text = stringResource(
+                    R.string.ltd_saved_summary,
+                    savedServerInput.ifBlank { defaultLabel },
+                    savedNickname.ifBlank { "-" },
+                    savedUserUuid.ifBlank { "-" },
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 fontFamily = FontFamily.Monospace,
                 color = subColor,
@@ -878,7 +945,7 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
         // ===== 会话状态 =====
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
         DebugSectionHeader(
-            title = "会话状态",
+            title = stringResource(R.string.ltd_section_session_state),
             expanded = showSessionDetails,
             onToggleExpanded = { showSessionDetails = !showSessionDetails },
             textColor = textColor,
@@ -886,31 +953,31 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
         DebugCard {
             DebugFieldGrid(
                 listOf(
-                    "连接状态" to connectionStateText(session.connectionState),
-                    "角色" to roleText(role),
-                    "房间状态" to roomStatusText(room?.roomStatus),
-                    "房间号" to (session.roomId ?: "-"),
-                    "版本" to (room?.version?.toString() ?: "-"),
-                    "成员数" to (room?.members?.size?.toString() ?: "0"),
-                    "队列长度" to (room?.queue?.size?.toString() ?: "0"),
-                    "播放状态" to playbackStateText(room, role, playState.playing),
+                    stringResource(R.string.ltd_field_connection_state) to connectionStateText(session.connectionState),
+                    stringResource(R.string.ltd_field_role) to roleText(role),
+                    stringResource(R.string.ltd_field_room_status) to roomStatusText(room?.roomStatus),
+                    stringResource(R.string.ltd_room_id) to (session.roomId ?: "-"),
+                    stringResource(R.string.ltd_field_version) to (room?.version?.toString() ?: "-"),
+                    stringResource(R.string.ltd_field_member_count) to (room?.members?.size?.toString() ?: "0"),
+                    stringResource(R.string.ltd_field_queue_length) to (room?.queue?.size?.toString() ?: "0"),
+                    stringResource(R.string.ltd_field_playback_state) to playbackStateText(room, role, playState.playing),
                 )
             )
             session.lastError?.takeIf { it.isNotBlank() }?.let {
-                DebugBanner("最近错误", it, textColor = textColor, highlighted = true)
+                DebugBanner(stringResource(R.string.ltd_recent_error), it, textColor = textColor, highlighted = true)
             }
             session.roomNotice
                 ?.takeIf { it.isNotBlank() && !it.startsWith("member_joined:") && !it.startsWith("member_left:") }
-                ?.let { DebugBanner("房间通知", it, textColor = textColor) }
+                ?.let { DebugBanner(stringResource(R.string.ltd_room_notice), it, textColor = textColor) }
             if (showSessionDetails) {
                 DebugFieldGrid(
                     listOf(
-                        "当前曲目" to (room?.track?.name ?: playState.current?.name ?: "-"),
-                        "生效服务端" to effectiveBaseUrl,
-                        "WS 地址" to (session.wsUrl ?: "-"),
+                        stringResource(R.string.ltd_field_current_track) to (room?.track?.name ?: playState.current?.name ?: "-"),
+                        stringResource(R.string.ltd_field_effective_server) to effectiveBaseUrl,
+                        stringResource(R.string.ltd_ws_url) to (session.wsUrl ?: "-"),
                         "Token" to tokenPreview,
-                        "身份 UUID" to (session.userUuid ?: "-"),
-                        "会话昵称" to (session.nickname ?: "-"),
+                        stringResource(R.string.ltd_identity_uuid) to (session.userUuid ?: "-"),
+                        stringResource(R.string.ltd_field_session_nickname) to (session.nickname ?: "-"),
                         "schemaVersion" to (room?.schemaVersion?.toString() ?: "-"),
                         "expectedPositionMs" to (session.expectedPositionMs?.let(::debugDuration) ?: "-"),
                         "basePositionMs" to (room?.playback?.basePositionMs?.let(::debugDuration) ?: "-"),
@@ -935,7 +1002,7 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
 
         // ===== 当前曲目调试 =====
         DebugSectionHeader(
-            title = "当前曲目（房间 payload）",
+            title = stringResource(R.string.ltd_section_current_track_payload),
             expanded = showTrackPayload,
             onToggleExpanded = { showTrackPayload = !showTrackPayload },
             textColor = textColor,
@@ -944,10 +1011,10 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
             val track = room?.track
             DebugFieldGrid(
                 listOf(
-                    "曲名" to (track?.name ?: playState.current?.name ?: "-"),
-                    "歌手" to (track?.artist ?: playState.current?.artist ?: "-"),
-                    "专辑" to (track?.album ?: playState.current?.albumName ?: "-"),
-                    "时长" to (track?.durationMs?.let(::debugDuration) ?: "-"),
+                    stringResource(R.string.ltd_field_title) to (track?.name ?: playState.current?.name ?: "-"),
+                    stringResource(R.string.ltd_field_artist) to (track?.artist ?: playState.current?.artist ?: "-"),
+                    stringResource(R.string.ltd_field_album) to (track?.album ?: playState.current?.albumName ?: "-"),
+                    stringResource(R.string.ltd_field_duration) to (track?.durationMs?.let(::debugDuration) ?: "-"),
                     "stableKey" to (track?.stableKey ?: "-"),
                     "channelId" to (track?.channelId ?: "-"),
                 )
@@ -960,9 +1027,10 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
                         "playlistContextId" to (track?.playlistContextId ?: "-"),
                         "mediaUri" to (track?.mediaUri ?: "-"),
                         "streamUrl" to (track?.streamUrl ?: "-"),
-                        "streamUrls 数量" to (track?.streamUrls?.size?.toString() ?: "0"),
+                        stringResource(R.string.ltd_field_stream_urls_count) to (track?.streamUrls?.size?.toString() ?: "0"),
                         "coverUrl" to (track?.coverUrl ?: playState.current?.cover ?: "-"),
-                        "本地正在播放" to "${if (playState.playing) "播放中" else "暂停"} @ ${debugDuration(playState.positionMs)}",
+                        stringResource(R.string.ltd_field_local_playback) to
+                            "${if (playState.playing) stringResource(R.string.ltd_playing) else stringResource(R.string.ltd_paused)} @ ${debugDuration(playState.positionMs)}",
                     )
                 )
             }
@@ -971,7 +1039,7 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
         // ===== 成员列表 =====
         val members = room?.members?.sortedBy { it.joinedAt }.orEmpty()
         DebugSectionHeader(
-            title = "成员列表",
+            title = stringResource(R.string.ltd_section_members),
             expanded = showMembers,
             onToggleExpanded = { showMembers = !showMembers },
             textColor = textColor,
@@ -979,18 +1047,18 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
         )
         DebugCard {
             if (members.isEmpty()) {
-                Text("暂无成员", style = MaterialTheme.typography.bodySmall, color = subColor)
+                Text(stringResource(R.string.ltd_no_members), style = MaterialTheme.typography.bodySmall, color = subColor)
             } else {
                 val roleCounts = members.groupingBy { it.role.ifBlank { "unknown" } }.eachCount()
                 DebugFieldGrid(
                     buildList {
-                        add("成员总数" to members.size.toString())
+                        add(stringResource(R.string.ltd_field_total_members) to members.size.toString())
                         roleCounts.forEach { (memberRole, count) ->
                             add(
                                 when (memberRole) {
-                                    "controller" -> "房主"
-                                    "listener" -> "听众"
-                                    else -> "未知角色"
+                                    "controller" -> stringResource(R.string.ltd_role_host)
+                                    "listener" -> stringResource(R.string.ltd_role_listener)
+                                    else -> stringResource(R.string.ltd_role_unknown)
                                 } to count.toString()
                             )
                         }
@@ -1007,22 +1075,29 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
         // ===== 队列列表 =====
         val roomQueue = room?.queue.orEmpty()
         DebugSectionHeader(
-            title = "队列",
+            title = stringResource(R.string.ltd_section_queue),
             expanded = showQueue,
             onToggleExpanded = { showQueue = !showQueue },
             textColor = textColor,
-            suffix = if (inRoom) roomQueue.size.toString() else "${playState.queue.size}（本地）",
+            suffix = if (inRoom) {
+                roomQueue.size.toString()
+            } else {
+                stringResource(R.string.ltd_queue_count_local, playState.queue.size.toString())
+            },
         )
         DebugCard {
             if (!inRoom) {
                 Text(
-                    text = "未加入房间。本地队列 ${playState.queue.size} 首，当前下标 ${playState.index}，" +
-                        "创建房间时会作为初始队列上传。",
+                    text = stringResource(
+                        R.string.ltd_queue_local_note,
+                        playState.queue.size.toString(),
+                        playState.index.toString(),
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = subColor,
                 )
             } else if (roomQueue.isEmpty()) {
-                Text("房间队列为空", style = MaterialTheme.typography.bodySmall, color = subColor)
+                Text(stringResource(R.string.ltd_room_queue_empty), style = MaterialTheme.typography.bodySmall, color = subColor)
             } else {
                 Text(
                     text = "currentIndex=${room?.currentIndex ?: -1}",
@@ -1041,7 +1116,7 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
                 }
                 if (!showQueue && roomQueue.size > limit) {
                     Text(
-                        text = "还有 ${roomQueue.size - limit} 首，展开查看全部",
+                        text = stringResource(R.string.ltd_queue_more, (roomQueue.size - limit).toString()),
                         style = MaterialTheme.typography.bodySmall,
                         color = subColor,
                     )
@@ -1051,7 +1126,7 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
 
         // ===== JSON 快照 =====
         DebugSectionHeader(
-            title = "JSON 快照",
+            title = stringResource(R.string.ltd_section_json_snapshot),
             expanded = showSnapshot,
             onToggleExpanded = { showSnapshot = !showSnapshot },
             textColor = textColor,
@@ -1066,14 +1141,14 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
             ) {
                 OutlinedButton(
                     onClick = {
-                        debugCopy(context, "一起听调试快照", currentSnapshot())
-                        toast("已复制 JSON 快照")
+                        debugCopy(context, context.getString(R.string.ltd_debug_snapshot_label), currentSnapshot())
+                        toast(context.getString(R.string.ltd_snapshot_copied))
                     },
                     modifier = Modifier.weight(1f),
                 ) {
                     Icon(Icons.Outlined.ContentCopy, contentDescription = null)
                     Spacer(Modifier.width(6.dp))
-                    Text("复制快照")
+                    Text(stringResource(R.string.ltd_btn_copy_snapshot))
                 }
             }
             if (showSnapshot) {
@@ -1085,7 +1160,7 @@ fun ListenTogetherDebugScreen(onBack: () -> Unit) {
                 )
             } else {
                 Text(
-                    text = "展开查看 session / room / local / playback 的完整 JSON",
+                    text = stringResource(R.string.ltd_snapshot_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = subColor,
                 )
@@ -1123,7 +1198,7 @@ private fun DebugSectionHeader(
         Spacer(Modifier.weight(1f))
         Icon(
             imageVector = if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-            contentDescription = if (expanded) "收起" else "展开",
+            contentDescription = if (expanded) stringResource(R.string.ltd_collapse) else stringResource(R.string.ltd_expand),
             tint = textColor.copy(alpha = 0.7f),
         )
     }
@@ -1284,8 +1359,13 @@ private fun DebugMemberCard(
             color = textColor,
         )
         Text(
-            text = "角色=${roleText(member.role)} · userId=${member.userId ?: "-"} · " +
-                "uuid=${member.userUuid.ifBlank { "-" }} · 加入于 ${debugEpoch(member.joinedAt)}",
+            text = stringResource(
+                R.string.ltd_member_debug_line,
+                roleText(member.role),
+                member.userId ?: "-",
+                member.userUuid.ifBlank { "-" },
+                debugEpoch(member.joinedAt),
+            ),
             style = MaterialTheme.typography.bodySmall,
             fontFamily = FontFamily.Monospace,
             color = subColor,
@@ -1321,7 +1401,7 @@ private fun DebugQueueRow(
     )
     if (isCurrent) {
         Text(
-            text = "当前曲目 · ${track.channelId} · ${debugDuration(track.durationMs)}",
+            text = stringResource(R.string.ltd_current_track_line, track.channelId, debugDuration(track.durationMs)),
             style = MaterialTheme.typography.labelSmall,
             color = subColor,
         )
@@ -1399,36 +1479,44 @@ private fun buildListenTogetherDebugSnapshot(
     return debugSnapshotJson.encodeToString(JsonObject.serializer(), snapshot)
 }
 
+@Composable
 private fun connectionStateText(state: ListenTogetherConnectionState): String = when (state) {
-    ListenTogetherConnectionState.DISCONNECTED -> "未连接"
-    ListenTogetherConnectionState.CONNECTING -> "连接中"
-    ListenTogetherConnectionState.CONNECTED -> "已连接"
+    ListenTogetherConnectionState.DISCONNECTED -> stringResource(R.string.ltd_conn_disconnected)
+    ListenTogetherConnectionState.CONNECTING -> stringResource(R.string.ltd_conn_connecting)
+    ListenTogetherConnectionState.CONNECTED -> stringResource(R.string.ltd_conn_connected)
 }
 
+@Composable
 private fun roleText(role: String?): String = when (role) {
-    "controller" -> "房主"
-    "listener" -> "听众"
-    else -> "无角色"
+    "controller" -> stringResource(R.string.ltd_role_host)
+    "listener" -> stringResource(R.string.ltd_role_listener)
+    else -> stringResource(R.string.ltd_role_none)
 }
 
+@Composable
 private fun roomStatusText(status: String?): String = when (status) {
-    ListenTogetherRoomStatuses.CONTROLLER_OFFLINE -> "房主离线"
-    ListenTogetherRoomStatuses.CLOSED -> "已关闭"
-    ListenTogetherRoomStatuses.ACTIVE -> "正常"
-    else -> "未加入"
+    ListenTogetherRoomStatuses.CONTROLLER_OFFLINE -> stringResource(R.string.ltd_room_status_offline)
+    ListenTogetherRoomStatuses.CLOSED -> stringResource(R.string.ltd_room_status_closed)
+    ListenTogetherRoomStatuses.ACTIVE -> stringResource(R.string.ltd_room_status_active)
+    else -> stringResource(R.string.ltd_room_status_none)
 }
 
+@Composable
 private fun playbackStateText(
     room: ListenTogetherRoomState?,
     role: String?,
     isPlaying: Boolean,
 ): String {
     if (role == "controller" || room == null) {
-        return if (isPlaying) "播放中（本地）" else "已暂停（本地）"
+        return if (isPlaying) {
+            stringResource(R.string.ltd_playback_state_local_playing)
+        } else {
+            stringResource(R.string.ltd_playback_state_local_paused)
+        }
     }
     return when (room.playback.state) {
-        "playing" -> "播放中（房间）"
-        else -> "已暂停（房间）"
+        "playing" -> stringResource(R.string.ltd_playback_state_room_playing)
+        else -> stringResource(R.string.ltd_playback_state_room_paused)
     }
 }
 
@@ -1460,7 +1548,7 @@ private fun debugDuration(value: Long): String {
 
 private fun debugCopy(context: Context, label: String, text: String) {
     if (text.isBlank()) {
-        Toast.makeText(context, "$label 为空", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, context.getString(R.string.ltd_copy_empty, label), Toast.LENGTH_SHORT).show()
         return
     }
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return

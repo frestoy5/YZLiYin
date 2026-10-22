@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English. Any key missing here falls back to Chinese (values/) rather than showing blank. -->
+<resources>
+    <!-- Brand names are kept in their official spelling; they do not change per language. -->
+    <string name="src_netease">NetEase Cloud Music</string>
+    <string name="src_kugou">Kugou Music</string>
+    <string name="src_bilibili">bilibili</string>
+    <string name="src_youtube">YouTube</string>
+    <string name="src_local">On-device music</string>
+    <string name="src_local_gone">This file is no longer on your device — scan again</string>
+</resources>

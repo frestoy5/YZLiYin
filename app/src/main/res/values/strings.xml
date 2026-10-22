@@ -49,4 +49,9 @@
 
     <string name="not_login">未登录</string>
     <string name="login_prompt">登录后同步你的歌单与听歌记录</string>
+
+    <!-- 设置 → 主题：界面语言（三个语言名按各自语言显示，不进资源） -->
+    <string name="settings_language_title">界面语言</string>
+    <string name="settings_language_desc">切换后整个界面立即换成所选语言</string>
+    <string name="lang_follow_system">跟随系统</string>
 </resources>

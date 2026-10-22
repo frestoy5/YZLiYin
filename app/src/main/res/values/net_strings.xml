@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  core/net 层（BiliApi / BiliClient / KugouApi / NeteaseApi）里没有 Compose 上下文、
+  只能走 AppLocale.string() 取的用户可见提示（错误原因、扫码状态、四连步骤名等）。
+  中文是默认语言，values-ja / values-en 各自覆盖。
+-->
+<resources>
+    <!-- BiliApi.kt -->
+    <string name="net_qr_expired">二维码已过期，请刷新</string>
+    <string name="net_bili_default_name">B 站账号</string>
+    <string name="net_quad_like">点赞</string>
+    <string name="net_quad_coin">投币</string>
+    <string name="net_quad_favorite">收藏</string>
+    <string name="net_quad_repost">转发到动态</string>
+    <string name="net_no_fav_folder">没有可用的收藏夹</string>
+    <string name="net_no_dynamic_repost">该投稿没有动态，无法转发</string>
+    <string name="net_failed">失败</string>
+    <string name="net_missing_up_mid">缺少 UP 主 ID</string>
+    <string name="net_missing_video_id">缺少稿件 ID</string>
+
+    <!-- BiliClient.kt -->
+    <string name="net_risk_blocked_request">请求被风控拦截(-412)，请稍后再试</string>
+    <string name="net_risk_blocked_action">操作被风控拦截(-412)，请稍后再试</string>
+    <string name="net_repost">转发</string>
+    <string name="net_bili_empty_response">B 站返回空响应</string>
+    <string name="net_bili_invalid_json">B 站响应不是合法 JSON</string>
+    <string name="net_bili_endpoint_failed">%1$s 失败：code=%2$s, message=%3$s</string>
+    <string name="net_bili_nav_missing_wbi">nav 未返回有效的 wbi_img</string>
+    <string name="net_bili_webticket_missing_nav">WebTicket 未返回有效的 nav</string>
+    <string name="net_bili_qr_missing">B 站未返回二维码</string>
+
+    <!-- KugouApi.kt -->
+    <string name="net_kugou_missing_hash">酷狗曲目缺少音频 hash</string>
+    <string name="net_kugou_paid">该歌曲在酷狗需要购买或开通会员，当前账号只能试听</string>
+    <string name="net_kugou_security_check">酷狗要求安全验证，设备注册可能未完成，请稍后重试</string>
+    <string name="net_kugou_no_stream">获取酷狗播放链接失败（可能无版权）</string>
+    <string name="net_kugou_no_credential">酷狗未返回登录凭证</string>
+    <string name="net_kugou_default_name">酷狗用户</string>
+
+    <!-- NeteaseApi.kt -->
+    <string name="net_comment_sent">评论发送成功</string>
+    <string name="net_comment_need_login">请先登录后再发表评论</string>
+    <string name="net_comment_send_failed">评论发送失败(%1$s)</string>
+    <string name="net_resolve_failed">获取播放链接失败，请稍后重试</string>
+    <string name="net_no_copyright">该歌曲暂无版权，无法获取播放链接</string>
+    <string name="net_netease_vip">该歌曲需要网易云会员，当前账号只能试听</string>
+    <string name="net_netease_invalid_id">网易云曲目 id 无效</string>
+    <string name="net_invalid_song_id">歌曲 id 无效</string>
+    <string name="net_captcha_send_failed">验证码发送失败</string>
+    <string name="net_captcha_sent">验证码已发送</string>
+    <string name="net_captcha_incorrect">验证码错误</string>
+    <string name="net_login_failed">登录失败</string>
+    <string name="net_login_no_cookie">登录未返回有效 Cookie，请改用网页登录</string>
+</resources>

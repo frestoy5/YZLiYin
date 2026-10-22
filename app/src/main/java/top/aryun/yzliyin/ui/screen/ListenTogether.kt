@@ -49,12 +49,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import kotlinx.coroutines.launch
+import top.aryun.yzliyin.R
 import top.aryun.yzliyin.core.AppGraph
 import top.aryun.yzliyin.core.model.Song
 import top.aryun.yzliyin.listentogether.ListenTogetherSessionManager
@@ -75,6 +77,7 @@ import top.aryun.yzliyin.listentogether.validation.validateListenTogetherRoomId
 import top.aryun.yzliyin.player.PlayerController
 import top.aryun.yzliyin.ui.Routes
 import top.aryun.yzliyin.ui.components.StateTip
+import top.aryun.yzliyin.util.AppLocale
 
 /**
  * 一起听：创建/加入房间、成员与队列查看、房间设置、服务端与身份配置。
@@ -116,7 +119,7 @@ fun ListenTogetherScreen(nav: NavController) {
         if (busy) return
         busy = true
         scope.launch {
-            tip = runCatching { block() }.getOrElse { it.message ?: "操作失败" }
+            tip = runCatching { block() }.getOrElse { it.message ?: context.getString(R.string.lt_op_failed) }
             busy = false
         }
     }
@@ -139,10 +142,14 @@ fun ListenTogetherScreen(nav: NavController) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = { nav.popBackStack() }) {
-                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回", tint = textColor)
+                Icon(
+                    Icons.AutoMirrored.Outlined.ArrowBack,
+                    contentDescription = stringResource(R.string.lt_back),
+                    tint = textColor,
+                )
             }
             Text(
-                text = "一起听",
+                text = stringResource(R.string.lt_title),
                 style = MaterialTheme.typography.titleLarge,
                 color = textColor,
                 modifier = Modifier.weight(1f),
@@ -151,7 +158,7 @@ fun ListenTogetherScreen(nav: NavController) {
                 CircularProgressIndicator(modifier = Modifier.width(22.dp).height(22.dp), strokeWidth = 2.dp)
             }
             TextButton(onClick = { nav.navigate(Routes.LISTEN_TOGETHER_DEBUG) }) {
-                Text("调试", color = MaterialTheme.colorScheme.primary)
+                Text(stringResource(R.string.lt_debug), color = MaterialTheme.colorScheme.primary)
             }
         }
 
@@ -179,18 +186,23 @@ fun ListenTogetherScreen(nav: NavController) {
                 isController = isController,
                 textColor = textColor,
                 subColor = subColor,
-                onCopyInvite = { copyText(context, "邀请信息", buildInviteText(session)) },
-                onCopySecret = { copyText(context, "邀请密钥", session.joinSecret.orEmpty()) },
+                onCopyInvite = {
+                    copyText(context, context.getString(R.string.lt_invite_info), buildInviteText(session))
+                },
+                onCopySecret = {
+                    copyText(context, context.getString(R.string.lt_invite_secret), session.joinSecret.orEmpty())
+                },
                 onLeave = {
                     manager.leaveRoom()
-                    tip = "已离开房间"
+                    tip = context.getString(R.string.lt_left_room)
                 },
                 onUpdateSettings = { settings ->
                     prefs.setAllowMemberControl(settings.allowMemberControl)
                     prefs.setAutoPauseOnMemberChange(settings.autoPauseOnMemberChange)
                     prefs.setShareAudioLinks(settings.shareAudioLinks)
                     val response = manager.updateRoomSettings(settings)
-                    tip = if (response.ok) "房间设置已更新" else (response.error ?: "设置更新失败")
+                    tip = if (response.ok) context.getString(R.string.lt_room_updated)
+                    else (response.error ?: context.getString(R.string.lt_room_update_failed))
                 },
             )
         } else {
@@ -214,6 +226,7 @@ fun ListenTogetherScreen(nav: NavController) {
                 onCreate = {
                     runBusy {
                         createListenTogetherRoom(
+                            context = context,
                             manager = manager,
                             prefs = prefs,
                             queue = playState.queue,
@@ -228,6 +241,7 @@ fun ListenTogetherScreen(nav: NavController) {
                 onJoin = {
                     runBusy {
                         joinListenTogetherRoom(
+                            context = context,
                             manager = manager,
                             prefs = prefs,
                             roomId = roomIdInput,
@@ -239,9 +253,9 @@ fun ListenTogetherScreen(nav: NavController) {
                 onPasteInvite = {
                     val invite = parseListenTogetherInvite(readClipboardText(context))
                     if (invite == null) {
-                        tip = "剪贴板里没有有效的一起听邀请"
+                        tip = context.getString(R.string.lt_clipboard_no_invite)
                     } else {
-                        runBusy { joinListenTogetherFromInvite(manager, prefs, invite) }
+                        runBusy { joinListenTogetherFromInvite(manager, prefs, invite, context) }
                     }
                 },
             )
@@ -249,10 +263,10 @@ fun ListenTogetherScreen(nav: NavController) {
 
         HorizontalDivider(Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)
 
-        SectionTitle("服务端", textColor)
+        SectionTitle(stringResource(R.string.lt_server), textColor)
         Text(
-            text = if (workerBaseUrl.isBlank()) "当前使用默认服务器：$DEFAULT_LISTEN_TOGETHER_BASE_URL"
-            else "当前使用自定义服务器：$workerBaseUrl",
+            text = if (workerBaseUrl.isBlank()) stringResource(R.string.lt_server_default, DEFAULT_LISTEN_TOGETHER_BASE_URL)
+            else stringResource(R.string.lt_server_custom, workerBaseUrl),
             style = MaterialTheme.typography.bodySmall,
             color = subColor,
         )
@@ -260,7 +274,7 @@ fun ListenTogetherScreen(nav: NavController) {
         OutlinedTextField(
             value = serverInput,
             onValueChange = { serverInput = it },
-            label = { Text("自定义服务端地址") },
+            label = { Text(stringResource(R.string.lt_server_url_label)) },
             placeholder = { Text(DEFAULT_LISTEN_TOGETHER_BASE_URL) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
@@ -275,23 +289,24 @@ fun ListenTogetherScreen(nav: NavController) {
                         result.message
                     }
                 },
-            ) { Text("测试服务器") }
+            ) { Text(stringResource(R.string.lt_test_server)) }
             Button(
                 onClick = {
                     prefs.setWorkerBaseUrlInput(serverInput.trim())
                     prefs.setWorkerBaseUrl(serverInput.trim())
-                    tip = if (serverInput.isBlank()) "已恢复默认服务器" else "服务端地址已保存"
+                    tip = if (serverInput.isBlank()) context.getString(R.string.lt_server_reset)
+                    else context.getString(R.string.lt_server_saved)
                 },
-            ) { Text("保存") }
+            ) { Text(stringResource(R.string.lt_save)) }
         }
 
         HorizontalDivider(Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)
 
-        SectionTitle("身份", textColor)
+        SectionTitle(stringResource(R.string.lt_identity), textColor)
         OutlinedTextField(
             value = nicknameInput,
             onValueChange = { nicknameInput = it },
-            label = { Text("昵称") },
+            label = { Text(stringResource(R.string.lt_nickname)) },
             singleLine = true,
             isError = nicknameInput.isNotBlank() && validateListenTogetherNickname(nicknameInput) != null,
             supportingText = {
@@ -303,7 +318,11 @@ fun ListenTogetherScreen(nav: NavController) {
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "身份 UUID：${session.userUuid?.take(8) ?: prefs.userUuid.value.take(8).ifBlank { "尚未生成" }}…",
+            text = stringResource(
+                R.string.lt_identity_uuid,
+                session.userUuid?.take(8)
+                    ?: prefs.userUuid.value.take(8).ifBlank { stringResource(R.string.lt_not_generated) },
+            ),
             style = MaterialTheme.typography.bodySmall,
             color = subColor,
         )
@@ -316,15 +335,15 @@ fun ListenTogetherScreen(nav: NavController) {
                         tip = error.formatForApp()
                     } else {
                         prefs.setNickname(nicknameInput)
-                        tip = "昵称已保存"
+                        tip = context.getString(R.string.lt_nickname_saved)
                     }
                 },
-            ) { Text("保存昵称") }
+            ) { Text(stringResource(R.string.lt_save_nickname)) }
             OutlinedButton(
                 onClick = {
-                    if (inRoom) tip = "离开房间后才能重置身份" else showResetIdentityDialog = true
+                    if (inRoom) tip = context.getString(R.string.lt_leave_to_reset) else showResetIdentityDialog = true
                 },
-            ) { Text("重置身份 UUID") }
+            ) { Text(stringResource(R.string.lt_reset_identity)) }
         }
 
         // 本页不显示迷你播放条与底栏，避让了导航栏后只需留少量尾部间距
@@ -334,19 +353,19 @@ fun ListenTogetherScreen(nav: NavController) {
     if (showResetIdentityDialog) {
         AlertDialog(
             onDismissRequest = { showResetIdentityDialog = false },
-            title = { Text("重置身份 UUID") },
-            text = { Text("重置后旧的唯一身份标识符将失效，并替换为新的身份标识。是否继续？") },
+            title = { Text(stringResource(R.string.lt_reset_identity)) },
+            text = { Text(stringResource(R.string.lt_reset_identity_message)) },
             confirmButton = {
                 TextButton(
                     onClick = {
                         prefs.resetUserUuid()
                         showResetIdentityDialog = false
-                        tip = "身份 UUID 已重置"
+                        tip = context.getString(R.string.lt_identity_reset_done)
                     },
-                ) { Text("重置") }
+                ) { Text(stringResource(R.string.lt_reset)) }
             },
             dismissButton = {
-                TextButton(onClick = { showResetIdentityDialog = false }) { Text("取消") }
+                TextButton(onClick = { showResetIdentityDialog = false }) { Text(stringResource(R.string.lt_cancel)) }
             },
         )
     }
@@ -355,6 +374,7 @@ fun ListenTogetherScreen(nav: NavController) {
 // ---------- 建房 / 入房（供页面与邀请弹窗共用） ----------
 
 internal suspend fun createListenTogetherRoom(
+    context: Context,
     manager: ListenTogetherSessionManager,
     prefs: top.aryun.yzliyin.listentogether.data.ListenTogetherPrefs,
     queue: List<Song>,
@@ -381,12 +401,13 @@ internal suspend fun createListenTogetherRoom(
         ),
         currentSong = currentSong,
     )
-    if (!response.ok) return response.error ?: "创建房间失败"
+    if (!response.ok) return response.error ?: context.getString(R.string.lt_create_room_failed)
     manager.connectWebSocket()
-    return "已创建房间 ${response.roomId}"
+    return context.getString(R.string.lt_room_created, response.roomId)
 }
 
 internal suspend fun joinListenTogetherRoom(
+    context: Context,
     manager: ListenTogetherSessionManager,
     prefs: top.aryun.yzliyin.listentogether.data.ListenTogetherPrefs,
     roomId: String,
@@ -405,9 +426,9 @@ internal suspend fun joinListenTogetherRoom(
         memberSecret = memberSecret,
         joinSecret = joinSecret.trim(),
     )
-    if (!response.ok) return response.error ?: "加入房间失败"
+    if (!response.ok) return response.error ?: context.getString(R.string.lt_join_room_failed)
     manager.connectWebSocket()
-    return "已加入房间 ${response.roomId}"
+    return context.getString(R.string.lt_room_joined, response.roomId)
 }
 
 /** 通过邀请信息加入（深链或粘贴文本），服务端地址优先级：邀请内 > 本机已保存。 */
@@ -415,14 +436,19 @@ internal suspend fun joinListenTogetherFromInvite(
     manager: ListenTogetherSessionManager,
     prefs: top.aryun.yzliyin.listentogether.data.ListenTogetherPrefs,
     invite: top.aryun.yzliyin.listentogether.invite.ListenTogetherInvite,
+    // 文案用的 Context；缺省按**当前**界面语言现包（App.kt 深链调用点不传）。
+    // ⚠ 不能直接写 AppGraph.applicationContext：Application 只在进程启动时包过一次语言，
+    //   用户中途切过语言后它还停在旧值，而这里的默认参数是**每次调用时**求值的，正好避开。
+    context: Context = AppLocale.wrap(AppGraph.applicationContext, AppLocale.currentLanguage),
 ): String {
-    if (invite.hasInvalidBaseUrl) return "邀请里的服务端地址无效，请手动配置后再加入"
+    if (invite.hasInvalidBaseUrl) return context.getString(R.string.lt_invite_url_invalid)
     val baseUrl = resolveListenTogetherInviteJoinBaseUrl(
         invite = invite,
         savedBaseUrlInput = prefs.workerBaseUrlInput.value,
         savedBaseUrl = prefs.workerBaseUrl.value,
     )
     return joinListenTogetherRoom(
+        context = context,
         manager = manager,
         prefs = prefs,
         roomId = invite.roomId,
@@ -446,31 +472,42 @@ private fun RoomSection(
     onLeave: () -> Unit,
     onUpdateSettings: (ListenTogetherRoomSettings) -> Unit,
 ) {
-    SectionTitle("房间", textColor)
+    SectionTitle(stringResource(R.string.lt_room), textColor)
     SectionCard {
-        InfoRow("房间号", session.roomId.orEmpty(), textColor)
-        InfoRow("角色", if (isController) "房主" else "听众", textColor)
+        InfoRow(stringResource(R.string.lt_room_id), session.roomId.orEmpty(), textColor)
         InfoRow(
-            "连接状态",
+            stringResource(R.string.lt_role),
+            if (isController) stringResource(R.string.lt_role_host) else stringResource(R.string.lt_role_listener),
+            textColor,
+        )
+        InfoRow(
+            stringResource(R.string.lt_connection_state),
             when (session.connectionState) {
-                ListenTogetherConnectionState.CONNECTED -> "已连接"
-                ListenTogetherConnectionState.CONNECTING -> "连接中"
-                ListenTogetherConnectionState.DISCONNECTED -> "未连接"
+                ListenTogetherConnectionState.CONNECTED -> stringResource(R.string.lt_connected)
+                ListenTogetherConnectionState.CONNECTING -> stringResource(R.string.lt_connecting)
+                ListenTogetherConnectionState.DISCONNECTED -> stringResource(R.string.lt_disconnected)
             },
             textColor,
         )
         room?.let { state ->
-            InfoRow("房间状态", roomStatusText(state), textColor)
-            InfoRow("成员数", state.members.size.toString(), textColor)
-            InfoRow("队列数量", state.queue.size.toString(), textColor)
+            InfoRow(stringResource(R.string.lt_room_status), roomStatusText(state), textColor)
+            InfoRow(stringResource(R.string.lt_member_count), state.members.size.toString(), textColor)
+            InfoRow(stringResource(R.string.lt_queue_count), state.queue.size.toString(), textColor)
             val track = state.queue.getOrNull(state.currentIndex.coerceIn(0, (state.queue.size - 1).coerceAtLeast(0)))
                 ?: state.track
             track?.let {
-                InfoRow("当前歌曲", it.name, textColor)
-                InfoRow("歌手", it.artist, textColor)
+                InfoRow(stringResource(R.string.lt_current_song), it.name, textColor)
+                InfoRow(stringResource(R.string.lt_artist), it.artist, textColor)
             }
-            InfoRow("播放状态", if (state.playback.state == "playing") "播放中" else "已暂停", textColor)
-            state.closedReason?.takeIf { it.isNotBlank() }?.let { InfoRow("关闭原因", it, textColor) }
+            InfoRow(
+                stringResource(R.string.lt_playback_state),
+                if (state.playback.state == "playing") stringResource(R.string.lt_playing)
+                else stringResource(R.string.lt_paused),
+                textColor,
+            )
+            state.closedReason?.takeIf { it.isNotBlank() }?.let {
+                InfoRow(stringResource(R.string.lt_close_reason), it, textColor)
+            }
         }
     }
     session.roomNotice?.takeIf { it.isNotBlank() }?.let {
@@ -492,36 +529,36 @@ private fun RoomSection(
 
     Spacer(Modifier.height(10.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Button(onClick = onCopyInvite) { Text("复制邀请") }
+        Button(onClick = onCopyInvite) { Text(stringResource(R.string.lt_copy_invite)) }
         if (session.joinSecret?.isNotBlank() == true) {
-            OutlinedButton(onClick = onCopySecret) { Text("复制密钥") }
+            OutlinedButton(onClick = onCopySecret) { Text(stringResource(R.string.lt_copy_secret)) }
         }
-        OutlinedButton(onClick = onLeave) { Text("离开房间") }
+        OutlinedButton(onClick = onLeave) { Text(stringResource(R.string.lt_leave_room)) }
     }
 
     val settings = room?.settings
     if (isController && settings != null) {
         Spacer(Modifier.height(14.dp))
-        SectionTitle("房间设置", textColor)
+        SectionTitle(stringResource(R.string.lt_room_settings), textColor)
         SwitchRow(
-            title = "允许成员控制",
-            desc = "关闭后听众不能暂停、切歌或拖动进度",
+            title = stringResource(R.string.lt_allow_member_control),
+            desc = stringResource(R.string.lt_allow_member_control_desc),
             checked = settings.allowMemberControl,
             textColor = textColor,
             subColor = subColor,
             onCheckedChange = { onUpdateSettings(settings.copy(allowMemberControl = it)) },
         )
         SwitchRow(
-            title = "成员变动自动暂停",
-            desc = "有成员加入或离开时自动暂停播放",
+            title = stringResource(R.string.lt_auto_pause),
+            desc = stringResource(R.string.lt_auto_pause_desc),
             checked = settings.autoPauseOnMemberChange,
             textColor = textColor,
             subColor = subColor,
             onCheckedChange = { onUpdateSettings(settings.copy(autoPauseOnMemberChange = it)) },
         )
         SwitchRow(
-            title = "共享本机解析的音频链接",
-            desc = "听众可直接使用房主解析的链接播放，无需自己找源",
+            title = stringResource(R.string.lt_share_audio_links),
+            desc = stringResource(R.string.lt_share_audio_links_desc),
             checked = settings.shareAudioLinks,
             textColor = textColor,
             subColor = subColor,
@@ -531,10 +568,14 @@ private fun RoomSection(
 
     room?.members?.takeIf { it.isNotEmpty() }?.let { members ->
         Spacer(Modifier.height(14.dp))
-        SectionTitle("成员", textColor)
+        SectionTitle(stringResource(R.string.lt_members), textColor)
         SectionCard {
             members.forEach { member ->
                 val isSelf = member.userUuid == session.userUuid
+                val roleLabel = stringResource(
+                    if (member.role == "controller") R.string.lt_role_host else R.string.lt_role_listener,
+                )
+                val meLabel = stringResource(R.string.lt_me)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -549,8 +590,8 @@ private fun RoomSection(
                     )
                     Text(
                         text = buildString {
-                            append(if (member.role == "controller") "房主" else "听众")
-                            if (isSelf) append(" · 我")
+                            append(roleLabel)
+                            if (isSelf) append(" · $meLabel")
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = subColor,
@@ -562,7 +603,7 @@ private fun RoomSection(
 
     room?.queue?.takeIf { it.isNotEmpty() }?.let { queue ->
         Spacer(Modifier.height(14.dp))
-        SectionTitle("队列", textColor)
+        SectionTitle(stringResource(R.string.lt_queue), textColor)
         val currentIndex = room.currentIndex
         SectionCard {
             queue.take(30).forEachIndexed { index, track ->
@@ -599,7 +640,7 @@ private fun RoomSection(
             }
             if (queue.size > 30) {
                 Text(
-                    text = "… 其余 ${queue.size - 30} 首未显示",
+                    text = stringResource(R.string.lt_queue_more, queue.size - 30),
                     style = MaterialTheme.typography.bodySmall,
                     color = subColor,
                 )
@@ -644,33 +685,33 @@ private fun CreateOrJoinSection(
     onJoin: () -> Unit,
     onPasteInvite: () -> Unit,
 ) {
-    SectionTitle("创建房间", textColor)
+    SectionTitle(stringResource(R.string.lt_create_room), textColor)
     Text(
-        text = if (playStateQueue.isEmpty()) "当前没有播放队列，先播放一首歌再创建房间"
-        else "以当前播放队列建房（${playStateQueue.size} 首，第 ${playStateIndex + 1} 首为房间当前曲目）",
+        text = if (playStateQueue.isEmpty()) stringResource(R.string.lt_create_room_empty)
+        else stringResource(R.string.lt_create_room_hint, playStateQueue.size, playStateIndex + 1),
         style = MaterialTheme.typography.bodySmall,
         color = subColor,
     )
     Spacer(Modifier.height(8.dp))
     SwitchRow(
-        title = "允许成员控制",
-        desc = "听众可以暂停、切歌、拖动进度（需房主同意同步）",
+        title = stringResource(R.string.lt_allow_member_control),
+        desc = stringResource(R.string.lt_allow_member_control_desc_create),
         checked = allowMemberControl,
         textColor = textColor,
         subColor = subColor,
         onCheckedChange = onToggleAllowMemberControl,
     )
     SwitchRow(
-        title = "成员变动自动暂停",
-        desc = "有成员加入或离开时自动暂停播放",
+        title = stringResource(R.string.lt_auto_pause),
+        desc = stringResource(R.string.lt_auto_pause_desc),
         checked = autoPauseOnMemberChange,
         textColor = textColor,
         subColor = subColor,
         onCheckedChange = onToggleAutoPause,
     )
     SwitchRow(
-        title = "共享本机解析的音频链接",
-        desc = "听众可直接使用房主解析的链接播放，无需自己找源",
+        title = stringResource(R.string.lt_share_audio_links),
+        desc = stringResource(R.string.lt_share_audio_links_desc),
         checked = shareAudioLinks,
         textColor = textColor,
         subColor = subColor,
@@ -678,17 +719,19 @@ private fun CreateOrJoinSection(
     )
     Spacer(Modifier.height(10.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Button(onClick = onCreate, enabled = playStateQueue.isNotEmpty()) { Text("创建房间") }
-        StateTip("房主可以复制邀请发给好友")
+        Button(onClick = onCreate, enabled = playStateQueue.isNotEmpty()) {
+            Text(stringResource(R.string.lt_create_room))
+        }
+        StateTip(stringResource(R.string.lt_host_can_copy_invite))
     }
 
     Spacer(Modifier.height(16.dp))
-    SectionTitle("加入房间", textColor)
+    SectionTitle(stringResource(R.string.lt_join_room), textColor)
     OutlinedTextField(
         value = roomIdInput,
         onValueChange = { onRoomIdChange(it.uppercase()) },
-        label = { Text("房间 ID") },
-        placeholder = { Text("6 位字母数字") },
+        label = { Text(stringResource(R.string.lt_room_id_label)) },
+        placeholder = { Text(stringResource(R.string.lt_room_id_hint)) },
         singleLine = true,
         isError = roomIdInput.isNotBlank() && validateListenTogetherRoomId(roomIdInput) != null,
         modifier = Modifier.fillMaxWidth(),
@@ -697,15 +740,15 @@ private fun CreateOrJoinSection(
     OutlinedTextField(
         value = secretInput,
         onValueChange = onSecretChange,
-        label = { Text("邀请密钥") },
+        label = { Text(stringResource(R.string.lt_invite_secret)) },
         singleLine = true,
         isError = secretInput.isNotBlank() && validateListenTogetherJoinSecret(secretInput) != null,
         modifier = Modifier.fillMaxWidth(),
     )
     Spacer(Modifier.height(10.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Button(onClick = onJoin) { Text("加入房间") }
-        OutlinedButton(onClick = onPasteInvite) { Text("粘贴邀请加入") }
+        Button(onClick = onJoin) { Text(stringResource(R.string.lt_join_room)) }
+        OutlinedButton(onClick = onPasteInvite) { Text(stringResource(R.string.lt_paste_invite)) }
     }
 }
 
@@ -766,10 +809,11 @@ private fun SwitchRow(
 
 // ---------- 工具 ----------
 
+@Composable
 private fun roomStatusText(state: ListenTogetherRoomState): String = when (state.roomStatus) {
-    ListenTogetherRoomStatuses.ACTIVE -> "正常"
-    ListenTogetherRoomStatuses.CONTROLLER_OFFLINE -> "房主离线"
-    ListenTogetherRoomStatuses.CLOSED -> "已关闭"
+    ListenTogetherRoomStatuses.ACTIVE -> stringResource(R.string.lt_status_active)
+    ListenTogetherRoomStatuses.CONTROLLER_OFFLINE -> stringResource(R.string.lt_status_host_offline)
+    ListenTogetherRoomStatuses.CLOSED -> stringResource(R.string.lt_status_closed)
     else -> state.roomStatus
 }
 
@@ -788,12 +832,12 @@ internal fun buildInviteText(
 
 internal fun copyText(context: Context, label: String, text: String) {
     if (text.isBlank()) {
-        Toast.makeText(context, "$label 为空", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, context.getString(R.string.lt_copy_empty, label), Toast.LENGTH_SHORT).show()
         return
     }
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
     clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
-    Toast.makeText(context, "已复制$label", Toast.LENGTH_SHORT).show()
+    Toast.makeText(context, context.getString(R.string.lt_copy_done, label), Toast.LENGTH_SHORT).show()
 }
 
 internal fun readClipboardText(context: Context): String {

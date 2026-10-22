@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  B 站相关界面（评论区 / UP 主主页 / 投稿播放 / 一键三连）。
+  日本語。ここに無いキーは values/（中国語）へフォールバック。
+-->
+<resources>
+    <!-- 通用（几个界面共用） -->
+    <string name="bili_back">戻る</string>
+    <string name="bili_retry">再試行</string>
+    <string name="bili_like">いいね</string>
+    <string name="bili_dislike">いいねしない</string>
+    <string name="bili_reply">返信</string>
+
+    <!-- 评论区 -->
+    <string name="bili_comments_title">コメント</string>
+    <string name="bili_comments_load_fail">コメントを読み込めませんでした</string>
+    <string name="bili_comments_login_required">この操作には先に bilibili アカウントへのログインが必要です</string>
+    <string name="bili_comments_action_fail">操作に失敗しました</string>
+    <string name="bili_comments_missing">投稿情報がありません</string>
+    <string name="bili_comments_empty">まだコメントがありません</string>
+    <string name="bili_comments_loading">読み込み中…</string>
+    <string name="bili_comments_load_more">さらにコメントを読み込む</string>
+    <string name="bili_comments_reply_to">\@%1$s に返信</string>
+    <string name="bili_comments_cancel_reply">返信をキャンセル</string>
+    <string name="bili_comments_hint">やさしいコメントをどうぞ…</string>
+    <string name="bili_comments_hint_not_login">未ログイン · コメントは投稿できません</string>
+    <string name="bili_comments_sent">コメントを送信しました</string>
+    <string name="bili_comments_send_fail">送信に失敗しました</string>
+    <string name="bili_comments_not_login">bilibili 未ログイン · コメントは閲覧できます</string>
+    <string name="bili_comments_go_login">ログイン</string>
+    <string name="bili_comments_hot">人気コメント</string>
+
+    <!-- UP 主主页 -->
+    <string name="bili_up_load_fail">読み込みに失敗しました</string>
+    <string name="bili_up_no_videos">この UP 主はまだ公開投稿がありません</string>
+    <string name="bili_up_no_dynamics">この UP 主はまだお知らせがありません</string>
+    <string name="bili_up_missing_id">UP 主 ID がありません</string>
+    <string name="bili_up_default_name">UP主</string>
+    <string name="bili_up_tab_videos">投稿動画</string>
+    <string name="bili_up_tab_feed">お知らせ</string>
+    <string name="bili_up_vip">プレミアム会員</string>
+    <string name="bili_stat_following">フォロー</string>
+    <string name="bili_stat_follower">フォロワー</string>
+    <string name="bili_stat_likes">総いいね数</string>
+    <string name="bili_up_ip_location">推測される所在地：%1$s</string>
+    <string name="bili_up_video">動画</string>
+
+    <!-- 页内投稿播放 -->
+    <string name="bili_video_load_fail">この投稿の再生URLを取得できませんでした（プレミアム会員・ログイン・地域制限の可能性）</string>
+    <string name="bili_video_title_fallback">bilibili の投稿</string>
+    <string name="bili_video_comment">コメント</string>
+
+    <!-- 一键三连/四连 -->
+    <string name="bili_quad">ワンタップ3連</string>
+    <string name="bili_quad_login_required">ワンタップ3連には先に bilibili アカウントへのログインが必要です</string>
+    <string name="bili_quad_missing">投稿情報がないため、いいね・コインはできません</string>
+    <string name="bili_coin">コイン</string>
+    <string name="bili_favorite">お気に入り</string>
+    <string name="bili_repost">タイムラインへシェア</string>
+    <string name="bili_quad_pick_none">項目を1つ以上選択してください</string>
+    <string name="bili_quad_confirm">OK</string>
+    <string name="bili_quad_cancel">キャンセル</string>
+    <string name="bili_quad_running">コイン・いいねを送っています…</string>
+    <string name="bili_quad_step_ok">%1$s 成功</string>
+    <string name="bili_quad_step_fail">%1$s 失敗：%2$s</string>
+    <string name="bili_quad_close">閉じる</string>
+    <string name="bili_quad_step_all">3連</string>
+    <string name="bili_quad_failed">失敗</string>
+    <plurals name="bili_quad_coin_count">
+        <item quantity="other">%1$s 枚</item>
+    </plurals>
+    <!-- 投稿をタップしたときの再生方法の選択 -->
+    <string name="bili_play_where">再生方法を選択</string>
+    <string name="bili_play_biliapp">Bilibiliで再生</string>
+    <string name="bili_play_listen">音声のみ再生</string>
+    <string name="bili_play_upload">投稿を再生</string>
+
+    <!-- ライブ：トップページの「配信中」リスト・部屋の選択・配信部屋ページ -->
+    <string name="live_home_section">配信中</string>
+    <string name="live_on_air">配信中</string>
+    <string name="live_pick_title">配信を開く方法</string>
+    <string name="live_in_app">1. このアプリで見る</string>
+    <string name="live_in_bili_app">2. Bilibiliアプリで開く</string>
+    <string name="live_cancel">キャンセル</string>
+    <string name="live_load_fail">配信部屋の読み込みに失敗しました</string>
+    <string name="live_not_started">配信者はオフラインです</string>
+    <string name="live_no_stream">再生可能な配信がありません</string>
+    <string name="live_watch_in_bili">Bilibiliで開く</string>
+    <string name="live_follow">フォロー</string>
+    <string name="live_following">フォロー中</string>
+    <string name="live_input_hint">コメントを入力…</string>
+    <string name="live_send">送信</string>
+    <string name="live_send_fail">コメントの送信に失敗しました</string>
+    <string name="live_not_login">未ログイン · コメントできません</string>
+    <string name="live_reloading">配信部屋を開いています…</string>
+    <string name="live_no_danmaku">まだコメントがありません</string>
+    <string name="live_room_offline">配信は終了しました</string>
+    <string name="live_watchers">%1$s人が視聴中</string>
+</resources>

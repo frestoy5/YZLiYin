@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Bilibili screens (comments / creator page / in-app video player / one-tap actions).
+  English. Any key missing here falls back to Chinese (values/) rather than showing blank.
+-->
+<resources>
+    <!-- Shared across the Bilibili screens -->
+    <string name="bili_back">Back</string>
+    <string name="bili_retry">Retry</string>
+    <string name="bili_like">Like</string>
+    <string name="bili_dislike">Dislike</string>
+    <string name="bili_reply">Reply</string>
+
+    <!-- Comment section -->
+    <string name="bili_comments_title">Comments</string>
+    <string name="bili_comments_load_fail">Could not load comments</string>
+    <string name="bili_comments_login_required">Sign in to your Bilibili account first</string>
+    <string name="bili_comments_action_fail">Action failed</string>
+    <string name="bili_comments_missing">Missing video info</string>
+    <string name="bili_comments_empty">No comments yet. Be the first!</string>
+    <string name="bili_comments_loading">Loading…</string>
+    <string name="bili_comments_load_more">Load more comments</string>
+    <string name="bili_comments_reply_to">Reply to @%1$s</string>
+    <string name="bili_comments_cancel_reply">Cancel reply</string>
+    <string name="bili_comments_hint">Say something nice…</string>
+    <string name="bili_comments_hint_not_login">Not signed in · Comments disabled</string>
+    <string name="bili_comments_sent">Comment sent</string>
+    <string name="bili_comments_send_fail">Could not send</string>
+    <string name="bili_comments_not_login">Not signed in to Bilibili · You can still read comments</string>
+    <string name="bili_comments_go_login">Sign in</string>
+    <string name="bili_comments_hot">Top comment</string>
+
+    <!-- Creator page -->
+    <string name="bili_up_load_fail">Could not load</string>
+    <string name="bili_up_no_videos">This creator has no public videos yet</string>
+    <string name="bili_up_no_dynamics">This creator has no posts yet</string>
+    <string name="bili_up_missing_id">Missing creator ID</string>
+    <string name="bili_up_default_name">Creator</string>
+    <string name="bili_up_tab_videos">Videos</string>
+    <string name="bili_up_tab_feed">Feed</string>
+    <string name="bili_up_vip">Premium</string>
+    <string name="bili_stat_following">Follow</string>
+    <string name="bili_stat_follower">Follower</string>
+    <string name="bili_stat_likes">Likes received</string>
+    <string name="bili_up_ip_location">IP location: %1$s</string>
+    <string name="bili_up_video">Video</string>
+
+    <!-- In-app video player -->
+    <string name="bili_video_load_fail">Could not get the playback URL (may need Premium, sign-in, or a supported region)</string>
+    <string name="bili_video_title_fallback">Bilibili video</string>
+    <string name="bili_video_comment">Comment</string>
+
+    <!-- One-tap like / coin / favorite / repost -->
+    <string name="bili_quad">One-tap like/coin/fav</string>
+    <string name="bili_quad_login_required">Sign in to Bilibili to use one-tap actions</string>
+    <string name="bili_quad_missing">Missing video info — cannot like or coin</string>
+    <string name="bili_coin">Coin</string>
+    <string name="bili_favorite">Favorite</string>
+    <string name="bili_repost">Repost to feed</string>
+    <string name="bili_quad_pick_none">Select at least one</string>
+    <string name="bili_quad_confirm">OK</string>
+    <string name="bili_quad_cancel">Cancel</string>
+    <string name="bili_quad_running">Sending likes and coins…</string>
+    <string name="bili_quad_step_ok">%1$s succeeded</string>
+    <string name="bili_quad_step_fail">%1$s failed: %2$s</string>
+    <string name="bili_quad_close">Close</string>
+    <string name="bili_quad_step_all">One-tap</string>
+    <string name="bili_quad_failed">Failed</string>
+    <plurals name="bili_quad_coin_count">
+        <item quantity="one">%1$s coin</item>
+        <item quantity="other">%1$s coins</item>
+    </plurals>
+    <!-- Playback chooser after tapping an upload -->
+    <string name="bili_play_where">Choose how to play</string>
+    <string name="bili_play_biliapp">Play in Bilibili</string>
+    <string name="bili_play_listen">Listen (audio only)</string>
+    <string name="bili_play_upload">Play video</string>
+
+    <!-- Live: home "Live now" list + room picker + live room page -->
+    <string name="live_home_section">Live now</string>
+    <string name="live_on_air">LIVE</string>
+    <string name="live_pick_title">How to open the room</string>
+    <string name="live_in_app">1. Watch in this app</string>
+    <string name="live_in_bili_app">2. Open in Bilibili app</string>
+    <string name="live_cancel">Cancel</string>
+    <string name="live_load_fail">Failed to load the live room</string>
+    <string name="live_not_started">The streamer is offline</string>
+    <string name="live_no_stream">No playable stream right now</string>
+    <string name="live_watch_in_bili">Open in Bilibili</string>
+    <string name="live_follow">Follow</string>
+    <string name="live_following">Following</string>
+    <string name="live_input_hint">Say something…</string>
+    <string name="live_send">Send</string>
+    <string name="live_send_fail">Failed to send danmaku</string>
+    <string name="live_not_login">Not signed in · cannot chat</string>
+    <string name="live_reloading">Opening the live room…</string>
+    <string name="live_no_danmaku">No messages yet</string>
+    <string name="live_room_offline">The stream has ended</string>
+    <string name="live_watchers">%1$s watching</string>
+</resources>

@@ -12,6 +12,7 @@ import top.aryun.yzliyin.listentogether.data.ListenTogetherPrefs
 import top.aryun.yzliyin.listentogether.network.http.ListenTogetherApi
 import top.aryun.yzliyin.listentogether.network.ws.ListenTogetherWebSocketClient
 import top.aryun.yzliyin.listentogether.player.ListenTogetherPlayer
+import top.aryun.yzliyin.youtube.YouTubeGraph
 import java.util.concurrent.TimeUnit
 
 /** 全局依赖容器（Application 初始化一次）。 */
@@ -47,6 +48,10 @@ object AppGraph {
     lateinit var listenTogetherApi: ListenTogetherApi
         private set
 
+    /** YouTube 平台支撑 + 认证装配（Service Locator，见 [YouTubeGraph]）。 */
+    lateinit var youtube: YouTubeGraph
+        private set
+
     /** 是否已完成初始化（一起听保活等路径会在极早期被调用，需要兜底判断）。 */
     val initialized: Boolean
         get() = ::store.isInitialized
@@ -59,6 +64,11 @@ object AppGraph {
         netease = NeteaseClient().apply { setPersistedCookies(store.neteaseCookieMap()) }
         kugou = KugouClient(app).apply { seed(store.cookieMap(Source.KUGOU)) }
         bilibili = BiliClient().apply { seed(store.cookieMap(Source.BILIBILI)) }
+
+        // YouTube 装配（独立 OkHttp client + 鉴权仓库 + 会话轮换 Worker），并按当前设置同步 FeatureGate
+        YouTubeGraph.init(app)
+        YouTubeGraph.updateSettingsFrom(store)
+        youtube = YouTubeGraph
 
         listenTogetherPrefs = ListenTogetherPrefs(app)
         // WebSocket 需要 15s 心跳探测半开连接；HTTP 与 WS 共用同一连接池

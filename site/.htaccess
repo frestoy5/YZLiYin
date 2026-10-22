@@ -1,0 +1,22 @@
+# 音之理音宣传页 · 可选 Apache 规则（Nginx / 面板类主机会忽略本文件）
+# 若上传后站点返回 500，删除本文件即可，不影响页面。
+
+# 默认首页
+DirectoryIndex index.html
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css text/javascript application/javascript image/svg+xml
+</IfModule>
+
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css "access plus 7 days"
+  ExpiresByType application/javascript "access plus 7 days"
+  ExpiresByType image/svg+xml "access plus 30 days"
+  # 安装包不缓存，换版本后不会拿到旧文件
+  ExpiresByType application/vnd.android.package-archive "access plus 0 seconds"
+</IfModule>
+
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+</IfModule>

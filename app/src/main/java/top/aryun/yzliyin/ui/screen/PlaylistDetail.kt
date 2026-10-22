@@ -41,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -54,6 +55,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import org.json.JSONObject
+import top.aryun.yzliyin.R
 import top.aryun.yzliyin.core.AppGraph
 import top.aryun.yzliyin.core.data.JsonCodecs
 import top.aryun.yzliyin.core.model.Paged
@@ -63,12 +65,13 @@ import top.aryun.yzliyin.core.model.Source
 import top.aryun.yzliyin.core.net.BiliApi
 import top.aryun.yzliyin.core.net.KugouApi
 import top.aryun.yzliyin.core.net.NeteaseApi
-import top.aryun.yzliyin.player.AudioCache
-import top.aryun.yzliyin.player.PlaybackResolver
+import top.aryun.yzliyin.core.net.YouTubeApi
 import top.aryun.yzliyin.player.PlayerController
+import top.aryun.yzliyin.player.downloadSong
 import top.aryun.yzliyin.ui.Routes
 import top.aryun.yzliyin.ui.components.SongRow
 import top.aryun.yzliyin.ui.components.formatCount
+import top.aryun.yzliyin.ui.components.labelText
 
 /**
  * 歌单/收藏夹详情，按 [source] 分派到对应数据源。
@@ -94,6 +97,9 @@ fun PlaylistDetailScreen(nav: NavController, id: String, source: Source = Source
             Source.NETEASE -> runCatching { NeteaseApi.playlistDetail(id) }.getOrNull()
             Source.KUGOU -> KugouApi.findPlaylist(id)
             Source.BILIBILI -> BiliApi.folderInfo(id)
+            Source.YOUTUBE -> runCatching { YouTubeApi.playlistDetail(id) }.getOrNull()
+            // 本机音乐没有「歌单」这一说，页面会退回空态
+            Source.LOCAL -> null
         }
     }
 
@@ -135,6 +141,9 @@ fun PlaylistDetailScreen(nav: NavController, id: String, source: Source = Source
                 Source.NETEASE -> NeteaseApi.playlistTracks(id, page = p, pageSize = pageSize)
                 Source.KUGOU -> KugouApi.playlistTracks(id, page = p, pageSize = pageSize)
                 Source.BILIBILI -> BiliApi.folderTracks(id, page = p, pageSize = 20)
+                Source.YOUTUBE -> YouTubeApi.playlistTracks(id, page = p, pageSize = 20)
+                // 本机音乐没有远端歌单，直接给空页（外层 onSuccess 拿到空结果会停在空态）
+                Source.LOCAL -> Paged(emptyList(), 0, 1, false)
             }
         }
             .onSuccess { result: Paged<Song> ->
@@ -148,14 +157,14 @@ fun PlaylistDetailScreen(nav: NavController, id: String, source: Source = Source
                 }
             }
             .onFailure {
-                if (!(p == 1 && restoreOfflineCache())) error = it.message ?: "加载歌单失败"
+                if (!(p == 1 && restoreOfflineCache())) error = it.message ?: context.getString(R.string.pld_load_fail)
             }
         loading = false
     }
 
     LaunchedEffect(id, source) {
         if (id.isBlank()) {
-            error = "缺少歌单 ID"
+            error = context.getString(R.string.pld_missing_id)
             loading = false
             return@LaunchedEffect
         }
@@ -186,27 +195,13 @@ fun PlaylistDetailScreen(nav: NavController, id: String, source: Source = Source
     fun downloadSongs(targets: List<Song>) {
         if (targets.isEmpty() || downloading) return
         downloading = true
-        downloadTip = "正在下载 ${targets.size} 首…"
+        downloadTip = context.getString(R.string.pld_dl_start, targets.size)
         scope.launch {
             val results = kotlinx.coroutines.coroutineScope {
                 val gate = Semaphore(3)
                 targets.map { song ->
                     async(Dispatchers.IO) {
-                        gate.withPermit {
-                            // 单曲失败只算这一首失败：异常一律就地吞掉，
-                            // 绝不能让某首无版权/链接异常的歌把整批下载连同 App 一起带走
-                            runCatching {
-                                // 与播放同一条解析路径（含跨源找音源），保证下回来的就是能播的
-                                val resolved = PlaybackResolver.resolve(song)
-                                if (!resolved.ok) {
-                                    return@runCatching resolved.reason.ifBlank { "取不到播放链接" }
-                                }
-                                val ok = AudioCache.download(song.key, resolved.url)
-                                // 登记到曲库「本地」页；文件被淘汰后该页会按实际缓存复核
-                                if (ok) AppGraph.store.pushDownloadedSong(song)
-                                if (ok) null else "写入本地失败"
-                            }.getOrDefault("未知错误")
-                        }
+                        gate.withPermit { downloadSong(context, song) }
                     }
                 }.awaitAll()
             }
@@ -214,9 +209,9 @@ fun PlaylistDetailScreen(nav: NavController, id: String, source: Source = Source
             val ok = results.size - failReasons.size
             downloading = false
             downloadTip = buildString {
-                append("下载完成：成功 $ok 首")
+                append(context.getString(R.string.pld_dl_done, ok))
                 if (failReasons.isNotEmpty()) {
-                    append("，失败 ${failReasons.size} 首（${failReasons.first()}）")
+                    append(context.getString(R.string.pld_dl_fail, failReasons.size, failReasons.first()))
                 }
             }
             if (failReasons.isEmpty()) exitSelection()
@@ -227,19 +222,19 @@ fun PlaylistDetailScreen(nav: NavController, id: String, source: Source = Source
         TopAppBar(
             title = {
                 if (selecting) {
-                    Text("已选 ${selected.size} 首")
+                    Text(stringResource(R.string.pld_selected, selected.size))
                 } else {
-                    Text(detail?.name ?: source.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(detail?.name ?: source.labelText(), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             },
             navigationIcon = {
                 if (selecting) {
                     IconButton(onClick = { exitSelection() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "退出多选")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.pld_exit_select))
                     }
                 } else {
                     IconButton(onClick = { nav.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.pld_back))
                     }
                 }
             },
@@ -249,17 +244,23 @@ fun PlaylistDetailScreen(nav: NavController, id: String, source: Source = Source
                         if (selected.size == songs.size) selected.clear()
                         else songs.forEach { selected[it.key] = it }
                     }) {
-                        Text(if (selected.size == songs.size && songs.isNotEmpty()) "取消全选" else "全选")
+                        Text(
+                            if (selected.size == songs.size && songs.isNotEmpty()) stringResource(R.string.pld_unselect_all)
+                            else stringResource(R.string.pld_select_all),
+                        )
                     }
                     TextButton(
                         onClick = { downloadSongs(selected.values.toList()) },
                         enabled = selected.isNotEmpty() && !downloading,
                     ) {
-                        Text(if (downloading) "下载中…" else "下载")
+                        Text(
+                            if (downloading) stringResource(R.string.pld_downloading)
+                            else stringResource(R.string.pld_download),
+                        )
                     }
                 } else if (songs.isNotEmpty()) {
                     IconButton(onClick = { play(0) }) {
-                        Icon(Icons.Filled.PlayArrow, contentDescription = "播放全部")
+                        Icon(Icons.Filled.PlayArrow, contentDescription = stringResource(R.string.pld_play_all))
                     }
                 }
             },
@@ -297,7 +298,7 @@ fun PlaylistDetailScreen(nav: NavController, id: String, source: Source = Source
                     Spacer(Modifier.width(14.dp))
                     Column(Modifier.weight(1f)) {
                         Text(
-                            detail?.name ?: source.label,
+                            detail?.name ?: source.labelText(),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             maxLines = 2,
@@ -318,9 +319,9 @@ fun PlaylistDetailScreen(nav: NavController, id: String, source: Source = Source
                         val playCount = detail?.playCount ?: 0L
                         Text(
                             if (playCount > 0L) {
-                                "播放 ${formatCount(playCount)} · $count 首"
+                                stringResource(R.string.pld_meta_play, formatCount(playCount), count)
                             } else {
-                                "$count 首"
+                                stringResource(R.string.pld_meta_count, count)
                             },
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -346,11 +347,11 @@ fun PlaylistDetailScreen(nav: NavController, id: String, source: Source = Source
                                     modifier = Modifier.size(18.dp),
                                 )
                                 Spacer(Modifier.width(4.dp))
-                                Text("播放全部")
+                                Text(stringResource(R.string.pld_play_all))
                             }
                             Spacer(Modifier.width(8.dp))
                             FilledTonalButton(onClick = { scope.launch { loadPage(1) } }) {
-                                Text("刷新")
+                                Text(stringResource(R.string.pld_refresh))
                             }
                         }
                     }
@@ -406,7 +407,7 @@ fun PlaylistDetailScreen(nav: NavController, id: String, source: Source = Source
                             IconButton(onClick = { nav.navigate(Routes.comments(song.id, song.name)) }) {
                                 Icon(
                                     Icons.Filled.ChatBubbleOutline,
-                                    contentDescription = "评论",
+                                    contentDescription = stringResource(R.string.pld_comments),
                                     modifier = Modifier.size(18.dp),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -434,7 +435,7 @@ fun PlaylistDetailScreen(nav: NavController, id: String, source: Source = Source
             if (songs.isEmpty() && error == null && !loading) {
                 item {
                     Text(
-                        "这个歌单没有可播放的曲目",
+                        stringResource(R.string.pld_empty),
                         Modifier.padding(24.dp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

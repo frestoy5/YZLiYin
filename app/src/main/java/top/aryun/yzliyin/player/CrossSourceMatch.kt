@@ -9,6 +9,7 @@ import top.aryun.yzliyin.core.model.Song
 import top.aryun.yzliyin.core.net.BiliApi
 import top.aryun.yzliyin.core.net.KugouApi
 import top.aryun.yzliyin.core.net.NeteaseApi
+import top.aryun.yzliyin.core.net.YouTubeApi
 import top.aryun.yzliyin.util.NPLogger
 import java.util.concurrent.ConcurrentHashMap
 
@@ -153,11 +154,22 @@ internal object CrossSourceMatch {
         }
 
         Source.BILIBILI -> emptyList()
+
+        // YouTube 无歌词直连接口；跨源歌词本就优先走网易云 / 酷狗（见 LYRIC_SOURCES）
+        Source.YOUTUBE -> emptyList()
+
+        Source.LOCAL -> emptyList()
     }
 
-    private suspend fun search(source: Source, query: String): List<Song> = when (source) {
+    /**
+     * 在指定源搜歌：四个源统一分发，跨源匹配内部用，播放页「更换音频」也复用它。
+     * 读取类接口失败会抛出，调用方自行兜底。
+     */
+    suspend fun search(source: Source, query: String): List<Song> = when (source) {
         Source.NETEASE -> NeteaseApi.searchSongs(query).items
         Source.KUGOU -> KugouApi.searchSongs(query).items
         Source.BILIBILI -> BiliApi.searchSongs(query).items
+        Source.YOUTUBE -> YouTubeApi.searchSongs(query).items
+        Source.LOCAL -> emptyList()
     }
 }

@@ -21,9 +21,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import top.aryun.yzliyin.R
 import top.aryun.yzliyin.core.AppGraph
 import top.aryun.yzliyin.core.model.ResolveResult
 import top.aryun.yzliyin.core.model.Song
+import top.aryun.yzliyin.core.model.Source
+import top.aryun.yzliyin.util.AppLocale
 
 /** 当前播放状态，供 UI 观察。 */
 data class PlayState(
@@ -208,6 +211,17 @@ object PlayerController {
                 controller?.let { withProgrammaticControl { it.pause() } }
             }
             val idx = controller?.currentMediaItemIndex ?: -1
+            // 长时长确认：上一首 / 下一首 / 队列内跳曲 / 自动连播到超长曲同样要拦。
+            // 只拦 playQueue 的话，切到超长歌、或切走再切回来都能绕过弹框。
+            // 冷启动恢复那次过渡 playWhenReady 还是 false，放行，免得一开 App 就弹框。
+            if (idx >= 0 && controller?.playWhenReady == true && ::appContext.isInitialized &&
+                PlaybackGate.interceptResume(appContext, pendingQueue, idx)
+            ) {
+                controller?.pause()
+                lastKnownMediaItemIndex = idx
+                persistProgress(force = true)
+                return
+            }
             if (idx >= 0) ensureUrl(idx)
             // 跟随源开着时，后台去目标源匹配这首歌的封面 / 歌手（不阻塞切歌）
             pendingQueue.getOrNull(idx)?.let { playing ->
@@ -311,7 +325,7 @@ object PlayerController {
         }
 
         override fun onPlayerError(error: PlaybackException) {
-            _state.value = _state.value.copy(error = "播放失败（${error.errorCodeName}）")
+            _state.value = _state.value.copy(error = AppLocale.string(R.string.ply_err_playback, error.errorCodeName))
             // 多半是 URL 缺失/过期，惰性补链后重试
             val c = controller ?: return
             val idx = c.currentMediaItemIndex
@@ -417,19 +431,54 @@ object PlayerController {
         playQueue(context, listOf(song), startIndex = 0)
     }
 
+    /**
+     * 手动更换当前位音频（播放页 ⋮ →「更换音频」）：就地顶替队列当前位。
+     *
+     * **先换再取链**：入队即刻刷新队列与当前曲——迷你条 / 播放页立刻换到新歌，
+     * 取链与播放随后接上（与平时切歌同一套 preparing / error 状态）。
+     * 取链失败回滚回原曲：宁可不换，也不让画面停在一首放不出来的歌上。
+     * 返回是否真的换上了。
+     */
+    suspend fun replaceCurrent(context: Context, song: Song): Boolean {
+        val index = _state.value.index
+        if (pendingQueue.isEmpty() || index !in pendingQueue.indices) {
+            // 队列还没恢复（冷启动直接点菜单）：退化成单曲播放
+            playNow(context, song)
+            return _state.value.error == null && _state.value.current?.key == song.key
+        }
+        val old = pendingQueue[index]
+        if (old.key == song.key) return true // 换成同一首，无事发生
+
+        // 乐观更新：先让队列与画面换过去（这就是「立马替换」）
+        pendingQueue[index] = song
+        _state.value = _state.value.copy(queue = pendingQueue.toList(), current = song)
+        AppGraph.store.savePlaybackQueue(pendingQueue)
+
+        if (playQueue(context, pendingQueue.toList(), startIndex = index)) return true
+
+        // 取链失败：回滚队列与画面，老曲照常播（playQueue 失败不动播放器）
+        pendingQueue[index] = old
+        _state.value = _state.value.copy(queue = pendingQueue.toList(), current = old)
+        AppGraph.store.savePlaybackQueue(pendingQueue)
+        return false
+    }
+
     /** 播放整个队列；仅预先解析起始曲的 URL，其余惰性补链。 */
-    suspend fun playQueue(context: Context, songs: List<Song>, startIndex: Int = 0) {
+    suspend fun playQueue(context: Context, songs: List<Song>, startIndex: Int = 0): Boolean {
         // 播放页手工改过的歌名/歌手/封面，入队前统一套用
         val songs = songs.map { AppGraph.store.applySongInfoEdit(it) }
-        if (songs.isEmpty()) return
+        if (songs.isEmpty()) return false
+        // 长时长确认：达到阈值的歌先在根部弹「确定播放 → 算题」，这里立刻收手；
+        // 用户确认后由 PlaybackGate 带着同一份队列回来重放，届时过闸放行
+        if (PlaybackGate.intercept(context, songs, startIndex)) return false
         init(context)
         _state.value = _state.value.copy(preparing = true, error = null)
 
         // 等待 MediaController 连接（App 冷启动后立即点播放时可能是 null）
         val c = awaitController()
         if (c == null) {
-            _state.value = _state.value.copy(preparing = false, error = "播放器初始化失败，请重试")
-            return
+            _state.value = _state.value.copy(preparing = false, error = AppLocale.string(R.string.ply_err_player_init))
+            return false
         }
 
         _state.value = _state.value.copy(resolving = true)
@@ -437,12 +486,9 @@ object PlayerController {
         _state.value = _state.value.copy(resolving = false)
         if (!first.result.ok) {
             _state.value = _state.value.copy(preparing = false, error = first.result.reason)
-            return
+            return false
         }
-        if (!first.fromOverride) {
-            AudioCache.cacheInBackground(songs[startIndex].key, first.result.url)
-            rememberLocalCopy(songs[startIndex])
-        }
+        if (!first.fromOverride) autoCache(songs[startIndex], first.result.url)
 
         val items = ArrayList<MediaItem>(songs.size)
         for ((i, s) in songs.withIndex()) {
@@ -468,6 +514,7 @@ object PlayerController {
         )
         AppGraph.store.savePlaybackQueue(pendingQueue)
         persistProgress(force = true)
+        return true
     }
 
     /** 为 index 处的曲目补链（若该曲目尚未解析过 URL）。 */
@@ -488,17 +535,17 @@ object PlayerController {
             }
             resolvedUrls[song.key] = resolved.result.url
             rememberSource(song.key, resolved.result)
-            if (!resolved.fromOverride) {
-                AudioCache.cacheInBackground(song.key, resolved.result.url)
-                rememberLocalCopy(song)
-            }
+            if (!resolved.fromOverride) autoCache(song, resolved.result.url)
             val isCurrent = c.currentMediaItemIndex == index
             val position = if (isCurrent) c.currentPosition else 0L
+            // 补链不该改变播放意愿：暂停中（尤其是 App 启动恢复旧队列那一下，
+            // resolvedUrls 刚被清空、必然走到这里）只把链接上，不擅自开始放
+            val shouldPlay = c.playWhenReady
             withProgrammaticControl {
                 c.replaceMediaItem(index, toMediaItem(song, resolved.result.url))
                 if (isCurrent) c.seekTo(index, position)
                 c.prepare()
-                c.play()
+                if (shouldPlay) c.play() else c.pause()
             }
             _state.value = _state.value.copy(error = null)
         }
@@ -528,10 +575,7 @@ object PlayerController {
         }
         resolvedUrls[song.key] = resolved.result.url
         rememberSource(song.key, resolved.result)
-        if (!resolved.fromOverride) {
-            AudioCache.cacheInBackground(song.key, resolved.result.url)
-            rememberLocalCopy(song)
-        }
+        if (!resolved.fromOverride) autoCache(song, resolved.result.url)
         // 播放器里还没装回队列（服务重启/恢复未完成）时先补上，避免 replaceMediaItem 越界
         if (c.mediaItemCount <= index) {
             withProgrammaticControl {
@@ -593,10 +637,7 @@ object PlayerController {
             _state.value = _state.value.copy(preparing = false, error = resolved.result.reason)
             return
         }
-        if (!resolved.fromOverride) {
-            AudioCache.cacheInBackground(songs[startIndex].key, resolved.result.url)
-            rememberLocalCopy(songs[startIndex])
-        }
+        if (!resolved.fromOverride) autoCache(songs[startIndex], resolved.result.url)
 
         val items = songs.mapIndexed { i, s ->
             toMediaItem(s, if (i == startIndex) resolved.result.url else resolvedUrls[s.key].orEmpty())
@@ -763,8 +804,21 @@ object PlayerController {
     }
 
     /**
+     * 自动缓存这首：设置里「自动缓存歌曲」关掉就不落盘，也就不往「本地」里记。
+     * 手动下载（曲库 / 歌单页的 [AudioCache.download]）不受这个开关影响。
+     */
+    private fun autoCache(song: Song, url: String) {
+        // 本机音乐本来就在手机里：既没什么可缓存的，也不该再往「已下载」清单里塞一份 ——
+        // 它已经在扫描清单里了，两份都会列进本地，看起来就是同一首出现两遍
+        if (song.source == Source.LOCAL) return
+        if (!AppGraph.store.autoCacheAudio) return
+        AudioCache.cacheInBackground(song.key, url)
+        rememberLocalCopy(song)
+    }
+
+    /**
      * 记录「这首已经落盘」，供曲库「本地」页列出。
-     * 只在真的开始写盘时调用，文件被淘汰后由曲库页按 [AudioCache.cached] 复核并清理。
+     * 只在真的开始写盘时调用，文件被淘汰后由曲库页按 [AudioCache.cachedSource] 复核并清理。
      */
     private fun rememberLocalCopy(song: Song) {
         runCatching { AppGraph.store.pushDownloadedSong(song) }
@@ -798,12 +852,54 @@ object PlayerController {
         }
         val idx = c.currentMediaItemIndex
         val song = pendingQueue.getOrNull(idx)
+        // 长时长确认：停在超长曲上再按播放，同样过闸；放行后由 resumeAfterGate 接着放
+        if (idx >= 0 && song != null &&
+            PlaybackGate.interceptResume(appContext, pendingQueue, idx)
+        ) {
+            return
+        }
         // 恢复会话/补链丢链的曲目：先取链再播，避免播放器直接报错
         if (idx >= 0 && song != null && !resolvedUrls.containsKey(song.key) && !currentHasUrl(c)) {
             scope.launch { resolveAndRetry(idx) }
             return
         }
         play()
+    }
+
+    /**
+     * 长时长确认放行后的落点（[PlaybackGate.Mode.RESUME]）。
+     *
+     * 被闸拦下的那次切歌**没走补链**，目标曲在播放器里可能还是空 URI，
+     * 所以先把链接上再立起播放意愿；取链失败就停住把原因摆出来，
+     * 绝不拿空 URI 去 prepare（会直接报播放错误）。
+     */
+    fun resumeAfterGate() {
+        val c = controller ?: return
+        val idx = c.currentMediaItemIndex
+        val song = pendingQueue.getOrNull(idx)
+        scope.launch {
+            if (idx >= 0 && song != null && !currentHasUrl(c)) {
+                val url = resolvedUrls[song.key] ?: run {
+                    _state.value = _state.value.copy(resolving = true)
+                    val resolved = resolveForPlayback(song, advanceOverride = false)
+                    _state.value = _state.value.copy(resolving = false)
+                    if (!resolved.result.ok) {
+                        _state.value = _state.value.copy(error = resolved.result.reason)
+                        return@launch
+                    }
+                    if (!resolved.fromOverride) autoCache(song, resolved.result.url)
+                    resolvedUrls[song.key] = resolved.result.url
+                    rememberSource(song.key, resolved.result)
+                    resolved.result.url
+                }
+                withProgrammaticControl { c.replaceMediaItem(idx, toMediaItem(song, url)) }
+            }
+            withProgrammaticControl {
+                c.playWhenReady = true
+                c.prepare()
+            }
+            play()
+        }
     }
 
     /** 播放（一起听远端同步传 [PlaybackCommandSource.REMOTE_SYNC]）。 */

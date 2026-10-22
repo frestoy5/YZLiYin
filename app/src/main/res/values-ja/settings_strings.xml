@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 日本語。ここに無いキーは values/（中国語）へフォールバック。 -->
+<resources>
+    <!-- 页面通用 -->
+    <string name="set_settings_title">設定</string>
+    <string name="set_back">戻る</string>
+    <string name="set_auto">自動</string>
+    <string name="set_percent">%1$s%%</string>
+    <string name="set_unit_seconds">%1$s秒</string>
+    <string name="set_ok">OK</string>
+    <string name="set_cancel">キャンセル</string>
+
+    <!-- 長さの書き方：設定スライダーと共通確認ダイアログで共用 -->
+    <string name="set_minutes">%1$s 分</string>
+    <string name="set_hours">%1$s 時間</string>
+    <string name="set_hours_minutes">%1$s 時間 %2$s 分</string>
+
+    <!-- 主页分组标题 -->
+    <string name="set_group_accounts">アカウントと外観</string>
+    <string name="set_group_playback">再生と歌詞</string>
+    <string name="set_group_other">その他</string>
+
+    <!-- 设置节：账号 -->
+    <string name="set_sec_accounts_title">アカウント</string>
+    <string name="set_sec_accounts_desc">NetEase・Kugou・bilibili のログイン状態を管理</string>
+
+    <!-- 设置节：主题 -->
+    <string name="set_sec_theme_title">テーマ</string>
+    <string name="set_sec_theme_desc">明暗モード・画面サイズ・ネットワーク検出の設定</string>
+
+    <!-- 设置节：音质 -->
+    <string name="set_sec_quality_title">音質</string>
+    <string name="set_sec_quality_desc">各データソースの既定の再生音質</string>
+
+    <!-- 设置节：播放 -->
+    <string name="set_sec_playback_title">再生</string>
+    <string name="set_sec_playback_desc">連続再生・他ソースでの音源探索・低域ブースト</string>
+
+    <!-- 设置节：歌词 -->
+    <string name="set_sec_lyrics_title">歌詞</string>
+    <string name="set_sec_lyrics_desc">文字サイズ・波打ち・光り・自動スクロール</string>
+
+    <!-- 设置节：存储与缓存 -->
+    <string name="set_sec_cache_title">ストレージとキャッシュ</string>
+    <string name="set_sec_cache_desc">キャッシュ使用量と削除</string>
+
+    <!-- 设置节：一起听 -->
+    <string name="set_sec_listen_together_title">一緒に聴く</string>
+    <string name="set_sec_listen_together_desc">部屋を作成または参加して、友達と一緒に聴く</string>
+
+    <!-- 设置节：Hook -->
+    <string name="set_sec_hook_title">Hook</string>
+    <string name="set_sec_hook_desc">Xposed 拡張：システム設定エントリとスコープ推奨</string>
+
+    <!-- Hook：系统设置 -->
+    <string name="set_hook_system_settings_title">システム設定</string>
+    <string name="set_hook_system_settings_desc">システム設定のホームに本アプリのエントリを注入します（LSPosed でシステム設定のスコープを有効にする必要があります）</string>
+    <string name="set_hook_settings_entry">システム設定エントリ</string>
+    <string name="set_hook_settings_entry_summary">システム設定のホームに本アプリのエントリを表示します</string>
+    <string name="set_hook_settings_entry_same_group">同一セクションに入れる</string>
+    <string name="set_hook_settings_entry_same_group_summary">位置アンカーと同じセクションにまとめます</string>
+    <string name="set_hook_settings_entry_position">エントリの位置</string>
+    <string name="set_hook_position_top">上部</string>
+    <string name="set_hook_position_middle">中部</string>
+    <string name="set_hook_position_bottom">下部</string>
+    <string name="set_hook_icon_style">アイコンスタイル</string>
+    <string name="set_hook_icon_default">デフォルト</string>
+    <string name="set_hook_icon_outline">アウトライン</string>
+    <string name="set_hook_settings_app_name">システム設定</string>
+
+    <!-- Hook：Xposed -->
+    <string name="set_hook_xposed_title">Xposed</string>
+    <string name="set_hook_xposed_desc">インストール後、LSPosed のモジュール一覧で「音之理音」を有効化し、システム設定をスコープに追加すると、設定を開き直したときに入口が表示されます</string>
+    <string name="set_hook_recommended_app">推奨アプリ：%1$s</string>
+
+    <!-- 设置节：关于 -->
+    <string name="set_sec_about_title">情報</string>
+    <string name="set_sec_about_desc">バージョン情報・データソース・オープンソース情報</string>
+
+    <!-- 主题：外观模式 -->
+    <string name="set_theme_light">ライト</string>
+    <string name="set_theme_dark">ダーク</string>
+    <string name="set_appearance_title">外観モード</string>
+    <string name="set_appearance_desc">ライト / ダークをいつでも切り替え、端末のダークモードに従うこともできます</string>
+
+    <!-- 主题：屏幕方向 -->
+    <string name="set_orientation_title">画面の向き</string>
+    <string name="set_orientation_desc">縦画面 / 横画面に固定するか、端末の向きに合わせます</string>
+    <string name="set_orientation_note">「横画面」を選ぶとレイアウトが自動で横画面向けになります（左側ナビゲーション、コンテンツ幅の制限）。変更は即時反映されます</string>
+    <string name="set_orientation_portrait">縦画面</string>
+    <string name="set_orientation_landscape">横画面</string>
+
+    <!-- 主题：界面大小 / 字体大小 -->
+    <string name="set_ui_size">画面サイズ</string>
+    <string name="set_ui_size_desc">すべてのコントロールと余白、フォントをまとめて拡大 / 縮小します。変更は即時反映されます</string>
+    <string name="set_font_size">文字サイズ</string>
+    <string name="set_font_size_desc">文字の大きさだけを調整します。コントロールのサイズは変わらず、端末の設定に比例して拡大 / 縮小します</string>
+    <string name="set_restore_default_size">サイズを初期値に戻す</string>
+
+    <!-- 主题：网络探测 -->
+    <string name="set_net_refresh_title">ネットワーク更新間隔</string>
+    <string name="set_net_refresh_desc">ホームのバッジがネットワークを確認する間隔（デフォルト 15 秒）。最小にすると連続更新になり、電池と通信量の消費が増えます</string>
+    <string name="set_refresh_interval">更新間隔</string>
+    <string name="set_net_timeout_title">ネットワーク遅延のしきい値</string>
+    <string name="set_net_timeout_desc">1 回の遅延検出のタイムアウトです。大きくすると未接続と誤判定しにくく、小さくすると結果が出早くなります</string>
+    <string name="set_probe_timeout">検出タイムアウト</string>
+
+    <!-- 音质 -->
+    <string name="set_quality_playback_title">再生音質</string>
+    <string name="set_quality_playback_desc">会員限定曲はアカウントの特典に従って配信され、非会員は利用できる音質に自動で下がります。Kugou / bilibili は選んだ音質でリンクを取得し、取得できない場合は自動的にフォールバックします</string>
+    <string name="set_quality_tip_switching">音質を%1$sに変更し、リンクを再取得しています</string>
+    <string name="set_quality_tip_done">%1$s の音質を%2$sに変更しました</string>
+    <string name="set_src_netease">NetEase Music</string>
+    <string name="set_src_netease_music">NetEase Music</string>
+    <string name="set_src_kugou">Kugou Music</string>
+    <string name="set_src_kugou_music">Kugou Music</string>
+    <string name="set_src_bilibili">bilibili</string>
+    <string name="set_q_standard">標準</string>
+    <string name="set_q_higher">高音質</string>
+    <string name="set_q_exhigh">超高音質</string>
+    <string name="set_q_lossless">ロスレス</string>
+    <string name="set_q_hires">Hi·Res</string>
+    <string name="set_q_super">Hi-Res</string>
+    <string name="set_q_high">高品質</string>
+    <string name="set_q_128k">128K</string>
+    <string name="set_q_320k">320K</string>
+    <string name="set_q_64k">64K</string>
+    <string name="set_q_132k">132K</string>
+    <string name="set_q_192k">192K</string>
+
+    <!-- 播放行为 -->
+    <string name="set_pb_behavior_title">再生の挙動</string>
+    <string name="set_auto_play_on_launch_title">起動時に自動再生</string>
+    <string name="set_auto_play_on_launch_desc">起動すると前回のキューを最後まで自動で再生します。オフにすると一時停止したまま、手動で再生するまで待ちます</string>
+    <string name="set_auto_next_title">自動連続再生</string>
+    <string name="set_auto_next_desc">オフにすると、リストの最後の曲で一時停止します</string>
+    <string name="set_auto_source_title">自動で音源を探す</string>
+    <string name="set_auto_source_desc">いまのソースで再生できないとき、NetEase → Kugou → bilibili の順に同じ曲を探します（曲名・アーティスト・長さで照合）</string>
+
+    <!-- 長い曲の再生確認 -->
+    <string name="set_pb_longwarn_title">長い曲の確認</string>
+    <string name="set_pb_longwarn_switch">長い曲の確認をオンにする</string>
+    <string name="set_pb_longwarn_switch_desc">下で設定した長さ以上の曲は、再生前に確認を求め、そのあと計算問題を1問正解しないと再生しません。オフにするとそのまま再生します</string>
+    <string name="set_pb_longwarn_limit">確認する長さ</string>
+    <string name="set_pb_longwarn_limit_desc">NetEase / Kugou / bilibili / YouTube のうちこの長さ以上の曲を先に確認します。1分 〜 12時間、既定は30分</string>
+
+    <!-- 跨源跟随 -->
+    <string name="set_follow_title">ソース間フォロー</string>
+    <string name="set_follow_desc">再生中のアートワーク・アーティスト・歌詞を別のソースに合わせるかどうか</string>
+    <string name="set_follow_note">あるソースを選ぶと、再生画面とミニプレーヤーのアートワーク・アーティスト・歌詞はそのソースを優先します（曲名・アーティスト・長さで同じ曲を照合し、取得できない場合は現在のソースに戻ります）。「オフ」を選ぶとアートワークとアーティストは現在のソースのものになり、歌詞がそのソースで見つからない場合（例：bilibili）は NetEase / Kugou から自動で補完します。</string>
+    <string name="set_follow_off">オフ</string>
+
+    <!-- 音效 -->
+    <string name="set_effect_title">サウンドエフェクト</string>
+    <string name="set_effect_desc">低域ブーストはデータソースごとに有効で、そのソースの曲にのみ作用します（機種によっては効果がない場合があります）</string>
+    <string name="set_effect_netease_desc">NetEase の曲を再生するときに低域をブースト</string>
+    <string name="set_effect_kugou_desc">Kugou の曲を再生するときに低域をブースト</string>
+    <string name="set_effect_bilibili_desc">bilibili の音声を再生するときに低域をブースト</string>
+
+    <!-- 歌词 -->
+    <string name="set_lyric_style_title">歌詞スタイル</string>
+    <string name="set_lyric_style_desc">変更は即時反映されます。再生画面右上のメニューからも変更できます</string>
+    <string name="set_lyric_wave">波の強さ</string>
+    <string name="set_lyric_glow">光の強さ</string>
+    <string name="set_restore_default">初期値に戻す</string>
+    <string name="set_lyric_behavior_title">歌詞の挙動</string>
+    <string name="set_autoscroll_title">自動スクロール</string>
+    <string name="set_autoscroll_desc">再生に合わせて歌詞が自動でスクロールします</string>
+    <string name="set_lyric_translation_title">歌詞の訳文を表示</string>
+    <string name="set_lyric_translation_desc">各行の下に歌詞に付属する訳文を表示します（自動翻訳は行いません）</string>
+
+    <!-- 存储与缓存 -->
+    <string name="set_cache_auto_title">曲を自動キャッシュ</string>
+    <string name="set_cache_auto_desc">再生した曲を裏で1つ保存し、次回はローカルから再生してネットを待ちません。オフにすると手動ダウンロードした曲だけが残ります</string>
+    <string name="set_cache_usage_title">キャッシュ使用量</string>
+    <string name="set_cache_image_title">画像とデータのキャッシュ</string>
+    <string name="set_cache_image_size">現在 %1$s 使用中</string>
+    <string name="set_cache_clear">キャッシュを削除</string>
+    <string name="set_cache_audio_title">オーディオキャッシュ</string>
+    <string name="set_cache_audio_desc">%1$s 曲 · %2$s。「ライブラリ → ローカル」で1曲ずつ削除できます</string>
+
+    <!-- ストレージファイル管理：キャッシュフォルダの変更 -->
+    <string name="set_cache_loc_title">ストレージファイル管理</string>
+    <string name="set_cache_loc_current">いまのキャッシュフォルダ</string>
+    <string name="set_cache_loc_default">アプリのキャッシュディレクトリ（既定）</string>
+    <string name="set_cache_loc_choose">フォルダを選ぶ</string>
+    <string name="set_cache_loc_reset">既定のフォルダに戻す</string>
+    <string name="set_cache_loc_done">切り替えました。新しいキャッシュは選んだフォルダに保存されます</string>
+    <string name="set_cache_loc_fail">このフォルダは使えません。ストレージ内の別のフォルダを試してください</string>
+
+    <!-- キャッシュ上限のカスタマイズ -->
+    <string name="set_cache_limit_title">キャッシュ上限を設定</string>
+    <string name="set_cache_limit_value">現在の上限 %1$s（0 を入力すると既定の %2$s）</string>
+    <string name="set_cache_limit_auto">未設定</string>
+    <string name="set_cache_limit_dialog_title">キャッシュ上限を設定</string>
+    <string name="set_cache_limit_hint">0 を入力すると既定の上限（%1$s）になります。単位はタップでも、入力欄へ直接書いても選べます（例 500mb）</string>
+
+    <!-- 一起听 -->
+    <string name="set_lt_room">一緒に聴くルーム</string>
+    <string name="set_lt_room_info">ルーム %1$s · %2$s</string>
+    <string name="set_lt_role_host">ホスト</string>
+    <string name="set_lt_role_listener">リスナー</string>
+
+    <!-- 关于 -->
+    <string name="set_about_app">アプリ</string>
+    <string name="set_about_package">パッケージ名</string>
+    <string name="set_about_sources_label">データソース</string>
+    <string name="set_about_sources">NetEase Music · Kugou Music · bilibili</string>
+    <string name="set_about_stack">技術スタック</string>
+    <string name="set_about_license">オープンソースライセンス</string>
+    <string name="set_about_license_value">参考プロジェクト NeriPlayer（GPLv3）に基づき、元の著作権表示を保持しています</string>
+
+    <!-- 情報：公式サイトのリンクと更新内容（入るたびに表示） -->
+    <string name="set_about_site">音之理音ウェブサイト</string>
+    <string name="set_changelog_title">このバージョンの更新内容</string>
+    <string name="set_changelog_version">バージョン %1$s</string>
+    <string name="set_changelog_ok">わかりました</string>
+    <string name="set_changelog_body">1. 再生：「長い曲の確認」を追加。とても長い曲は先に確認し、そのあと計算問題を1問正解してから再生します\n2. ストレージ：「ストレージファイル管理」を追加し、音楽を選んだフォルダに保存できます\n3. ストレージ：キャッシュ上限のカスタム設定を追加（KB / MB / GB / TB 対応）\n4. ライブラリ：「最近」で曲を長押しするとダウンロードできます\n5. 情報：「音之理音ウェブサイト」のリンクを追加</string>
+
+    <!-- 外链打开失败提示 -->
+    <string name="set_no_browser_app">リンクを開けるアプリが見つかりません</string>
+</resources>

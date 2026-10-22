@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English. Any key missing here falls back to Chinese (values/) rather than showing blank. -->
+<resources>
+    <!-- ===================== Login.kt (login) ===================== -->
+
+    <!-- Top bar titles and back -->
+    <string name="lgn_title_captcha">Sign in with verification code</string>
+    <string name="lgn_title_netease">NetEase Cloud Music sign in</string>
+    <string name="lgn_title_kugou">Kugou Music sign in</string>
+    <string name="lgn_title_bili">Bilibili sign in</string>
+    <string name="lgn_title_youtube">YouTube sign in</string>
+    <string name="lgn_title_qr">Sign in with QR code</string>
+    <string name="lgn_back">Back</string>
+
+    <!-- Web sign-in (NetEase / YouTube) -->
+    <string name="lgn_netease_web_hint">Complete your NetEase Cloud Music sign-in on the page below</string>
+    <string name="lgn_google_web_hint">Complete your Google account sign-in on the page below</string>
+    <string name="lgn_paste_hint">Log in to music.youtube.com in a desktop browser, open DevTools → Network, click any request, then paste the full Cookie from the Request Headers below (Authorization optional)</string>
+    <string name="lgn_back_to_web">Back to web sign-in</string>
+    <string name="lgn_sign_in">Sign in</string>
+    <string name="lgn_login_success_syncing">Signed in, syncing your account…</string>
+    <string name="lgn_paste_save_fail">Cookie parsed, but the sign-in could not be saved (secure storage error). Please try again</string>
+    <string name="lgn_paste_invalid">No valid login cookie found. Make sure you pasted the complete cookie from youtube.com</string>
+    <string name="lgn_desktop_mode">Desktop mode</string>
+    <string name="lgn_desktop_mode_off">Turn off desktop mode</string>
+    <string name="lgn_refresh">Refresh</string>
+    <string name="lgn_paste_cookie">Paste cookie</string>
+    <string name="lgn_page_load_fail">Failed to load the page: %1$s. Tap refresh or turn on desktop mode and try again</string>
+    <string name="lgn_network_error">Network error</string>
+    <string name="lgn_page_login_save_fail">The page is signed in, but the session could not be saved (secure storage error). Try again, or use Paste cookie</string>
+
+    <!-- Phone number sign-in -->
+    <string name="lgn_phone_title">Sign in with phone number</string>
+    <string name="lgn_phone_hint">Phone number</string>
+    <string name="lgn_code_hint">Verification code</string>
+    <string name="lgn_phone_invalid">Enter an 11-digit phone number</string>
+    <string name="lgn_send_fail">Failed to send the code</string>
+    <string name="lgn_send_countdown">%1$ss</string>
+    <string name="lgn_sending">Sending…</string>
+    <string name="lgn_get_code">Get code</string>
+    <string name="lgn_code_required">Enter the verification code</string>
+    <string name="lgn_login_success">Signed in</string>
+    <string name="lgn_login_fail">Sign-in failed</string>
+    <string name="lgn_captcha_note">The code is sent by NetEase Cloud Music. Sign in to play premium songs.</string>
+
+    <!-- QR sign-in (NetEase / Kugou / Bilibili) -->
+    <string name="lgn_qr_fetch_fail">Failed to get the QR code</string>
+    <string name="lgn_qr_poll_fail">Failed to check the status</string>
+    <string name="lgn_qr_render_fail">Failed to generate the QR code</string>
+    <string name="lgn_qr_desc">Login QR code</string>
+    <string name="lgn_qr_refresh">Refresh QR code</string>
+    <string name="lgn_qr_netease_title">Scan the QR code with the NetEase Cloud Music app</string>
+    <string name="lgn_qr_netease_subtitle">Sign in to play premium songs and access your library</string>
+    <string name="lgn_qr_netease_waiting">Open the NetEase Cloud Music app and scan</string>
+    <string name="lgn_qr_scanned">Scanned. Confirm the sign-in on your phone</string>
+    <string name="lgn_qr_cookie_incomplete">Sign-in confirmed, but the cookie is incomplete. Please try again</string>
+    <string name="lgn_qr_expired">The QR code has expired. Refresh it</string>
+    <string name="lgn_qr_kugou_title">Scan the QR code with the Kugou Music app</string>
+    <string name="lgn_qr_kugou_subtitle">Sign in to sync your favorites and playlists</string>
+    <string name="lgn_qr_kugou_waiting">Open the Kugou Music app and scan</string>
+    <string name="lgn_qr_kugou_scanned">Scanned. Confirm the sign-in on your phone</string>
+    <string name="lgn_qr_bili_title">Scan the QR code with the Bilibili app</string>
+    <string name="lgn_qr_bili_subtitle">Sign in to sync your favorite folders and favorites</string>
+    <string name="lgn_qr_bili_waiting">Open the Bilibili app and scan</string>
+
+    <!-- ===================== Library.kt (library) ===================== -->
+
+    <string name="lib_title">Library</string>
+    <string name="lib_refresh">Refresh</string>
+
+    <!-- Library sub-tabs -->
+    <string name="lib_tab_recent">Recent</string>
+    <string name="lib_tab_local">Local</string>
+    <string name="lib_tab_netease">NetEase Music</string>
+    <string name="lib_tab_kugou">Kugou Music</string>
+    <string name="lib_tab_bili">Bilibili</string>
+
+    <!-- Recently played / Local -->
+    <string name="lib_recent_empty">No play history yet. Find something to play from Home or Search</string>
+    <string name="lib_local_empty">No local audio yet. Played tracks are cached automatically, and you can also download them from a playlist</string>
+    <string name="lib_song_count">%1$s songs</string>
+    <string name="lib_play_all">Play all</string>
+    <string name="lib_remove_cache">Remove local cache</string>
+    <string name="lib_cached_header">%1$s songs cached · %2$s</string>
+    <string name="lib_clear">Clear</string>
+    <string name="lib_dropped">Removed %1$s invalid entries (files were evicted from the cache)</string>
+
+    <!-- Recent: long-press a track to download -->
+    <string name="lib_dl_start">Downloading “%1$s”…</string>
+    <string name="lib_dl_done">“%1$s” saved to this device</string>
+    <string name="lib_dl_exists">This track is already stored locally</string>
+    <string name="lib_selected_count">%1$s selected</string>
+    <string name="lib_select_all">Select all</string>
+    <string name="lib_select_clear">Clear selection</string>
+    <string name="lib_dl_button">Download</string>
+    <string name="lib_dl_button_count">Download %1$s</string>
+    <string name="lib_downloading">Downloading…</string>
+    <string name="lib_dl_batch_start">Downloading %1$s tracks…</string>
+    <string name="lib_dl_batch_done">Downloaded %1$s tracks</string>
+    <string name="lib_dl_batch_fail">%1$s succeeded, %2$s failed: %3$s</string>
+    <string name="lib_exit_selection">Exit multi-select</string>
+
+    <!-- Library → On-device: scan the music already on the phone -->
+    <string name="lib_scan">Scan for tracks</string>
+    <string name="lib_scan_desc">List the music already on this device under Library → On-device; it plays directly and nothing is copied</string>
+    <string name="lib_scan_scanning">Scanning…</string>
+    <string name="lib_scan_done">Found %1$s on-device tracks</string>
+    <string name="lib_scan_empty">No audio files found on this device</string>
+    <string name="lib_scan_denied">The Music and audio permission is required to scan device tracks</string>
+    <string name="lib_scan_fail">Scan failed: %1$s</string>
+    <string name="lib_remove_entry">Remove from On-device</string>
+
+    <!-- Per-source playlist tabs -->
+    <string name="lib_netease_tip_offline">Network unreachable, no cached playlists stored locally</string>
+    <string name="lib_netease_tip_fallback">Could not load your playlists, showing recommendations instead</string>
+    <string name="lib_netease_tip_login">Sign in to your NetEase Cloud Music account to sync your playlists</string>
+    <string name="lib_netease_empty_in">No playlists yet</string>
+    <string name="lib_netease_empty_out">Sign in to sync your playlists</string>
+    <string name="lib_recommended">Recommended playlists</string>
+    <string name="lib_my_playlists">My playlists</string>
+    <string name="lib_kugou_empty">Sign in to your Kugou account to sync your favorites and playlists</string>
+    <string name="lib_bili_empty">Sign in to your Bilibili account to sync your favorite folders</string>
+    <string name="lib_bili_folders">Favorite folders</string>
+    <string name="lib_bili_created">Created folders</string>
+    <string name="lib_bili_subscribed">Subscribed folders</string>
+    <string name="lib_go_login">Go to sign in</string>
+
+    <!-- ===================== Mine.kt (account cards) ===================== -->
+
+    <string name="min_netease_title">NetEase Cloud Music</string>
+    <string name="min_kugou_title">Kugou Music</string>
+    <string name="min_bili_title">Bilibili</string>
+    <string name="min_logged_in">Signed in</string>
+    <string name="min_netease_status_vip">%1$s · Black VIP</string>
+    <string name="min_netease_status">%1$s · NetEase account</string>
+    <string name="min_netease_offline">Not signed in (sign in to sync playlists and play premium songs)</string>
+    <string name="min_kugou_status">%1$s · Kugou account</string>
+    <string name="min_kugou_offline">Not signed in (sign in to sync favorites and playlists)</string>
+    <string name="min_bili_status">%1$s · Audio track of played videos</string>
+    <string name="min_bili_offline">Not signed in (sign in to sync favorite folders and favorites)</string>
+    <string name="min_switch_account">Switch account</string>
+    <string name="min_sign_out">Sign out</string>
+    <string name="min_web_login">Web sign-in</string>
+    <string name="min_captcha">Verification code</string>
+    <string name="min_qr_login">Sign in with QR code</string>
+    <string name="min_likes">Favorites</string>
+    <string name="min_kugou_likes_missing">No favorites playlist found in your Kugou account</string>
+    <string name="min_no_folder">No favorite folders available</string>
+    <string name="min_song_count">%1$s songs</string>
+</resources>

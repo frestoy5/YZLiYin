@@ -28,11 +28,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import top.aryun.yzliyin.R
 import top.aryun.yzliyin.player.PlayerController
 import top.aryun.yzliyin.ui.Routes
 
@@ -97,11 +99,15 @@ fun MiniPlayer(nav: NavController, modifier: Modifier = Modifier) {
                 IconButton(onClick = { PlayerController.togglePlay() }) {
                     Icon(
                         if (state.playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = if (state.playing) "暂停" else "播放",
+                        contentDescription = if (state.playing) {
+                            stringResource(R.string.cmp_pause)
+                        } else {
+                            stringResource(R.string.cmp_play)
+                        },
                     )
                 }
                 IconButton(onClick = { PlayerController.next() }) {
-                    Icon(Icons.Filled.SkipNext, contentDescription = "下一首")
+                    Icon(Icons.Filled.SkipNext, contentDescription = stringResource(R.string.cmp_next))
                 }
             }
             LinearProgressIndicator(

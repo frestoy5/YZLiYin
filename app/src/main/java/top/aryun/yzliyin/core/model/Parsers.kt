@@ -95,49 +95,70 @@ object Parsers {
      * 把译文 LRC 并入原文，填到 [LyricLine.translation]。
      *
      * 只给**非中文**的原文行配译文（用户看的是原文，中文行下面再挂一句中文反而重复），
-     * 也顺手过滤掉与原文雷同的行。时间戳先精确匹配，再放宽到 [TOLERANCE_MS] 内取最近一条。
+     * 也顺手过滤掉与原文雷同的行。
+     *
+     * 配对方式是**按时间顺序一对一**：原文、译文各自按时间排好，逐行往后扫，
+     * 取落在容差内、且还没被前一行用掉的最近一条。译文比原文少行、
+     * 时间戳有零点几秒偏差都很常见，早年「取容差内第一条」的写法会把同一句译文
+     * 反复挂到相邻好几行原文上，后面越错越离谱。
      */
     fun mergeTranslation(
         original: List<LyricLine>,
         translated: List<LyricLine>,
     ): List<LyricLine> {
         if (original.isEmpty() || translated.isEmpty()) return original
-        val times = translated.map { it.timeMs }
-        return original.map { line ->
-            val exact = translated.firstOrNull { it.timeMs == line.timeMs }?.text
-            val near = exact ?: run {
-                val idx = times.indexOfFirst { abs(it - line.timeMs) <= TOLERANCE_MS }
-                if (idx >= 0) translated[idx].text else null
+        val pool = translated.sortedBy { it.timeMs }
+        val src = original.sortedBy { it.timeMs }
+        var cursor = 0
+        return src.map { line ->
+            // 早于容差窗口的译文行先跳过：原文有序，它们对后面的行也用不上了
+            while (cursor < pool.size && pool[cursor].timeMs < line.timeMs - TOLERANCE_MS) cursor++
+
+            var bestIndex = -1
+            var bestDelta = Long.MAX_VALUE
+            var i = cursor
+            while (i < pool.size && pool[i].timeMs <= line.timeMs + TOLERANCE_MS) {
+                val delta = abs(pool[i].timeMs - line.timeMs)
+                if (delta < bestDelta) {
+                    bestIndex = i
+                    bestDelta = delta
+                }
+                i++
             }
-            line.copy(
-                translation = near
-                    ?.trim()
-                    ?.takeIf { it.isNotEmpty() && it != line.text && !isMostlyChinese(line.text) },
-            )
+
+            val text = pool.getOrNull(bestIndex)?.text
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() && it != line.text && !isMostlyChinese(line.text) }
+            // 用掉的这条往后就不再给别的行用了；没配上的行不推进游标，
+            // 让它后面的行还有机会配上窗口里剩下的译文
+            if (bestIndex >= 0) cursor = bestIndex + 1
+            line.copy(translation = text)
         }
     }
 
     /**
-     * 是否以中文为主（CJK 字符占到字母类字符的多数）。
-     * 用于跳过「作词/作曲」这类本来就是中文的行。
+     * 是否以**汉字**为主：中文行不用再挂一句中文译文，用它把「作词 / 作曲」这类行筛掉。
+     *
+     * 只认汉字。日文假名（かな）与韩文谚文（한글）虽然都落在 CJK 区块里，但那不是中文；
+     * 早先把整个 CJK 区块都算作中文，结果日文歌、韩文歌整首都被判成「本来就是中文」，
+     * 接口明明给了中文译文也被丢掉——表现就是日韩歌下面永远没有翻译。
      */
     fun isMostlyChinese(text: String): Boolean {
         var han = 0
-        var latin = 0
+        var other = 0
         for (ch in text) {
             when {
-                ch.isCJK() -> han++
-                ch.isLetter() -> latin++
+                ch.isHan() -> han++
+                ch.isLetter() -> other++
             }
         }
         if (han == 0) return false
-        return han * 2 >= han + latin
+        return han * 2 >= han + other
     }
 
-    private fun Char.isCJK(): Boolean = this in '\u4E00'..'\u9FFF' ||
-        this in '\u3400'..'\u4DBF' ||
-        this in '\u3040'..'\u30FF' ||
-        this in '\uAC00'..'\uD7AF'
+    /** 汉字（CJK 统一表意文字 + 扩展 A）；假名、谚文不算汉字。 */
+    private fun Char.isHan(): Boolean = this in '\u4E00'..'\u9FFF' ||
+        this in '\u3400'..'\u4DBF'
 
     /** 译文时间戳与原文的允许偏差。 */
     private const val TOLERANCE_MS = 700L

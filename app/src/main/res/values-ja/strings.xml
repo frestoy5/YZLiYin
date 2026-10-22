@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  日本語。values/ は中国語（デフォルト）なので、ここに無いキーは中国語にフォールバックする。
+-->
+<resources>
+    <string name="app_name">音之理音</string>
+    <string name="tagline">聴けば、それが理</string>
+
+    <string name="nav_home">ホーム</string>
+    <string name="nav_library">ライブラリ</string>
+    <string name="nav_rank">ランキング</string>
+    <string name="nav_me">マイページ</string>
+
+    <string name="action_settings">設定</string>
+    <string name="action_login">ログイン</string>
+    <string name="action_logout">ログアウト</string>
+
+    <string name="search_hint">曲名・アーティスト・アルバム・プレイリストを検索</string>
+    <string name="hot_search">トレンド検索</string>
+    <string name="search_sug">検索候補</string>
+
+    <string name="daily_recommend">日々のおすすめ</string>
+    <string name="recommend_playlist">おすすめプレイリスト</string>
+    <string name="new_songs">新着ソング</string>
+    <string name="personal_fm">パーソナルラジオ</string>
+
+    <string name="rank_list_title">ランキング</string>
+    <string name="playlist_title">プレイリスト</string>
+    <string name="artist_title">アーティスト</string>
+    <string name="album_title">アルバム</string>
+
+    <string name="player_queue">再生キュー</string>
+    <string name="player_lyric">歌詞</string>
+    <string name="player_comment">コメント</string>
+    <string name="quality">音質</string>
+
+    <string name="loading">読み込み中…</string>
+    <string name="empty">まだ何もありません</string>
+    <string name="error_generic">エラーが発生しました。しばらくしてからもう一度お試しください</string>
+    <string name="retry">再試行</string>
+
+    <string name="server_settings">設定</string>
+
+    <string name="login_title">NetEase Cloud Music ログイン</string>
+    <string name="login_qr_tip">NetEase Cloud Music アプリでQRコードをスキャンしてログイン</string>
+    <string name="login_phone">電話番号でログイン</string>
+    <string name="login_qr">QRコードでログイン</string>
+    <string name="send_code">認証コードを取得</string>
+    <string name="phone_hint">電話番号を入力してください</string>
+    <string name="code_hint">認証コードを入力してください</string>
+    <string name="login_done">ログインしました</string>
+
+    <string name="not_login">未ログイン</string>
+    <string name="login_prompt">ログインするとプレイリストと聴取履歴が同期されます</string>
+
+    <!-- 设置 → 主题：界面语言（三个语言名按各自语言显示，不进资源） -->
+    <string name="settings_language_title">画面言語</string>
+    <string name="settings_language_desc">切り替えると画面全体がすぐに選んだ言語になります</string>
+    <string name="lang_follow_system">システムに従う</string>
+</resources>

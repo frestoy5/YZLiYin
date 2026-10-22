@@ -1,11 +1,23 @@
 package top.aryun.yzliyin.listentogether
 
 /**
- * 一起听模块的中文文案。
+ * 一起听模块的**协议/状态用中文串**。
  *
- * 音之理音不做多语言，文案直接以常量维护；命名与 NeriPlayer 的 string 资源 key
- * 保持一致，便于与服务端/上游代码对照。含 %1$d 等占位符的常量由
+ * ⚠ 这些常量刻意保持中文，**不要**改成字符串资源：
+ *  1. `listen_together_error_reconnecting` / `_rejoining` 会被写进会话状态（`lastError`）
+ *     并**原样回传**，`listenTogetherDisplayMessage` 靠 `normalized == LtMessages...` 匹配，
+ *     换成资源会让匹配直接失效；
+ *  2. `ListenTogetherControlBlockPolicy` 也把它们当错误值返回，同样参与比较。
+ *
+ * 面向用户的**展示**由 `listenTogetherDisplayMessage` 映射到 `R.string`（`ltm_*`）。
+ * 命名与 NeriPlayer 的 string 资源 key 保持一致，便于与服务端/上游代码对照。
+ * 含 %1$d 等占位符的常量由
  * [top.aryun.yzliyin.listentogether.validation.ListenTogetherValidationError] 格式化。
+ *
+ * 其中**校验类**常量（`join_secret_*` / `nickname_*` / `room_id_*` / `user_uuid_*` /
+ * `current_track_*`）不参与任何比较或回传，仅作为
+ * [top.aryun.yzliyin.listentogether.validation.ListenTogetherValidationError.messageFormat]
+ * 的中文兜底；展示优先取对应的 `ltm_validate_*` 字符串资源（随界面语言中/日/英）。
  */
 object LtMessages {
     const val listen_together_error_controller_offline = "房主当前离线，请等待重连后再试"

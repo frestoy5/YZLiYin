@@ -6,6 +6,7 @@ import top.aryun.yzliyin.core.model.Source
 import top.aryun.yzliyin.core.net.BiliApi
 import top.aryun.yzliyin.core.net.KugouApi
 import top.aryun.yzliyin.core.net.NeteaseApi
+import top.aryun.yzliyin.core.net.YouTubeApi
 import top.aryun.yzliyin.util.NPLogger
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.absoluteValue
@@ -69,9 +70,12 @@ internal object SourceFallback {
         deadSources.remove(songKey)
     }
 
-    /** 当前源之后接着找的源，顺序取自 [Source] 的声明序。 */
+    /**
+     * 当前源之后接着找的源，顺序取自 [Source] 的声明序。
+     * YouTube 不参与自动回退：它只在搜索结果里被主动点播时使用（产品要求 YouTube 仅保留在搜索）。
+     */
     fun order(source: Source): List<Source> {
-        val all = Source.entries
+        val all = Source.entries.filterNot { it == Source.YOUTUBE || it == Source.LOCAL }
         val start = all.indexOf(source).coerceAtLeast(0)
         return (1 until all.size).map { all[(start + it) % all.size] }
     }
@@ -133,6 +137,9 @@ internal object SourceFallback {
         Source.NETEASE -> NeteaseApi.searchSongs(query).items
         Source.KUGOU -> KugouApi.searchSongs(query).items
         Source.BILIBILI -> BiliApi.searchSongs(query).items
+        Source.YOUTUBE -> YouTubeApi.searchSongs(query).items
+        // 本机音乐只能播本地文件，没有可检索的远端曲库
+        Source.LOCAL -> emptyList()
     }
 
     /** 依次用「歌名 歌手」「歌手 歌名」「歌名」三种查法。 */

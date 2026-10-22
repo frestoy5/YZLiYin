@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ui/components：迷你播放条等通用组件 -->
+<resources>
+    <string name="cmp_pause">暂停</string>
+    <string name="cmp_play">播放</string>
+    <string name="cmp_next">下一首</string>
+</resources>

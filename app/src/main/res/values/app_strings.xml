@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ui/App.kt（底栏 tab、一起听邀请弹窗、离线提示）。
+  中文是默认语言，values-ja / values-en 各自覆盖。
+-->
+<resources>
+    <!-- 底部/侧边导航 tab -->
+    <string name="app_tab_home">首页</string>
+    <string name="app_tab_search">搜索</string>
+    <string name="app_tab_library">曲库</string>
+    <string name="app_tab_settings">设置</string>
+
+    <!-- 一起听深链邀请弹窗 -->
+    <string name="app_invite_title">加入一起听</string>
+    <string name="app_invite_friend">好友</string>
+    <string name="app_invite_text">%1$s 邀请你加入房间 %2$s</string>
+    <string name="app_invite_join_fail">加入房间失败</string>
+    <string name="app_invite_joining">加入中…</string>
+    <string name="app_invite_join">加入</string>
+    <string name="app_invite_ignore">忽略</string>
+
+    <!-- 播放卡片上方的无网络提示 -->
+    <string name="app_offline">当前处于无网络状态</string>
+
+    <!-- 长时长播放确认：两级弹窗（确定播放 → 数学题） -->
+    <string name="app_durwarn_title">播放时长提醒</string>
+    <string name="app_durwarn_text">《%1$s》时长 %2$s，已达到你设置的 %3$s。确定要播放吗？</string>
+    <string name="app_durwarn_ok">确定播放</string>
+    <string name="app_durwarn_cancel">取消播放</string>
+    <string name="app_durmath_title">确认播放</string>
+    <string name="app_durmath_prompt">还差一步，算对这道题就开始播放：%1$s =</string>
+    <string name="app_durmath_wrong">答案不对，再算一次</string>
+    <string name="app_durmath_ok">开始播放</string>
+    <string name="app_durmath_cancel">取消播放</string>
+</resources>

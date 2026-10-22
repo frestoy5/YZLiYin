@@ -38,6 +38,9 @@ fun Song.resolvedChannelId(): String? {
         Source.NETEASE -> ListenTogetherChannels.NETEASE
         Source.KUGOU -> ListenTogetherChannels.KUGOU
         Source.BILIBILI -> ListenTogetherChannels.BILIBILI
+        Source.YOUTUBE -> ListenTogetherChannels.YOUTUBE_MUSIC
+        // 本机音乐没有远端身份，进不了一起听
+        Source.LOCAL -> null
     }
 }
 
@@ -52,6 +55,9 @@ fun Song.resolvedAudioId(): String? {
         Source.KUGOU -> playId.ifEmpty { id }.takeIf { it.isNotBlank() }
         Source.BILIBILI -> playId.ifEmpty { id }.takeIf { it.isNotBlank() }
         Source.NETEASE -> id.takeIf { it.isNotBlank() }
+        Source.YOUTUBE -> id.takeIf { it.isNotBlank() }
+        // 本机音乐没有远端 id，进不了一起听
+        Source.LOCAL -> null
     }
 }
 
@@ -61,8 +67,10 @@ fun Song.resolvedSubAudioId(): String? {
         Source.BILIBILI -> playSubId.takeIf { it.isNotBlank() }
         Source.KUGOU -> playSubId.takeIf { it.isNotBlank() }
         Source.NETEASE -> null
+        Source.YOUTUBE -> null
+        Source.LOCAL -> null
     }
 }
 
-/** 音之理音没有 YouTube 渠道，播放列表上下文恒为空（保留函数以对齐上游调用面）。 */
+/** 播放列表上下文：YouTube 渠道暂不下发（其余渠道同样为空）。 */
 fun Song.resolvedPlaylistContextId(): String? = null

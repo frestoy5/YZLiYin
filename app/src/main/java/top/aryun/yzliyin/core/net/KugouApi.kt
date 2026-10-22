@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import top.aryun.yzliyin.R
 import top.aryun.yzliyin.core.AppGraph
 import top.aryun.yzliyin.core.data.JsonCodecs
 import top.aryun.yzliyin.core.model.LyricLine
@@ -15,8 +16,10 @@ import top.aryun.yzliyin.core.model.QrStatus
 import top.aryun.yzliyin.core.model.ResolveResult
 import top.aryun.yzliyin.core.model.Song
 import top.aryun.yzliyin.core.model.Source
+import top.aryun.yzliyin.util.AppLocale
 import top.aryun.yzliyin.util.NPLogger
 import top.aryun.yzliyin.util.isDirectUrl
+import kotlin.math.abs
 
 /**
  * 酷狗音乐门面，与 [NeteaseApi] 同一套约定：
@@ -38,6 +41,9 @@ object KugouApi {
     /** 风控（需要安全验证）的业务错误码。 */
     private const val SSA_ERRCODE = 20028
 
+    /** 歌词候选最多逐条试几条（按分数从高到低，试到能下到内容为止）。 */
+    private const val MAX_LYRIC_CANDIDATES = 3
+
     private val client: KugouClient get() = AppGraph.kugou
     private val store get() = AppGraph.store
 
@@ -55,12 +61,12 @@ object KugouApi {
             val nested = data.optJSONObject("info")
             val name = data.firstString("nickname", "nick_name", "username", "user_name", "name")
                 .ifBlank { nested?.firstString("nickname", "nick_name", "name").orEmpty() }
-            val avatar = data.firstString("pic", "user_pic", "avatar", "headimg", "head_img", "img")
-                .ifBlank {
-                    nested?.firstString("pic", "user_pic", "avatar", "headimg", "head_img", "img").orEmpty()
-                }
-                .replace("/{size}/", "/")
-                .replace("{size}", "")
+            val avatar = normalizeCoverUrl(
+                data.firstString("pic", "user_pic", "avatar", "headimg", "head_img", "img")
+                    .ifBlank {
+                        nested?.firstString("pic", "user_pic", "avatar", "headimg", "head_img", "img").orEmpty()
+                    },
+            )
             if (name.isNotBlank()) store.saveDisplayName(Source.KUGOU, name)
             if (avatar.isNotBlank()) store.saveAvatar(Source.KUGOU, avatar)
             NPLogger.d(
@@ -102,21 +108,52 @@ object KugouApi {
         item ?: return null
         val hash = item.optString("FileHash").takeIf { it.isNotBlank() } ?: return null
         val name = item.optString("OriSongName").takeIf { it.isNotBlank() } ?: return null
-        val cover = item.optString("Image").replace("/{size}/", "/")
-            .ifBlank { item.optJSONObject("trans_param")?.optString("union_cover").orEmpty().replace("/{size}/", "/") }
+        val cover = normalizeCoverUrl(item.optString("Image"))
+            .ifBlank {
+                normalizeCoverUrl(item.optJSONObject("trans_param")?.optString("union_cover").orEmpty())
+            }
         return Song(
             id = hash,
             name = name,
             artist = item.optString("SingerName"),
             albumName = item.optString("AlbumName"),
             cover = cover,
-            durationMs = item.optString("Duration").toLongOrNull().orZero() * 1000L,
+            durationMs = normalizeDurationMs(item.optString("Duration").toLongOrNull().orZero()),
             source = Source.KUGOU,
             playId = hash,
         )
     }
 
     private fun Long?.orZero(): Long = this ?: 0L
+
+    /**
+     * 酷狗各接口的时长字段单位不统一：搜索接口 `Duration` 给的是**秒**，
+     * 歌单接口的 `duration_128` / `timelen` 给的是**毫秒**（个别旧接口又会给秒），
+     * 直接混用会让时长显示成巨大值或 0——而时长为 0 会连带
+     * 歌词检索（酷狗按 duration 匹配）和跨源匹配（时长是打分项）一起失败，
+     * 表现就是「时长、封面、歌词都加载不了」。
+     *
+     * 这里统一归一到毫秒：歌曲时长不可能短到 10 毫秒、也不可能长到 10000 秒
+     * （约 2.8 小时），所以「小于 1 万视为秒、否则视为毫秒」的边界是安全的。
+     */
+    private fun normalizeDurationMs(raw: Long): Long = when {
+        raw <= 0L -> 0L
+        raw < 10_000L -> raw * 1000L
+        else -> raw
+    }
+
+    /**
+     * 封面模板的统一归一。
+     *
+     * 同一个站里两种模板写法混着返回：
+     *  - `…/size/{size}/…`  → `/{size}/` 这条规则能匹配；
+     *  - `…/{size}_150.jpg` → 只有裸 `{size}`，若只做 `/{size}/` 就匹配不上，
+     *    `{size}_150` 会原样留在 URL 里 → Coil 请求必然失败 → 永久停在占位图。
+     * 所以两条都做，且顺序不能反（先裸 `{size}` 会留下一个孤零零的 `/`）。
+     * 空串原样返回，占位图交给 UI 层，绝不返回半截畸形 URL。
+     */
+    private fun normalizeCoverUrl(raw: String): String =
+        raw.replace("/{size}/", "/").replace("{size}", "").trim()
 
     // ---------- 播放 ----------
 
@@ -131,7 +168,7 @@ object KugouApi {
      * [albumAudioId] 允许为空（酷狗接受 0）。
      */
     suspend fun songUrl(hash: String, albumAudioId: String): ResolveResult = withContext(Dispatchers.IO) {
-        if (hash.isBlank()) return@withContext ResolveResult("", "酷狗曲目缺少音频 hash")
+        if (hash.isBlank()) return@withContext ResolveResult("", AppLocale.string(R.string.net_kugou_missing_hash))
         val albumId = albumAudioId.ifBlank { "0" }
         var challenged = false
 
@@ -154,16 +191,16 @@ object KugouApi {
             if (needsBuy) {
                 NPLogger.d(TAG, "取链被拒（付费专辑）：$hash")
                 return@withContext ResolveResult(
-                    "", "该歌曲在酷狗需要购买或开通会员，当前账号只能试听"
+                    "", AppLocale.string(R.string.net_kugou_paid)
                 )
             }
             if (body.optInt("errcode") == SSA_ERRCODE) challenged = true
         }
 
         val reason = if (challenged) {
-            "酷狗要求安全验证，设备注册可能未完成，请稍后重试"
+            AppLocale.string(R.string.net_kugou_security_check)
         } else {
-            "获取酷狗播放链接失败（可能无版权）"
+            AppLocale.string(R.string.net_kugou_no_stream)
         }
         NPLogger.w(TAG, "取链失败：$hash（$reason）")
         ResolveResult("", reason)
@@ -173,7 +210,11 @@ object KugouApi {
 
     /**
      * 酷狗歌词：`krcs` 检索候选 → `lyrics/download` 下载明文 LRC（公开接口，无需登录）。
-     * 检索带上 hash 与时长提高匹配度；无候选或下载失败时返回空列表。
+     *
+     * 检索带上 hash 与时长提高匹配度；候选不止一条时按平台自报的 score 与时长差排序，
+     * 从最像的开始逐条试（同名的现场版 / 翻唱常常排在前面）。
+     * 中文译文随 KRC 一起取；**带中文译文的候选优先用**，否则留最靠前的一条兜底。
+     * 无候选或全部下载失败时返回空列表。
      */
     suspend fun lyric(song: Song): List<LyricLine> = withContext(Dispatchers.IO) {
         runCatching {
@@ -190,32 +231,62 @@ object KugouApi {
             val candidates = search.optJSONArray("candidates")
                 ?: search.optJSONObject("data")?.optJSONArray("candidates")
                 ?: JSONArray()
-            val best = (0 until candidates.length())
+
+            // 接口给的候选未必第一条就是对的（同名的现场版 / 翻唱常常排在前面）：
+            // 按平台自报的 score 降序、时长差升序排，从最像的开始逐条试，
+            // 试到第一条能下到且解析出内容的就用它——与 NeriPlayer 的 getBestLyricPayload 同款策略。
+            val ranked = (0 until candidates.length())
                 .mapNotNull { candidates.optJSONObject(it) }
-                .firstOrNull {
-                    it.optString("id").isNotBlank() && it.optString("accesskey").isNotBlank()
+                .filter { it.optString("id").isNotBlank() && it.optString("accesskey").isNotBlank() }
+                .sortedWith(
+                    compareByDescending<JSONObject> { it.optDouble("score", 0.0) }
+                        .thenBy { candidate ->
+                            // 歌词接口的 duration 单位历来有秒/毫秒两种说法，
+                            // 用搜索接口那套归一化兜住，时长差只作次级排序依据
+                            val durationMs = normalizeDurationMs(candidate.optLong("duration", 0L))
+                            if (durationMs <= 0L || song.durationMs <= 0L) {
+                                Long.MAX_VALUE
+                            } else {
+                                abs(durationMs - song.durationMs)
+                            }
+                        },
+                )
+                .take(MAX_LYRIC_CANDIDATES)
+
+            // 逐条试：能下到内容的先留作兜底；一旦遇到**带中文译文**的候选就直接用它。
+            // 酷狗同一首歌会挂好几份歌词（不同上传者），排最前面的常常只有音译没有中文译文
+            // （KRC 的 language 标签里 type==1 才是译文，type==0 是音译），
+            // 只认第一条就会白丢翻译——这正是「日文歌下面没有中文」的一大来源。
+            var fallback: List<LyricLine>? = null
+            for (best in ranked) {
+                val id = best.optString("id")
+                val accessKey = best.optString("accesskey")
+
+                val download = runCatching { client.lyricDownload(id, accessKey).body }.getOrNull()
+                val content = download?.optString("content").orEmpty()
+                if (content.isBlank()) continue
+                val original = runCatching {
+                    Parsers.parseLrc(String(Base64.decode(content, Base64.DEFAULT), Charsets.UTF_8))
+                }.getOrNull().orEmpty()
+                if (original.isEmpty()) continue
+
+                // 中文译文不在明文 LRC 里，只在 KRC 的 language 标签中，单独拉一次；
+                // 拿不到就只显示原文，不影响主流程。
+                val translated = runCatching {
+                    val krc = client.lyricDownloadKrc(id, accessKey).body.optString("content")
+                    if (krc.isBlank()) null else KugouKrc.translationLrc(krc)
+                }.getOrNull()
+                    ?.let { runCatching { Parsers.parseLrc(it) }.getOrNull() }
+                    .orEmpty()
+
+                if (translated.isNotEmpty()) {
+                    return@runCatching Parsers.mergeTranslation(original, translated)
                 }
-                ?: return@runCatching emptyList()
-
-            val id = best.optString("id")
-            val accessKey = best.optString("accesskey")
-
-            val download = client.lyricDownload(id, accessKey).body
-            val content = download.optString("content")
-            if (content.isBlank()) return@runCatching emptyList()
-            val original =
-                Parsers.parseLrc(String(Base64.decode(content, Base64.DEFAULT), Charsets.UTF_8))
-
-            // 中文译文不在明文 LRC 里，只在 KRC 的 language 标签中，单独拉一次；
-            // 拿不到就只显示原文，不影响主流程。
-            val translated = runCatching {
-                val krc = client.lyricDownloadKrc(id, accessKey).body.optString("content")
-                if (krc.isBlank()) null else KugouKrc.translationLrc(krc)
-            }.getOrNull()
-                ?.let { runCatching { Parsers.parseLrc(it) }.getOrNull() }
-                .orEmpty()
-
-            Parsers.mergeTranslation(original, translated)
+                if (fallback == null) fallback = original
+                // 整首都是汉字行，本来就不挂译文，再往下试只是白费两次请求
+                if (original.none { !Parsers.isMostlyChinese(it.text) }) break
+            }
+            fallback.orEmpty()
         }.getOrElse {
             NPLogger.w(TAG, "获取歌词失败：${it.message}")
             emptyList()
@@ -247,7 +318,7 @@ object KugouApi {
                 Playlist(
                     id = routeId,
                     name = name,
-                    cover = obj.optString("pic").replace("{size}", ""),
+                    cover = normalizeCoverUrl(obj.optString("pic")),
                     songCount = obj.optString("count").toIntOrNull()
                         ?: obj.optString("m_count").toIntOrNull() ?: 0,
                     source = Source.KUGOU,
@@ -317,8 +388,8 @@ object KugouApi {
             artist = obj.optString("author_name"),
             albumId = albumAudioId,
             albumName = album?.optString("album_name").orEmpty(),
-            cover = album?.optString("sizable_cover").orEmpty().replace("/{size}/", "/"),
-            durationMs = audio?.optString("duration_128")?.toLongOrNull().orZero(),
+            cover = normalizeCoverUrl(album?.optString("sizable_cover").orEmpty()),
+            durationMs = normalizeDurationMs(audio?.optString("duration_128")?.toLongOrNull().orZero()),
             source = Source.KUGOU,
             playId = hash,
             playSubId = albumAudioId,
@@ -346,11 +417,11 @@ object KugouApi {
             artist = artists,
             albumId = albumAudioId,
             albumName = obj.optJSONObject("albuminfo")?.optString("name").orEmpty(),
-            cover = obj.optString("cover").replace("{size}", "")
+            cover = normalizeCoverUrl(obj.optString("cover"))
                 .ifBlank {
-                    obj.optJSONObject("trans_param")?.optString("union_cover").orEmpty().replace("{size}", "")
+                    normalizeCoverUrl(obj.optJSONObject("trans_param")?.optString("union_cover").orEmpty())
                 },
-            durationMs = obj.optString("timelen").toLongOrNull().orZero(),
+            durationMs = normalizeDurationMs(obj.optString("timelen").toLongOrNull().orZero()),
             source = Source.KUGOU,
             playId = hash,
             playSubId = albumAudioId,
@@ -383,18 +454,18 @@ object KugouApi {
                     val token = data.optString("token")
                     val userid = data.optString("userid")
                     if (token.isBlank() || userid.isBlank()) {
-                        QrStatus.Failed("酷狗未返回登录凭证")
+                        QrStatus.Failed(AppLocale.string(R.string.net_kugou_no_credential))
                     } else {
                         client.saveLogin(token, userid)
                         store.saveCookies(Source.KUGOU, client.cookies())
                         val nickname = data.optString("nickname")
                         if (nickname.isNotBlank()) store.saveDisplayName(Source.KUGOU, nickname)
-                        QrStatus.Success(store.displayName(Source.KUGOU).ifBlank { "酷狗用户" })
+                        QrStatus.Success(store.displayName(Source.KUGOU).ifBlank { AppLocale.string(R.string.net_kugou_default_name) })
                     }
                 }
                 2 -> QrStatus.Scanned
                 1 -> QrStatus.Waiting
-                0 -> QrStatus.Failed("二维码已过期，请刷新")
+                0 -> QrStatus.Failed(AppLocale.string(R.string.net_qr_expired))
                 else -> QrStatus.Waiting
             }
         }.getOrElse {

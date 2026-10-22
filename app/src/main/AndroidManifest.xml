@@ -9,6 +9,13 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- 曲库 → 本地 →「扫描歌曲」：列出手机里已有的音乐（Android 13+ 用 READ_MEDIA_AUDIO，
+         更老的系统用 READ_EXTERNAL_STORAGE，故给它一个 32 的上限避免在新系统上多余申请） -->
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
     <!-- 关于页外链要用 MAIN + APP_BROWSER 找系统默认浏览器，不声明会因为包可见性查不到 -->
     <queries>
         <intent>
@@ -27,6 +34,22 @@
         android:theme="@style/Theme.YZLiYin"
         android:usesCleartextTraffic="true"
         tools:targetApi="34">
+
+        <!-- Xposed 拓展：LSPosed 靠这三条元数据 + assets/xposed_init 认出本应用是模块。
+             少了它们，装完只会当一个普通应用，LSPosed 既不会提示你激活、模块列表里也找不到。 -->
+        <meta-data
+            android:name="xposedmodule"
+            android:value="true" />
+        <meta-data
+            android:name="xposeddescription"
+            android:value="音之理音 Xposed 拓展：在系统设置首页注入本应用入口（作用域：系统设置）" />
+        <meta-data
+            android:name="xposedminversion"
+            android:value="93" />
+        <!-- 让 LSPosed 侧的 XSharedPreferences 读得到本应用的偏好（入口开关 / 位置 / 图标样式） -->
+        <meta-data
+            android:name="xposedsharedprefs"
+            android:value="true" />
 
         <activity
             android:name=".MainActivity"

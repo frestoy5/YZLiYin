@@ -1,5 +1,6 @@
 package top.aryun.yzliyin.listentogether.validation
 
+import top.aryun.yzliyin.R
 import top.aryun.yzliyin.core.model.Song
 import top.aryun.yzliyin.listentogether.LtMessages
 import top.aryun.yzliyin.listentogether.mapping.toListenTogetherTrackOrNull
@@ -10,21 +11,32 @@ internal fun validateListenTogetherRoomCreation(
     currentSong: Song?
 ): ListenTogetherValidationError? {
     val currentSongValue = currentSong
-        ?: return ListenTogetherValidationError(LtMessages.listen_together_error_current_track_missing)
+        ?: return ListenTogetherValidationError(
+            messageFormat = LtMessages.listen_together_error_current_track_missing,
+            messageRes = R.string.ltm_validate_current_track_missing
+        )
     val currentTrack = currentSongValue.toListenTogetherTrackOrNull()
-        ?: return ListenTogetherValidationError(LtMessages.listen_together_error_current_track_not_shareable)
+        ?: return ListenTogetherValidationError(
+            messageFormat = LtMessages.listen_together_error_current_track_not_shareable,
+            messageRes = R.string.ltm_validate_current_track_not_shareable
+        )
     val queueSong = queue.getOrNull(currentIndex)
         ?: return ListenTogetherValidationError(
-            LtMessages.listen_together_error_current_track_unavailable
+            messageFormat = LtMessages.listen_together_error_current_track_unavailable,
+            messageRes = R.string.ltm_validate_current_track_unavailable
         )
     val queueTrack = queueSong.toListenTogetherTrackOrNull()
         ?: return ListenTogetherValidationError(
-            LtMessages.listen_together_error_current_track_not_shareable
+            messageFormat = LtMessages.listen_together_error_current_track_not_shareable,
+            messageRes = R.string.ltm_validate_current_track_not_shareable
         )
     return if (queueTrack.stableKey == currentTrack.stableKey) {
         null
     } else {
-        ListenTogetherValidationError(LtMessages.listen_together_error_current_track_unavailable)
+        ListenTogetherValidationError(
+            messageFormat = LtMessages.listen_together_error_current_track_unavailable,
+            messageRes = R.string.ltm_validate_current_track_unavailable
+        )
     }
 }
 

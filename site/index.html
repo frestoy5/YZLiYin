@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="zh" class="no-js">
+<head>
+<meta charset="utf-8">
+<script>document.documentElement.classList.remove('no-js');document.documentElement.classList.add('js');</script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>音之理音 — 听见，就是道理</title>
+<meta name="description" content="音之理音（YZLiYin）是一款开源的多音源音乐播放器：网易云、酷狗、哔哩哔哩、YouTube 多源合一，自动跨源找音源，支持一起听。">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E0F13" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:title" content="音之理音 — 听见，就是道理">
+<meta property="og:description" content="开源多音源音乐播放器：网易云 / 酷狗 / 哔哩哔哩 / YouTube，跨源找音源，一起听。">
+<meta property="og:image" content="assets/logo.svg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/logo.svg">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<!-- ===== Google 式启动加载遮罩 ===== -->
+<div id="boot" class="boot" role="status" aria-live="polite" aria-label="Loading">
+  <div class="boot__inner">
+    <svg class="gspinner" viewBox="0 0 100 100" width="72" height="72" aria-hidden="true">
+      <circle class="gspinner__track" cx="50" cy="50" r="40" fill="none" stroke-width="9"/>
+      <g class="gspinner__spin">
+        <path d="M50 10 a40 40 0 0 1 40 40" fill="none" stroke="#4285F4" stroke-width="9" stroke-linecap="round"/>
+        <path d="M90 50 a40 40 0 0 1 -40 40" fill="none" stroke="#EA4335" stroke-width="9" stroke-linecap="round"/>
+        <path d="M50 90 a40 40 0 0 1 -40 -40" fill="none" stroke="#FBBC04" stroke-width="9" stroke-linecap="round"/>
+        <path d="M10 50 a40 40 0 0 1 40 -40" fill="none" stroke="#34A853" stroke-width="9" stroke-linecap="round"/>
+      </g>
+    </svg>
+    <div class="boot__word">音之理音</div>
+    <div class="boot__dots" aria-hidden="true"><i></i><i></i><i></i></div>
+  </div>
+</div>
+
+<!-- ===== 顶栏 Top app bar ===== -->
+<header class="appbar" id="appbar">
+  <div class="appbar__in">
+    <a class="brand" href="#top" aria-label="音之理音">
+      <img class="brand__logo" src="assets/logo.svg" alt="" width="32" height="32">
+      <span class="brand__name">音之理音</span>
+      <span class="brand__badge" data-i18n="badge">开源</span>
+    </a>
+
+    <nav class="nav" aria-label="Sections">
+      <a class="nav__link" href="#features" data-i18n="nav_features">功能</a>
+      <a class="nav__link" href="#sources" data-i18n="nav_sources">音源</a>
+      <a class="nav__link" href="#together" data-i18n="nav_together">一起听</a>
+      <a class="nav__link" href="#opensource" data-i18n="nav_open">开源</a>
+    </nav>
+
+    <div class="appbar__actions">
+      <div class="lang" id="lang">
+        <button class="icon-btn" id="langBtn" aria-haspopup="true" aria-expanded="false" aria-label="Language">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm6.9 6h-3a15.6 15.6 0 0 0-1.4-3.6A8.1 8.1 0 0 1 18.9 8ZM12 4c.8 1.2 1.5 2.7 1.9 4h-3.8c.4-1.3 1-2.8 1.9-4ZM4.3 14a7.9 7.9 0 0 1 0-4h3.4a17 17 0 0 0 0 4H4.3Zm.8 2h3a15.6 15.6 0 0 0 1.4 3.6A8.1 8.1 0 0 1 5.1 16Zm3-8h-3a8.1 8.1 0 0 1 4.4-3.6A15.6 15.6 0 0 0 8.1 8ZM12 20c-.8-1.2-1.5-2.7-1.9-4h3.8c-.4 1.3-1 2.8-1.9 4Zm2.2-6H9.8a15 15 0 0 1 0-4h4.4a15 15 0 0 1 0 4Zm.6 5.6a15.6 15.6 0 0 0 1.4-3.6h3a8.1 8.1 0 0 1-4.4 3.6ZM16.3 14a17 17 0 0 0 0-4h3.4a7.9 7.9 0 0 1 0 4h-3.4Z"/></svg>
+        </button>
+        <div class="lang__menu" id="langMenu" role="menu" hidden>
+          <button class="lang__item" role="menuitem" data-set-lang="zh">简体中文</button>
+          <button class="lang__item" role="menuitem" data-set-lang="en">English</button>
+          <button class="lang__item" role="menuitem" data-set-lang="ja">日本語</button>
+        </div>
+      </div>
+
+      <a class="icon-btn" href="https://github.com/frestoy5/YZLiYin" target="_blank" rel="noopener" aria-label="GitHub">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 2C6.48 2 2 6.58 2 12.23c0 4.51 2.87 8.34 6.84 9.69.5.1.68-.22.68-.49 0-.24-.01-.88-.01-1.72-2.78.62-3.37-1.37-3.37-1.37-.45-1.19-1.11-1.5-1.11-1.5-.91-.64.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.57 2.34 1.12 2.91.85.09-.66.35-1.12.63-1.37-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.05a9.3 9.3 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.93-2.35 4.79-4.58 5.05.36.32.68.94.68 1.9 0 1.37-.01 2.48-.01 2.82 0 .27.18.6.69.49A10.02 10.02 0 0 0 22 12.23C22 6.58 17.52 2 12 2Z"/></svg>
+      </a>
+
+      <button class="icon-btn nav-toggle" id="navToggle" aria-label="Menu" aria-expanded="false">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M3 6h18v2H3V6Zm0 5h18v2H3v-2Zm0 5h18v2H3v-2Z"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="appbar__progress" id="topbarProgress"></div>
+</header>
+
+<main id="top">
+
+  <!-- ===== Hero ===== -->
+  <section class="hero">
+    <div class="hero__blob hero__blob--a" aria-hidden="true"></div>
+    <div class="hero__blob hero__blob--b" aria-hidden="true"></div>
+
+    <div class="hero__in reveal">
+      <div class="hero__copy">
+        <p class="eyebrow">
+          <span class="eyebrow__dot"></span>
+          <span data-i18n="hero_eyebrow">开源 · 多音源音乐播放器</span>
+        </p>
+
+        <h1 class="hero__title">
+          <span class="grad" data-i18n="hero_title_1">听见，</span><br>
+          <span data-i18n="hero_title_2">就是道理。</span>
+        </h1>
+
+        <p class="hero__sub" data-i18n="hero_sub">
+          网易云、酷狗、哔哩哔哩、YouTube 多源合一。当前音源播不出来，会自动去别的源把这首歌找回来；还有「一起听」，和朋友同步到同一秒。
+        </p>
+
+        <div class="cta">
+          <a class="btn btn--filled ripple" href="download/yzliyin-2.0.37257.apk" download>
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6Zm-2 16a2 2 0 1 1 0-4 2 2 0 0 1 0 4Z"/></svg>
+            <span data-i18n="cta_apk">下载 APK</span>
+            <small class="btn__note">v2.0.37257 · 21 MB</small>
+          </a>
+
+          <a class="btn btn--tonal ripple" href="https://github.com/frestoy5/YZLiYin" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 2C6.48 2 2 6.58 2 12.23c0 4.51 2.87 8.34 6.84 9.69.5.1.68-.22.68-.49 0-.24-.01-.88-.01-1.72-2.78.62-3.37-1.37-3.37-1.37-.45-1.19-1.11-1.5-1.11-1.5-.91-.64.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.57 2.34 1.12 2.91.85.09-.66.35-1.12.63-1.37-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.05a9.3 9.3 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.93-2.35 4.79-4.58 5.05.36.32.68.94.68 1.9 0 1.37-.01 2.48-.01 2.82 0 .27.18.6.69.49A10.02 10.02 0 0 0 22 12.23C22 6.58 17.52 2 12 2Z"/></svg>
+            <span data-i18n="cta_github">GitHub 仓库</span>
+          </a>
+
+          <a class="btn btn--outlined ripple" href="https://b23.tv/GvKJP95" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M21.6 7.2a2.8 2.8 0 0 0-1.98-1.99C17.86 4.75 12 4.75 12 4.75s-5.86 0-7.62.46A2.8 2.8 0 0 0 2.4 7.2C1.94 8.97 1.94 12 1.94 12s0 3.03.46 4.8a2.8 2.8 0 0 0 1.98 1.99c1.76.46 7.62.46 7.62.46s5.86 0 7.62-.46a2.8 2.8 0 0 0 1.98-1.99c.46-1.77.46-4.8.46-4.8s0-3.03-.46-4.8ZM9.9 15.15v-6.3L15.32 12 9.9 15.15Z"/></svg>
+            <span data-i18n="cta_bili">哔哩哔哩视频</span>
+          </a>
+        </div>
+
+        <ul class="hero__meta">
+          <li data-i18n="meta_1">Android 8.0+</li>
+          <li data-i18n="meta_2">完全开源</li>
+          <li><span data-i18n="meta_4">当前版本</span>&nbsp;v2.0.37257</li>
+          <li data-i18n="meta_3">中 · EN · 日本語</li>
+        </ul>
+      </div>
+
+      <!-- 用纯 CSS 画的播放器界面 -->
+      <div class="hero__art" aria-hidden="true">
+        <div class="phone reveal">
+          <div class="phone__notch"></div>
+          <div class="phone__screen">
+            <div class="np-top">
+              <span class="np-chev">⌄</span>
+              <span class="np-src" data-i18n="src_1">网易云音乐</span>
+              <span class="np-dots">⋯</span>
+            </div>
+            <div class="np-art">
+              <div class="np-eq"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            </div>
+            <div class="np-title">音之理音</div>
+            <div class="np-artist" data-i18n="tagline">听见，就是道理</div>
+            <div class="np-bar"><span></span></div>
+            <div class="np-time"><b>1:42</b><b>3:56</b></div>
+            <div class="np-ctrl">
+              <span class="np-ic">⏮</span>
+              <span class="np-play">▶</span>
+              <span class="np-ic">⏭</span>
+            </div>
+          </div>
+        </div>
+        <div class="chip-float chip-float--1">YouTube</div>
+        <div class="chip-float chip-float--2">Bilibili</div>
+        <div class="chip-float chip-float--3">酷狗</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 音源 ===== -->
+  <section class="section" id="sources">
+    <div class="section__in">
+      <h2 class="h2 reveal" data-i18n="sources_title">一个 App，四个音源</h2>
+      <p class="lede reveal" data-i18n="sources_lede">搜索时同时覆盖所有音源，点开就能播；会员曲、地区限制播不了？它会自己换个源接着放。</p>
+      <div class="src-grid">
+        <div class="src reveal"><span class="src__dot" style="--c:#C20C0C"></span><span data-i18n="src_1">网易云音乐</span><em>01</em></div>
+        <div class="src reveal"><span class="src__dot" style="--c:#12B7F5"></span><span data-i18n="src_2">酷狗音乐</span><em>02</em></div>
+        <div class="src reveal"><span class="src__dot" style="--c:#FB7299"></span><span data-i18n="src_3">哔哩哔哩</span><em>03</em></div>
+        <div class="src reveal"><span class="src__dot" style="--c:#FF0000"></span><span data-i18n="src_4">YouTube</span><em>04</em></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 功能 ===== -->
+  <section class="section section--tonal" id="features">
+    <div class="section__in">
+      <h2 class="h2 reveal" data-i18n="feat_title">功能</h2>
+      <p class="lede reveal" data-i18n="feat_lede">从找歌到听完，中间的麻烦事都替你处理好了。</p>
+
+      <div class="cards">
+        <article class="card reveal">
+          <div class="card__icon card__icon--blue">
+            <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6Zm-2 16a2 2 0 1 1 0-4 2 2 0 0 1 0 4Z"/></svg>
+          </div>
+          <h3 data-i18n="f1_t">跨源找音源</h3>
+          <p data-i18n="f1_d">当前源是试听片段或放不出来，就按 网易云 → 酷狗 → 哔哩哔哩 → YouTube 的顺序，用歌名、歌手、时长匹配同一首歌；放不出的坏源会被暂时拉黑。</p>
+        </article>
+
+        <article class="card reveal">
+          <div class="card__icon card__icon--red">
+            <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M16 11a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm-8 1a3 3 0 1 0-3-3 3 3 0 0 0 3 3Zm0 2c-2.3 0-7 1.16-7 3.5V19h9v-1.5c0-1.05.4-2.3 1.15-3.35A13.4 13.4 0 0 0 8 14Zm8 0c-2.7 0-8 1.34-8 4v2h16v-2c0-2.66-5.3-4-8-4Z"/></svg>
+          </div>
+          <h3 data-i18n="f2_t">一起听</h3>
+          <p data-i18n="f2_d">6 位房间号加邀请密钥就能拉人进房，进度、切歌、暂停全员同步；听众直接复用房主解析好的音源，链接一点就进房间。</p>
+        </article>
+
+        <article class="card reveal">
+          <div class="card__icon card__icon--yellow">
+            <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M21.6 7.2a2.8 2.8 0 0 0-1.98-1.99C17.86 4.75 12 4.75 12 4.75s-5.86 0-7.62.46A2.8 2.8 0 0 0 2.4 7.2C1.94 8.97 1.94 12 1.94 12s0 3.03.46 4.8a2.8 2.8 0 0 0 1.98 1.99c1.76.46 7.62.46 7.62.46s5.86 0 7.62-.46a2.8 2.8 0 0 0 1.98-1.99c.46-1.77.46-4.8.46-4.8s0-3.03-.46-4.8ZM9.9 15.15v-6.3L15.32 12 9.9 15.15Z"/></svg>
+          </div>
+          <h3 data-i18n="f3_t">B 站不只是听</h3>
+          <p data-i18n="f3_d">应用内视频页可切「只听音频」，还有评论区、UP 主主页、一键三连和带弹幕的直播间；YouTube 支持直链与 HLS 播放。</p>
+        </article>
+
+        <article class="card reveal">
+          <div class="card__icon card__icon--green">
+            <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 3a3 3 0 1 1 0 6 3 3 0 0 1 0-6Zm0 14.2A7.2 7.2 0 0 1 6 16.9c0-1.6 3-2.5 6-2.5s6 .9 6 2.5a7.2 7.2 0 0 1-6 2.3Z"/></svg>
+          </div>
+          <h3 data-i18n="f4_t">扫码登录</h3>
+          <p data-i18n="f4_d">网易云支持网页、验证码与扫码三种登录，酷狗、B 站扫码同样可用，YouTube 可粘贴 Cookie；歌单与会员曲随账号同步。</p>
+        </article>
+
+        <article class="card reveal">
+          <div class="card__icon card__icon--purple">
+            <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Zm-1 7V3.5L18.5 9H13ZM7 12h10v2H7v-2Zm0 4h7v2H7v-2Z"/></svg>
+          </div>
+          <h3 data-i18n="f5_t">歌词 · 评论 · 音质</h3>
+          <p data-i18n="f5_d">逐字歌词带译文与波浪光效，评论、播放队列、标准到 Hi-Res 音质和自动缓存，全在播放页一屏可达。</p>
+        </article>
+
+        <article class="card reveal">
+          <div class="card__icon card__icon--teal">
+            <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M12 3 3 7.5 12 12l9-4.5L12 3Zm0 8.2L3 6.7V17l9 4.5 9-4.5V6.7l-9 4.5Z"/></svg>
+          </div>
+          <h3 data-i18n="f6_t">开源可自建</h3>
+          <p data-i18n="f6_d">代码全部公开，一起听的服务端地址可以换成自己部署的；欢迎提 Issue 与 PR，也保留了参考项目 NeriPlayer（GPLv3）的声明。</p>
+        </article>
+      </div>
+
+      <ul class="ui-feats reveal">
+        <li data-i18n="ui_1">Material You 动态取色</li>
+        <li data-i18n="ui_2">深色模式三档</li>
+        <li data-i18n="ui_3">界面与字体大小可调</li>
+        <li data-i18n="ui_4">平板侧边导航</li>
+        <li data-i18n="ui_5">中 · EN · 日本語</li>
+        <li data-i18n="ui_6">离线缓存与冷启动续播</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===== 一起听 ===== -->
+  <section class="section" id="together">
+    <div class="section__in together">
+      <div class="together__copy reveal">
+        <p class="eyebrow"><span class="eyebrow__dot"></span><span data-i18n="tg_eyebrow">一起听</span></p>
+        <h2 class="h2" data-i18n="tg_title">隔多远，都在同一拍上</h2>
+        <p class="lede" data-i18n="tg_lede">一人开房，分享邀请，好友加入后进度、切歌、暂停全部同步；协议开源，服务端可自建，不绑定任何官方房间。</p>
+        <div class="together__tags">
+          <span class="tag" data-i18n="tg_t1">6 位房间号 + 邀请密钥</span>
+          <span class="tag" data-i18n="tg_t2">跨端加入</span>
+          <span class="tag" data-i18n="tg_t3">开源协议 · 可自建服务端</span>
+        </div>
+      </div>
+      <div class="together__art reveal" aria-hidden="true">
+        <div class="peer peer--a"><span>ME</span></div>
+        <div class="link"><i></i><i></i><i></i></div>
+        <div class="peer peer--b"><span>FRIEND</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 开源 CTA ===== -->
+  <section class="section section--cta" id="opensource">
+    <div class="section__in cta-panel reveal">
+      <h2 data-i18n="os_title">开源盛世，欢迎加入</h2>
+      <p data-i18n="os_lede">音之理音在 GitHub 上完全开源。点个 Star 就是最大的鼓励，也欢迎直接拉代码自己编译。</p>
+      <div class="cta">
+        <a class="btn btn--light ripple" href="https://github.com/frestoy5/YZLiYin" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 2C6.48 2 2 6.58 2 12.23c0 4.51 2.87 8.34 6.84 9.69.5.1.68-.22.68-.49 0-.24-.01-.88-.01-1.72-2.78.62-3.37-1.37-3.37-1.37-.45-1.19-1.11-1.5-1.11-1.5-.91-.64.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.57 2.34 1.12 2.91.85.09-.66.35-1.12.63-1.37-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.05a9.3 9.3 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.93-2.35 4.79-4.58 5.05.36.32.68.94.68 1.9 0 1.37-.01 2.48-.01 2.82 0 .27.18.6.69.49A10.02 10.02 0 0 0 22 12.23C22 6.58 17.52 2 12 2Z"/></svg>
+          <span>GitHub</span>
+        </a>
+        <a class="btn btn--light-outline ripple" href="https://b23.tv/GvKJP95" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M21.6 7.2a2.8 2.8 0 0 0-1.98-1.99C17.86 4.75 12 4.75 12 4.75s-5.86 0-7.62.46A2.8 2.8 0 0 0 2.4 7.2C1.94 8.97 1.94 12 1.94 12s0 3.03.46 4.8a2.8 2.8 0 0 0 1.98 1.99c1.76.46 7.62.46 7.62.46s5.86 0 7.62-.46a2.8 2.8 0 0 0 1.98-1.99c.46-1.77.46-4.8.46-4.8s0-3.03-.46-4.8ZM9.9 15.15v-6.3L15.32 12 9.9 15.15Z"/></svg>
+          <span data-i18n="cta_bili">哔哩哔哩视频</span>
+        </a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="footer__in">
+    <div class="footer__brand">
+      <img src="assets/logo.svg" alt="" width="36" height="36">
+      <div>
+        <b>音之理音</b>
+        <p data-i18n="foot_tag">听见，就是道理</p>
+      </div>
+    </div>
+    <nav class="footer__links" aria-label="Footer">
+      <a href="https://github.com/frestoy5/YZLiYin" target="_blank" rel="noopener">GitHub</a>
+      <a href="download/yzliyin-2.0.37257.apk" download data-i18n="cta_apk">下载 APK</a>
+      <a href="https://github.com/frestoy5/YZLiYin/releases" target="_blank" rel="noopener">GitHub Releases</a>
+      <a href="https://b23.tv/GvKJP95" target="_blank" rel="noopener" data-i18n="cta_bili">哔哩哔哩视频</a>
+      <a href="https://github.com/frestoy5/YZLiYin/issues" target="_blank" rel="noopener" data-i18n="foot_issues">反馈问题</a>
+    </nav>
+    <p class="footer__note" data-i18n="foot_note">本页面为开源项目展示页，与任何音乐平台官方无关。</p>
+  </div>
+</footer>
+
+<button class="fab" id="toTop" aria-label="Back to top" hidden>
+  <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="M7.41 15.41 12 10.83l4.59 4.58L18 14l-6-6-6 6 1.41 1.41Z"/></svg>
+</button>
+
+<script src="assets/i18n.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>

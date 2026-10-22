@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ui/screen/Settings.kt（设置页：主题/音质/播放/歌词/缓存/一起听/关于）。
+  中文是默认语言，values-ja / values-en 各自覆盖。
+-->
+<resources>
+    <!-- 页面通用 -->
+    <string name="set_settings_title">设置</string>
+    <string name="set_back">返回</string>
+    <string name="set_auto">自动</string>
+    <string name="set_percent">%1$s%%</string>
+    <string name="set_unit_seconds">%1$s秒</string>
+    <string name="set_ok">确定</string>
+    <string name="set_cancel">取消</string>
+
+    <!-- 时长写法：滑杆数值与长时长确认弹框共用 -->
+    <string name="set_minutes">%1$s 分钟</string>
+    <string name="set_hours">%1$s 小时</string>
+    <string name="set_hours_minutes">%1$s 小时 %2$s 分</string>
+
+    <!-- 主页分组标题 -->
+    <string name="set_group_accounts">账户与外观</string>
+    <string name="set_group_playback">播放与歌词</string>
+    <string name="set_group_other">其他</string>
+
+    <!-- 设置节：账号 -->
+    <string name="set_sec_accounts_title">账号</string>
+    <string name="set_sec_accounts_desc">管理网易云、酷狗和哔哩哔哩登录状态</string>
+
+    <!-- 设置节：主题 -->
+    <string name="set_sec_theme_title">主题</string>
+    <string name="set_sec_theme_desc">深浅色模式、界面字体大小与网络探测设置</string>
+
+    <!-- 设置节：音质 -->
+    <string name="set_sec_quality_title">音质</string>
+    <string name="set_sec_quality_desc">各数据源的默认播放音质</string>
+
+    <!-- 设置节：播放 -->
+    <string name="set_sec_playback_title">播放</string>
+    <string name="set_sec_playback_desc">连播、跨源找音源与低频音效</string>
+
+    <!-- 设置节：歌词 -->
+    <string name="set_sec_lyrics_title">歌词</string>
+    <string name="set_sec_lyrics_desc">字号、波浪、光亮与自动滚动</string>
+
+    <!-- 设置节：存储与缓存 -->
+    <string name="set_sec_cache_title">存储与缓存</string>
+    <string name="set_sec_cache_desc">缓存占用与清理</string>
+
+    <!-- 设置节：一起听 -->
+    <string name="set_sec_listen_together_title">一起听</string>
+    <string name="set_sec_listen_together_desc">创建或加入房间，和好友同步听歌</string>
+
+    <!-- 设置节：Hook -->
+    <string name="set_sec_hook_title">Hook</string>
+    <string name="set_sec_hook_desc">Xposed 拓展：系统设置入口与作用域推荐</string>
+
+    <!-- Hook：系统设置 -->
+    <string name="set_hook_system_settings_title">系统设置</string>
+    <string name="set_hook_system_settings_desc">在系统设置首页注入本应用入口（需要在 LSPosed 中勾选系统设置作用域）</string>
+    <string name="set_hook_settings_entry">系统设置入口</string>
+    <string name="set_hook_settings_entry_summary">在系统设置首页显示本应用入口</string>
+    <string name="set_hook_settings_entry_same_group">归入同一栏目</string>
+    <string name="set_hook_settings_entry_same_group_summary">与位置锚点归入同一栏目</string>
+    <string name="set_hook_settings_entry_position">入口位置</string>
+    <string name="set_hook_position_top">顶部</string>
+    <string name="set_hook_position_middle">中部</string>
+    <string name="set_hook_position_bottom">底部</string>
+    <string name="set_hook_icon_style">图标样式</string>
+    <string name="set_hook_icon_default">默认</string>
+    <string name="set_hook_icon_outline">描边</string>
+    <string name="set_hook_settings_app_name">系统设置</string>
+
+    <!-- Hook：Xposed -->
+    <string name="set_hook_xposed_title">Xposed</string>
+    <string name="set_hook_xposed_desc">装好后到 LSPosed 模块列表勾选「音之理音」并添加系统设置作用域，重新打开系统设置即可看到入口</string>
+    <string name="set_hook_recommended_app">推荐应用：%1$s</string>
+
+    <!-- 设置节：关于 -->
+    <string name="set_sec_about_title">关于</string>
+    <string name="set_sec_about_desc">版本信息、数据源与开源声明</string>
+
+    <!-- 主题：外观模式 -->
+    <string name="set_theme_light">白天</string>
+    <string name="set_theme_dark">黑夜</string>
+    <string name="set_appearance_title">外观模式</string>
+    <string name="set_appearance_desc">白天 / 黑夜可随时切换，也可跟随手机的深色模式</string>
+
+    <!-- 主题：屏幕方向 -->
+    <string name="set_orientation_title">屏幕方向</string>
+    <string name="set_orientation_desc">锁定竖屏 / 横屏，或自动获取手机的方向</string>
+    <string name="set_orientation_note">选「横屏」后界面会自动换成横屏排版（左侧导航栏、内容限宽居中）；改完立即生效</string>
+    <string name="set_orientation_portrait">竖屏</string>
+    <string name="set_orientation_landscape">横屏</string>
+
+    <!-- 主题：界面大小 / 字体大小 -->
+    <string name="set_ui_size">界面大小</string>
+    <string name="set_ui_size_desc">整体放大 / 缩小控件与间距，字体跟着一起变；改完立即生效</string>
+    <string name="set_font_size">字体大小</string>
+    <string name="set_font_size_desc">只调文字大小，控件尺寸不变；在系统字号的基础上按比例缩放</string>
+    <string name="set_restore_default_size">恢复默认大小</string>
+
+    <!-- 主题：网络探测 -->
+    <string name="set_net_refresh_title">网络刷新速度</string>
+    <string name="set_net_refresh_desc">首页徽标多久探测一次网络，默认 15 秒；调到最小就是连续刷新，耗电流量也会涨</string>
+    <string name="set_refresh_interval">刷新间隔</string>
+    <string name="set_net_timeout_title">网络延迟大小</string>
+    <string name="set_net_timeout_desc">单次延迟探测的超时时间；调大更不容易误判为未连接，调小则更快出结果</string>
+    <string name="set_probe_timeout">探测超时</string>
+
+    <!-- 音质 -->
+    <string name="set_quality_playback_title">播放音质</string>
+    <string name="set_quality_playback_desc">会员歌曲按账号权益下发，非会员自动降到可用音质；酷狗 / 哔哩哔哩按所选音质取链，取不到自动回退</string>
+    <string name="set_quality_tip_switching">音质已切换为%1$s，正在重新取链</string>
+    <string name="set_quality_tip_done">%1$s 音质已切换为%2$s</string>
+    <string name="set_src_netease">网易云</string>
+    <string name="set_src_netease_music">网易云音乐</string>
+    <string name="set_src_kugou">酷狗</string>
+    <string name="set_src_kugou_music">酷狗音乐</string>
+    <string name="set_src_bilibili">哔哩哔哩</string>
+    <string name="set_q_standard">标准</string>
+    <string name="set_q_higher">较高</string>
+    <string name="set_q_exhigh">极高</string>
+    <string name="set_q_lossless">无损</string>
+    <string name="set_q_hires">Hi·Res</string>
+    <string name="set_q_super">Hi-Res</string>
+    <string name="set_q_high">高品</string>
+    <string name="set_q_128k">128K</string>
+    <string name="set_q_320k">320K</string>
+    <string name="set_q_64k">64K</string>
+    <string name="set_q_132k">132K</string>
+    <string name="set_q_192k">192K</string>
+
+    <!-- 播放行为 -->
+    <string name="set_pb_behavior_title">播放行为</string>
+    <string name="set_auto_play_on_launch_title">启动时自动播放</string>
+    <string name="set_auto_play_on_launch_desc">打开 App 后自动接着上次的队列继续播放；关闭则停在暂停状态，等你手动点播放</string>
+    <string name="set_auto_next_title">自动连播</string>
+    <string name="set_auto_next_desc">关闭后，当前列表播完将暂停在最后一首</string>
+    <string name="set_auto_source_title">自动找音源</string>
+    <string name="set_auto_source_desc">当前源放不出来时，按 网易云 → 酷狗 → 哔哩哔哩 的顺序去别的源找同一首歌（按歌名、歌手、时长匹配）</string>
+
+    <!-- 长时长播放确认 -->
+    <string name="set_pb_longwarn_title">长时长确认</string>
+    <string name="set_pb_longwarn_switch">开启长时长确认</string>
+    <string name="set_pb_longwarn_switch_desc">达到设定时长的歌，播放前先弹窗问一句「确定播放吗」，确认后还要答对一道计算题；关掉则照常直接播</string>
+    <string name="set_pb_longwarn_limit">提醒时长</string>
+    <string name="set_pb_longwarn_limit_desc">网易云 / 酷狗 / 哔哩哔哩 / YouTube 里时长不小于这个值的曲目会先确认；1 分钟 ~ 12 小时，默认 30 分钟</string>
+
+    <!-- 跨源跟随 -->
+    <string name="set_follow_title">跨源跟随</string>
+    <string name="set_follow_desc">播放时的封面 / 歌手 / 歌词要不要跟着另一个源</string>
+    <string name="set_follow_note">选了某个源后，播放页与迷你条的封面、歌手、歌词优先取自该源（按歌名 + 歌手 + 时长匹配同一首，取不到再回落当前源）。选「关闭」时封面歌手用当前源的，歌词在本源取不到时（如 B 站）仍会自动去网易云 / 酷狗补上。</string>
+    <string name="set_follow_off">关闭</string>
+
+    <!-- 音效 -->
+    <string name="set_effect_title">音效</string>
+    <string name="set_effect_desc">低频增强按数据源单独生效，只影响该源歌曲（部分机型可能无效）</string>
+    <string name="set_effect_netease_desc">播放网易云歌曲时对低频做增益</string>
+    <string name="set_effect_kugou_desc">播放酷狗歌曲时对低频做增益</string>
+    <string name="set_effect_bilibili_desc">播放 B 站音频时对低频做增益</string>
+
+    <!-- 歌词 -->
+    <string name="set_lyric_style_title">歌词样式</string>
+    <string name="set_lyric_style_desc">调整后立即生效；播放页右上角的三个点菜单里也能改</string>
+    <string name="set_lyric_wave">弯曲程度</string>
+    <string name="set_lyric_glow">光亮程度</string>
+    <string name="set_restore_default">恢复默认</string>
+    <string name="set_lyric_behavior_title">歌词行为</string>
+    <string name="set_autoscroll_title">自动滚动</string>
+    <string name="set_autoscroll_desc">播放时歌词跟随进度自动滚动</string>
+    <string name="set_lyric_translation_title">显示歌词翻译</string>
+    <string name="set_lyric_translation_desc">原文下方显示歌词自带的译文（不支持现翻）</string>
+
+    <!-- 存储与缓存 -->
+    <string name="set_cache_auto_title">自动缓存歌曲</string>
+    <string name="set_cache_auto_desc">播放过的歌在后台存一份，下次直接读本地文件、不再等网络；关掉后只有手动下载的歌会留在本地</string>
+    <string name="set_cache_usage_title">缓存占用</string>
+    <string name="set_cache_image_title">图片与数据缓存</string>
+    <string name="set_cache_image_size">当前占用 %1$s</string>
+    <string name="set_cache_clear">清除缓存</string>
+    <string name="set_cache_audio_title">音频缓存</string>
+    <string name="set_cache_audio_desc">%1$s 首 · %2$s，在「曲库 → 本地」里可单曲删除</string>
+
+    <!-- 存储文件管理：换缓存目录 -->
+    <string name="set_cache_loc_title">存储文件管理</string>
+    <string name="set_cache_loc_current">当前缓存文件夹</string>
+    <string name="set_cache_loc_default">应用缓存目录（默认）</string>
+    <string name="set_cache_loc_choose">选择文件夹</string>
+    <string name="set_cache_loc_reset">恢复默认文件夹</string>
+    <string name="set_cache_loc_done">已切换，新缓存会写进所选文件夹</string>
+    <string name="set_cache_loc_fail">这个文件夹用不了，换一个存储卷里的文件夹试试</string>
+
+    <!-- 自定义缓存上限 -->
+    <string name="set_cache_limit_title">设置自定义缓存</string>
+    <string name="set_cache_limit_value">当前上限 %1$s，填 0 则用默认 %2$s</string>
+    <string name="set_cache_limit_auto">未自定义</string>
+    <string name="set_cache_limit_dialog_title">设置自定义缓存</string>
+    <string name="set_cache_limit_hint">填 0 表示用默认上限（%1$s）；单位可以点选，也可以直接写在输入框里，如 500mb</string>
+
+    <!-- 一起听 -->
+    <string name="set_lt_room">一起听房间</string>
+    <string name="set_lt_room_info">房间 %1$s · %2$s</string>
+    <string name="set_lt_role_host">房主</string>
+    <string name="set_lt_role_listener">听众</string>
+
+    <!-- 关于 -->
+    <string name="set_about_app">应用</string>
+    <string name="set_about_package">包名</string>
+    <string name="set_about_sources_label">数据源</string>
+    <string name="set_about_sources">网易云音乐 · 酷狗音乐 · 哔哩哔哩</string>
+    <string name="set_about_stack">技术栈</string>
+    <string name="set_about_license">开源许可</string>
+    <string name="set_about_license_value">参考项目 NeriPlayer（GPLv3），保留原版权声明</string>
+
+    <!-- 关于：官网外链与版本更新说明（每次进「关于」都弹一次） -->
+    <string name="set_about_site">音之理音网站</string>
+    <string name="set_changelog_title">本版本更新了什么</string>
+    <string name="set_changelog_version">版本 %1$s</string>
+    <string name="set_changelog_ok">知道了</string>
+    <string name="set_changelog_body">1. 播放：新增「长时长确认」，超长歌曲播放前先确认、再答对一道计算题\n2. 存储：新增「存储文件管理」，音乐缓存可以存到你选的文件夹\n3. 存储：新增「设置自定义缓存」上限，支持 KB / MB / GB / TB\n4. 曲库：「最近」里长按听过的歌曲即可下载\n5. 关于：新增「音之理音网站」外链</string>
+
+    <!-- 外链打开失败提示 -->
+    <string name="set_no_browser_app">未检测到能打开链接的应用</string>
+</resources>

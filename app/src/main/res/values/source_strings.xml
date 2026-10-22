@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Source 枚举的显示名（core/model/Source.kt）。
+  枚举自身的 label 属性保留中文且只喂 NPLogger（日志不翻译）；
+  界面一律走 Source.labelText() → 本文件。
+  中文是默认语言，values-ja / values-en 各自覆盖。
+-->
+<resources>
+    <string name="src_netease">网易云音乐</string>
+    <string name="src_kugou">酷狗音乐</string>
+    <string name="src_bilibili">哔哩哔哩</string>
+    <string name="src_youtube">YouTube</string>
+    <string name="src_local">本机音乐</string>
+    <string name="src_local_gone">本机音乐文件已经不在手机上了，请重新扫描</string>
+</resources>

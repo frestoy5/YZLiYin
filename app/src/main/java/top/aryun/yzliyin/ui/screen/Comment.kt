@@ -40,12 +40,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
+import top.aryun.yzliyin.R
 import top.aryun.yzliyin.core.AppGraph
 import top.aryun.yzliyin.core.model.Comment
 import top.aryun.yzliyin.core.model.Paged
@@ -57,6 +60,7 @@ import top.aryun.yzliyin.ui.components.formatCount
 @Composable
 fun CommentScreen(nav: NavController, mixsongid: String, name: String = "") {
     val store = AppGraph.store
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
     var loggedIn by remember { mutableStateOf(store.isNeteaseLoggedIn) }
@@ -76,14 +80,14 @@ fun CommentScreen(nav: NavController, mixsongid: String, name: String = "") {
                 page = p
                 error = null
             }
-            .onFailure { error = it.message ?: "加载评论失败" }
+            .onFailure { error = it.message ?: context.getString(R.string.cmt_load_fail) }
         loading = false
     }
 
     LaunchedEffect(mixsongid) {
         loggedIn = store.isNeteaseLoggedIn
         if (mixsongid.isBlank()) {
-            error = "缺少歌曲 ID"
+            error = context.getString(R.string.cmt_missing_id)
             loading = false
         } else {
             load(1)
@@ -99,7 +103,7 @@ fun CommentScreen(nav: NavController, mixsongid: String, name: String = "") {
             title = {
                 Text(
                     buildString {
-                        append("评论")
+                        append(stringResource(R.string.cmt_title))
                         data?.let { append(" ${formatCount(it.total.toLong())}") }
                         if (name.isNotBlank()) append(" · $name")
                     },
@@ -108,7 +112,7 @@ fun CommentScreen(nav: NavController, mixsongid: String, name: String = "") {
             },
             navigationIcon = {
                 IconButton(onClick = { nav.popBackStack() }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cmt_back))
                 }
             },
         )
@@ -131,13 +135,13 @@ fun CommentScreen(nav: NavController, mixsongid: String, name: String = "") {
             }
             if (loading) {
                 item {
-                    Text("加载中…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.cmt_loading), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             data?.let { d ->
                 if (d.items.isEmpty() && !loading && error == null) {
                     item {
-                        Text("还没有评论，来抢沙发", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.cmt_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 if (d.items.isNotEmpty()) {
@@ -148,7 +152,7 @@ fun CommentScreen(nav: NavController, mixsongid: String, name: String = "") {
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             if (page > 1) {
-                                Button(onClick = { scope.launch { load(page - 1) } }) { Text("上一页") }
+                                Button(onClick = { scope.launch { load(page - 1) } }) { Text(stringResource(R.string.cmt_prev)) }
                                 Spacer(Modifier.width(12.dp))
                             }
                             Text(
@@ -157,7 +161,7 @@ fun CommentScreen(nav: NavController, mixsongid: String, name: String = "") {
                             )
                             if (d.hasMore) {
                                 Spacer(Modifier.width(12.dp))
-                                Button(onClick = { scope.launch { load(page + 1) } }) { Text("下一页") }
+                                Button(onClick = { scope.launch { load(page + 1) } }) { Text(stringResource(R.string.cmt_next)) }
                             }
                         }
                     }
@@ -176,7 +180,10 @@ fun CommentScreen(nav: NavController, mixsongid: String, name: String = "") {
                 onValueChange = { draft = it },
                 modifier = Modifier.weight(1f),
                 placeholder = {
-                    Text(if (loggedIn) "说点什么…" else "未登录 · 暂无法发表评论")
+                    Text(
+                        if (loggedIn) stringResource(R.string.cmt_input_hint)
+                        else stringResource(R.string.cmt_input_locked),
+                    )
                 },
                 enabled = loggedIn && !sending,
                 maxLines = 3,
@@ -193,7 +200,7 @@ fun CommentScreen(nav: NavController, mixsongid: String, name: String = "") {
                                 tip = it
                                 load(1)
                             }
-                            .onFailure { tip = it.message ?: "发送失败" }
+                            .onFailure { tip = it.message ?: context.getString(R.string.cmt_send_fail) }
                         sending = false
                     }
                 },
@@ -211,7 +218,7 @@ fun CommentScreen(nav: NavController, mixsongid: String, name: String = "") {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    "未登录网易云账号 · 可浏览评论",
+                    stringResource(R.string.cmt_not_logged_in),
                     Modifier.weight(1f),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -219,7 +226,7 @@ fun CommentScreen(nav: NavController, mixsongid: String, name: String = "") {
                 TextButton(onClick = {
                     nav.navigate(Routes.login(Routes.LOGIN_NETEASE_WEB)) { launchSingleTop = true }
                 }) {
-                    Text("去登录")
+                    Text(stringResource(R.string.cmt_sign_in))
                 }
             }
         }
@@ -248,7 +255,7 @@ private fun CommentItem(c: Comment) {
                 if (c.isHot) {
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        "热评",
+                        stringResource(R.string.cmt_hot),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                     )
@@ -265,7 +272,7 @@ private fun CommentItem(c: Comment) {
             if (c.reply.isNotBlank()) {
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "回复：${c.reply}",
+                    stringResource(R.string.cmt_reply, c.reply),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

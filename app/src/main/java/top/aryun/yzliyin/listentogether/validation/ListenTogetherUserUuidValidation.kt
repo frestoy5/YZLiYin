@@ -1,5 +1,6 @@
 package top.aryun.yzliyin.listentogether.validation
 
+import top.aryun.yzliyin.R
 import top.aryun.yzliyin.listentogether.LtMessages
 
 private val USER_UUID_REGEX =
@@ -9,11 +10,17 @@ fun validateListenTogetherUserUuid(userUuid: String): ListenTogetherValidationEr
     val normalized = userUuid.trim()
     return when {
         normalized.isBlank() -> {
-            ListenTogetherValidationError(LtMessages.listen_together_error_user_uuid_required)
+            ListenTogetherValidationError(
+                messageFormat = LtMessages.listen_together_error_user_uuid_required,
+                messageRes = R.string.ltm_validate_user_uuid_required
+            )
         }
 
         !USER_UUID_REGEX.matches(normalized) -> {
-            ListenTogetherValidationError(LtMessages.listen_together_error_user_uuid_invalid)
+            ListenTogetherValidationError(
+                messageFormat = LtMessages.listen_together_error_user_uuid_invalid,
+                messageRes = R.string.ltm_validate_user_uuid_invalid
+            )
         }
 
         else -> null

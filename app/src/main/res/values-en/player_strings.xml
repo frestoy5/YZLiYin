@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English. Any key missing here falls back to Chinese (values/) rather than showing blank. -->
+<resources>
+    <!-- Empty state / common buttons -->
+    <string name="pl_nothing_playing">Nothing is playing right now</string>
+    <string name="pl_back">Back</string>
+    <string name="pl_collapse">Collapse</string>
+    <string name="pl_cancel">Cancel</string>
+    <string name="pl_save">Save</string>
+    <string name="pl_done">Done</string>
+    <string name="pl_none">None</string>
+
+    <!-- Lyrics pane tips -->
+    <string name="pl_lyric_none">No lyrics yet</string>
+    <string name="pl_lyric_loading">Loading lyrics…</string>
+    <string name="pl_lyric_load_failed">Could not load lyrics</string>
+
+    <!-- Artist: tapping the artist name and name-based search -->
+    <string name="pl_no_artist">This song has no artist info</string>
+    <string name="pl_artist_not_found">No artist found for %1$s</string>
+    <string name="pl_pick_artist">Select artist</string>
+    <string name="pl_searching_artist">Searching for artist…</string>
+    <string name="pl_this_up">this creator</string>
+    <string name="pl_view_up_title">View %1$s\'s profile</string>
+    <string name="pl_choose_app">Which app should open it?</string>
+    <string name="pl_watch_in_app">View in app</string>
+    <string name="pl_watch_in_bili">View in Bilibili</string>
+
+    <!-- Listen Together room status bar -->
+    <string name="pl_lt_status">Listen Together · %1$s · Room %2$s</string>
+    <string name="pl_lt_host">Host</string>
+    <string name="pl_lt_listener">Listener</string>
+
+    <!-- Top bar icon descriptions -->
+    <string name="pl_comment">Comment</string>
+    <string name="pl_more">More</string>
+
+    <!-- Bilibili video: how to open -->
+    <string name="pl_open_post_title">Open video</string>
+    <string name="pl_open_post_msg">Open it in the Bilibili app, or play it here?</string>
+    <string name="pl_open_in_bili_app">Bilibili app</string>
+    <string name="pl_play_in_app">Play in app</string>
+    <string name="pl_view_post">View video</string>
+    <string name="pl_no_bili_app">No app found that can open Bilibili pages</string>
+
+    <!-- Capsule buttons under the progress bar -->
+    <string name="pl_back_to_cover">Back to cover</string>
+    <string name="pl_view_lyrics">View lyrics</string>
+
+    <!-- Playback controls (accessibility descriptions) -->
+    <string name="pl_shuffle">Shuffle</string>
+    <string name="pl_prev">Previous</string>
+    <string name="pl_play">Play</string>
+    <string name="pl_pause">Pause</string>
+    <string name="pl_next">Next</string>
+    <string name="pl_repeat_one">Repeat one (tap to switch)</string>
+    <string name="pl_repeat_all">Repeat all (tap to switch)</string>
+    <string name="pl_repeat_off">In order (tap to switch)</string>
+
+    <!-- More menu -->
+    <string name="pl_listen_together">Listen Together</string>
+    <string name="pl_edit_info">Edit song info</string>
+    <string name="pl_quality">Quality</string>
+    <string name="pl_speed">Speed</string>
+    <string name="pl_lyric_style">Lyric style</string>
+
+    <!-- Quality levels (label holds a resource id; selection compares ids) -->
+    <string name="pl_q_standard">Standard</string>
+    <string name="pl_q_higher">Higher</string>
+    <string name="pl_q_exhigh">Highest</string>
+    <string name="pl_q_lossless">Lossless</string>
+    <string name="pl_q_hires">Hi·Res</string>
+    <string name="pl_q_hi_res">Hi-Res</string>
+    <string name="pl_q_auto">Auto</string>
+    <string name="pl_q_high">High</string>
+    <string name="pl_q_kugou_high">High</string>
+    <string name="pl_q_low">Low</string>
+    <string name="pl_q_medium">Medium</string>
+    <string name="pl_q_128k">128K</string>
+    <string name="pl_q_320k">320K</string>
+    <string name="pl_q_64k">64K</string>
+    <string name="pl_q_132k">132K</string>
+    <string name="pl_q_192k">192K</string>
+    <string name="pl_q_default">Default</string>
+
+    <!-- Source badge -->
+    <string name="pl_source_from">From %1$s</string>
+    <string name="pl_source_from_note">From %1$s · %2$s</string>
+    <string name="pl_source_cache">Local cache</string>
+    <string name="pl_source_switched">Switched</string>
+
+    <!-- Lyric style summary -->
+    <string name="pl_style_wave">Wave</string>
+    <string name="pl_style_glow">Glow</string>
+
+    <!-- Edit song info -->
+    <string name="pl_edit_info_desc">Changes apply right away: the player, mini player, notification and library all show the new info. Playback position is not affected.</string>
+    <string name="pl_field_name">Song title</string>
+    <string name="pl_field_artist">Artist</string>
+    <string name="pl_field_cover">Cover URL</string>
+    <string name="pl_restore_field">Restore %1$s</string>
+    <string name="pl_restore_info">Restore original info</string>
+
+    <!-- Lyrics editor -->
+    <string name="pl_edit_lyrics">Edit lyrics</string>
+    <string name="pl_lrc_label">LRC lyrics</string>
+    <string name="pl_lrc_placeholder">[00:12.34]One line per lyric\nAnother line with the same timestamp becomes the translation</string>
+    <string name="pl_lrc_hint">Format [mm:ss.xx] lyrics, one line per line; a second line with the same timestamp is treated as a translation.</string>
+    <string name="pl_restore_lyrics">Restore original lyrics</string>
+    <string name="pl_lyrics_edited">Edited</string>
+    <string name="pl_line_count">%1$s lines</string>
+
+    <!-- Lyric style dialog -->
+    <string name="pl_font_size">Font size</string>
+    <string name="pl_wave_amount">Wave amount</string>
+    <string name="pl_glow_amount">Glow amount</string>
+    <string name="pl_restore_default">Reset to default</string>
+    <string name="pl_show_translation">Show lyric translation</string>
+
+    <!-- Match lyrics -->
+    <string name="pl_replace_audio">Change audio</string>
+    <string name="pl_replace_audio_desc">When auto source-fallback jumps to the wrong track, search here to switch it back.</string>
+    <string name="pl_replace_audio_keyword">Search keyword</string>
+    <string name="pl_replace_audio_loading">Searching platforms…</string>
+    <string name="pl_replace_audio_empty">No songs found to switch to</string>
+    <string name="pl_replace_audio_done">Now playing: %1$s</string>
+    <string name="pl_replace_audio_failed">Switch failed; previous track restored</string>
+    <string name="pl_replace_audio_error">Search failed: %1$s</string>
+    <string name="pl_match_lyrics">Match lyrics</string>
+    <string name="pl_match_lyrics_desc">Pick one by keyword</string>
+    <string name="pl_match_keyword">Search keyword</string>
+    <string name="pl_match_keyword_hint">Edit the title, artist or version</string>
+    <string name="pl_match_platforms">Platforms</string>
+    <string name="pl_match_source_netease">NetEase</string>
+    <string name="pl_match_source_kugou">Kugou</string>
+    <string name="pl_match_search">Search</string>
+    <string name="pl_match_hint">Search candidates by keyword, then pick the right one. Selecting replaces the current lyrics and can still be edited afterwards.</string>
+    <string name="pl_match_loading">Matching lyrics on the selected platforms…</string>
+    <string name="pl_match_empty">No usable lyrics found</string>
+    <string name="pl_match_error">Match failed: %1$s</string>
+    <string name="pl_match_no_source">Pick at least one platform</string>
+    <string name="pl_match_applied">New lyrics applied</string>
+    <string name="pl_match_duration_delta">Off by %1$s</string>
+    <string name="pl_match_score">Match %1$d</string>
+    <string name="pl_match_confidence_high">High confidence</string>
+    <string name="pl_match_confidence_medium">Medium confidence</string>
+    <string name="pl_match_confidence_low">Low confidence, please check</string>
+    <string name="pl_match_has_translation">Translated</string>
+</resources>

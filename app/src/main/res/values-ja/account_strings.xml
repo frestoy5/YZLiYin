@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 日本語。ここに無いキーは values/（中国語）へフォールバック。 -->
+<resources>
+    <!-- ===================== Login.kt（登录页） ===================== -->
+
+    <!-- 顶栏标题与返回 -->
+    <string name="lgn_title_captcha">認証コードでログイン</string>
+    <string name="lgn_title_netease">NetEase Music ログイン</string>
+    <string name="lgn_title_kugou">Kugou Music ログイン</string>
+    <string name="lgn_title_bili">bilibili ログイン</string>
+    <string name="lgn_title_youtube">YouTube ログイン</string>
+    <string name="lgn_title_qr">QRコードでログイン</string>
+    <string name="lgn_back">戻る</string>
+
+    <!-- 网页登录（网易云 / YouTube） -->
+    <string name="lgn_netease_web_hint">下のページで NetEase Music のログインを完了してください</string>
+    <string name="lgn_google_web_hint">下のページで Google アカウントのログインを完了してください</string>
+    <string name="lgn_paste_hint">パソコンのブラウザで music.youtube.com にログインし、開発者ツール → Network で任意のリクエストを開き、Request Headers の Cookie 全文（Authorization も含めて可）を下に貼り付けてください</string>
+    <string name="lgn_back_to_web">ウェブログインに戻る</string>
+    <string name="lgn_sign_in">ログイン</string>
+    <string name="lgn_login_success_syncing">ログイン成功、アカウントを同期中…</string>
+    <string name="lgn_paste_save_fail">Cookie は解析できましたが、ログイン状態を保存できませんでした（端末の暗号化ストレージの異常）。もう一度お試しください</string>
+    <string name="lgn_paste_invalid">有効なログイン Cookie が見つかりません。youtube.com の完全な Cookie を貼り付けたか確認してください</string>
+    <string name="lgn_desktop_mode">デスクトップモード</string>
+    <string name="lgn_desktop_mode_off">デスクトップモードを解除</string>
+    <string name="lgn_refresh">更新</string>
+    <string name="lgn_paste_cookie">Cookie を貼り付け</string>
+    <string name="lgn_page_load_fail">ページの読み込みに失敗しました：%1$s。右上の更新ボタンを押すか、デスクトップモードで再試行してください</string>
+    <string name="lgn_network_error">ネットワークエラー</string>
+    <string name="lgn_page_login_save_fail">ページにはログインできましたが、ログイン状態を保存できませんでした（暗号化ストレージの異常）。もう一度試すか、Cookie の貼り付けを使ってください</string>
+
+    <!-- 手机号验证码登录 -->
+    <string name="lgn_phone_title">電話番号で認証コードログイン</string>
+    <string name="lgn_phone_hint">電話番号</string>
+    <string name="lgn_code_hint">認証コード</string>
+    <string name="lgn_phone_invalid">11 桁の電話番号を入力してください</string>
+    <string name="lgn_send_fail">認証コードの送信に失敗しました</string>
+    <string name="lgn_send_countdown">%1$s秒</string>
+    <string name="lgn_sending">送信中…</string>
+    <string name="lgn_get_code">認証コードを取得</string>
+    <string name="lgn_code_required">認証コードを入力してください</string>
+    <string name="lgn_login_success">ログイン成功</string>
+    <string name="lgn_login_fail">ログインに失敗しました</string>
+    <string name="lgn_captcha_note">認証コードは NetEase Music から送信されます。ログインすると会員曲を再生できます。</string>
+
+    <!-- 扫码登录（网易云 / 酷狗 / B 站） -->
+    <string name="lgn_qr_fetch_fail">QR コードの取得に失敗しました</string>
+    <string name="lgn_qr_poll_fail">状態の確認に失敗しました</string>
+    <string name="lgn_qr_render_fail">QR コードの生成に失敗しました</string>
+    <string name="lgn_qr_desc">ログイン QR コード</string>
+    <string name="lgn_qr_refresh">QR コードを更新</string>
+    <string name="lgn_qr_netease_title">NetEase Music アプリで QR コードを読み取ってください</string>
+    <string name="lgn_qr_netease_subtitle">ログインすると会員曲の再生やライブラリの取得ができます</string>
+    <string name="lgn_qr_netease_waiting">NetEase Music アプリを開いて QR コードを読み取ってください</string>
+    <string name="lgn_qr_scanned">読み取りました。スマホでログインを確認してください</string>
+    <string name="lgn_qr_cookie_incomplete">ログインは確認できましたが、Cookie が完全ではありません。もう一度お試しください</string>
+    <string name="lgn_qr_expired">QR コードの有効期限が切れました。更新してください</string>
+    <string name="lgn_qr_kugou_title">Kugou Music アプリで QR コードを読み取ってください</string>
+    <string name="lgn_qr_kugou_subtitle">ログインすると「お気に入り」とプレイリストを同期できます</string>
+    <string name="lgn_qr_kugou_waiting">Kugou Music アプリを開いて QR コードを読み取ってください</string>
+    <string name="lgn_qr_kugou_scanned">読み取りました。スマホでログインを確認してください</string>
+    <string name="lgn_qr_bili_title">bilibili アプリで QR コードを読み取ってください</string>
+    <string name="lgn_qr_bili_subtitle">ログインするとお気に入りフォルダと「お気に入り」を同期できます</string>
+    <string name="lgn_qr_bili_waiting">bilibili アプリを開いて QR コードを読み取ってください</string>
+
+    <!-- ===================== Library.kt（曲库） ===================== -->
+
+    <string name="lib_title">ライブラリ</string>
+    <string name="lib_refresh">更新</string>
+
+    <!-- 曲库子标签 -->
+    <string name="lib_tab_recent">最近</string>
+    <string name="lib_tab_local">ローカル</string>
+    <string name="lib_tab_netease">NetEase Music</string>
+    <string name="lib_tab_kugou">Kugou Music</string>
+    <string name="lib_tab_bili">bilibili</string>
+
+    <!-- 最近播放 / 本地 -->
+    <string name="lib_recent_empty">まだ再生履歴がありません。ホームや検索から聴いてみましょう</string>
+    <string name="lib_local_empty">ローカルにオーディオがありません。再生した曲は自動的にキャッシュされ、プレイリストから手動でダウンロードもできます</string>
+    <string name="lib_song_count">%1$s 曲</string>
+    <string name="lib_play_all">すべて再生</string>
+    <string name="lib_remove_cache">ローカルキャッシュを削除</string>
+    <string name="lib_cached_header">%1$s 曲をキャッシュ済み · %2$s</string>
+    <string name="lib_clear">クリア</string>
+    <string name="lib_dropped">無効になった %1$s 件のレコードを削除しました（ファイルはキャッシュから排除されました）</string>
+
+    <!-- 最近：曲を長押ししてダウンロード -->
+    <string name="lib_dl_start">「%1$s」をダウンロード中…</string>
+    <string name="lib_dl_done">「%1$s」を端末に保存しました</string>
+    <string name="lib_dl_exists">この曲はすでに端末にあります</string>
+    <string name="lib_selected_count">%1$s 曲を選択中</string>
+    <string name="lib_select_all">すべて選択</string>
+    <string name="lib_select_clear">選択を解除</string>
+    <string name="lib_dl_button">ダウンロード</string>
+    <string name="lib_dl_button_count">%1$s 曲をダウンロード</string>
+    <string name="lib_downloading">ダウンロード中…</string>
+    <string name="lib_dl_batch_start">%1$s 曲のダウンロードを開始…</string>
+    <string name="lib_dl_batch_done">%1$s 曲をダウンロードしました</string>
+    <string name="lib_dl_batch_fail">成功 %1$s 曲、失敗 %2$s 曲：%3$s</string>
+    <string name="lib_exit_selection">複数選択を終了</string>
+
+    <!-- 曲ライブラリ → ローカル：端末内の音楽をスキャン -->
+    <string name="lib_scan">曲をスキャン</string>
+    <string name="lib_scan_desc">端末にある音楽を「ローカル」に一覧表示します。コピーせずそのまま再生できます</string>
+    <string name="lib_scan_scanning">スキャン中…</string>
+    <string name="lib_scan_done">%1$s 曲をスキャンしました</string>
+    <string name="lib_scan_empty">端末に音声ファイルが見つかりませんでした</string>
+    <string name="lib_scan_denied">曲のスキャンには「音楽とオーディオ」の権限が必要です</string>
+    <string name="lib_scan_fail">スキャンに失敗しました：%1$s</string>
+    <string name="lib_remove_entry">ローカルから削除</string>
+
+    <!-- 各源歌单标签页 -->
+    <string name="lib_netease_tip_offline">ネットワークに接続できず、ローカルのプレイリストキャッシュもありません</string>
+    <string name="lib_netease_tip_fallback">あなたのプレイリストを取得できなかったため、おすすめを表示しています</string>
+    <string name="lib_netease_tip_login">NetEase Music アカウントにログインするとプレイリストを同期できます</string>
+    <string name="lib_netease_empty_in">まだプレイリストがありません</string>
+    <string name="lib_netease_empty_out">ログインしてプレイリストを同期</string>
+    <string name="lib_recommended">おすすめプレイリスト</string>
+    <string name="lib_my_playlists">マイプレイリスト</string>
+    <string name="lib_kugou_empty">Kugou Music アカウントにログインすると「お気に入り」とプレイリストを同期できます</string>
+    <string name="lib_bili_empty">bilibili アカウントにログインするとお気に入りフォルダを同期できます</string>
+    <string name="lib_bili_folders">お気に入りフォルダ</string>
+    <string name="lib_bili_created">作成したお気に入りフォルダ</string>
+    <string name="lib_bili_subscribed">購読したお気に入りフォルダ</string>
+    <string name="lib_go_login">ログインする</string>
+
+    <!-- ===================== Mine.kt（账号卡片） ===================== -->
+
+    <string name="min_netease_title">NetEase Music</string>
+    <string name="min_kugou_title">Kugou Music</string>
+    <string name="min_bili_title">bilibili</string>
+    <string name="min_logged_in">ログイン済み</string>
+    <string name="min_netease_status_vip">%1$s · 黒膠VIP</string>
+    <string name="min_netease_status">%1$s · NetEase Music アカウント</string>
+    <string name="min_netease_offline">未ログイン（ログインするとプレイリストの同期や会員曲の再生ができます）</string>
+    <string name="min_kugou_status">%1$s · Kugou Music アカウント</string>
+    <string name="min_kugou_offline">未ログイン（ログインすると「お気に入り」とプレイリストを同期できます）</string>
+    <string name="min_bili_status">%1$s · 再生した動画の音声トラック</string>
+    <string name="min_bili_offline">未ログイン（ログインするとお気に入りフォルダと「お気に入り」を同期できます）</string>
+    <string name="min_switch_account">アカウント切替</string>
+    <string name="min_sign_out">ログアウト</string>
+    <string name="min_web_login">ウェブログイン</string>
+    <string name="min_captcha">認証コード</string>
+    <string name="min_qr_login">QRコードでログイン</string>
+    <string name="min_likes">お気に入り</string>
+    <string name="min_kugou_likes_missing">Kugou Music アカウントに「お気に入り」プレイリストが見つかりません</string>
+    <string name="min_no_folder">利用できるお気に入りフォルダが見つかりません</string>
+    <string name="min_song_count">%1$s 曲</string>
+</resources>

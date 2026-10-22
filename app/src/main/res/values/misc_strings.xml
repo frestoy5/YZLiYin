@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  混合批次：listentogether/ListenTogetherDisplayMessage.kt（房间状态展示文案）、
+  player/PlaybackResolver.kt 与 player/PlayerController.kt（面向用户的播放失败原因）。
+  中文是默认语言，values-ja / values-en 各自覆盖。
+-->
+<resources>
+    <!-- 一起听：会话/房间状态机器串映射后的展示文案 -->
+    <string name="ltm_display_host_offline">房主已离线，房间将在约 %1$s 分钟后自动关闭</string>
+    <string name="ltm_display_member_joined">%1$s 加入了房间</string>
+    <string name="ltm_display_member_left">%1$s 离开了房间</string>
+    <string name="ltm_display_auth_failed">房间鉴权失败，请让房主重新邀请</string>
+    <string name="ltm_display_room_not_found">房间不存在或已结束</string>
+
+    <!--
+      LtMessages 里那批常量的**展示**译法。
+      常量本身保留中文不动：服务端/会话会把它们原样回传，listenTogetherDisplayMessage
+      要拿它们做 == 匹配（见 normalized == LtMessages... 两处）。这里只翻「匹配上之后显示什么」，
+      而输出只流向 ListenTogether 房间页的 Text()，不回写会话，所以不会反噬匹配。
+    -->
+    <string name="ltm_notice_controller_reconnected">房主已重连，同步已恢复</string>
+    <string name="ltm_notice_controller_left">房主已离开，房间已结束</string>
+    <string name="ltm_notice_room_closed">房主长时间未返回，房间已自动关闭</string>
+    <string name="ltm_err_controller_offline">房主当前离线，请等待重连后再试</string>
+    <string name="ltm_err_member_control_disabled">房主已关闭听众操作权限</string>
+    <string name="ltm_err_reconnecting">一起听连接暂时中断，正在重连</string>
+    <string name="ltm_err_rejoining">一起听连接已失效，正在重新加入房间</string>
+
+    <!-- 播放器：取链/播放失败时展示在播放页的错误原因 -->
+    <string name="ply_err_netease_vip">该歌曲需要网易云会员，当前账号无权限</string>
+    <string name="ply_err_bili_stream">获取 B 站音频流失败（可能是充电专属、地区限制或需要登录）</string>
+    <string name="ply_err_youtube_stream">获取 YouTube 音频流失败（可能是网络无法访问 YouTube 或需要登录）</string>
+    <string name="ply_err_url_invalid">取到的播放链接无效，该歌曲可能暂无版权</string>
+    <string name="ply_err_all_sources_failed">当前源播放失败，其它源也没找到同一首歌</string>
+    <string name="ply_err_player_init">播放器初始化失败，请重试</string>
+    <string name="ply_err_playback">播放失败（%1$s）</string>
+    <!-- 一起听：建房/入房参数校验错误（validation/ListenTogetherValidationError） -->
+    <string name="ltm_validate_join_secret_required">邀请密钥不能为空</string>
+    <string name="ltm_validate_join_secret_length">邀请密钥不能超过 %1$d 个字符</string>
+    <string name="ltm_validate_nickname_length">当前昵称长度需要为 %1$d-%2$d 位</string>
+    <string name="ltm_validate_nickname_chars">当前昵称仅支持汉字、英文字母和数字</string>
+    <string name="ltm_validate_room_id_length">房间 ID 需要为 %1$d 位</string>
+    <string name="ltm_validate_room_id_chars">房间 ID 仅支持大写字母和数字</string>
+    <string name="ltm_validate_user_uuid_required">用户 UUID 不能为空</string>
+    <string name="ltm_validate_user_uuid_invalid">用户 UUID 格式无效</string>
+    <string name="ltm_validate_current_track_missing">当前没有正在播放的歌曲，无法创建一起听</string>
+    <string name="ltm_validate_current_track_not_shareable">无法分享的歌曲不能创建一起听，请切换到在线歌曲</string>
+    <string name="ltm_validate_current_track_unavailable">当前歌曲不在播放队列中，无法创建一起听</string>
+</resources>

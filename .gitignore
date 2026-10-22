@@ -9,3 +9,6 @@
 .externalNativeBuild/
 .cxx/
 app/build/
+
+# 宣传页里的安装包不进 Git（体积大且会随版本重复），上传虚拟主机时手动带上
+site/download/*.apk

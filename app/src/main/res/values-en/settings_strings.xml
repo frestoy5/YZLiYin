@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English. Any key missing here falls back to Chinese (values/) rather than showing blank. -->
+<resources>
+    <!-- Page-wide -->
+    <string name="set_settings_title">Settings</string>
+    <string name="set_back">Back</string>
+    <string name="set_auto">Auto</string>
+    <string name="set_percent">%1$s%%</string>
+    <string name="set_unit_seconds">%1$s s</string>
+    <string name="set_ok">OK</string>
+    <string name="set_cancel">Cancel</string>
+
+    <!-- Duration wording: shared by the settings slider and the long-track dialog -->
+    <string name="set_minutes">%1$s min</string>
+    <string name="set_hours">%1$s hr</string>
+    <string name="set_hours_minutes">%1$s hr %2$s min</string>
+
+    <!-- Home group titles -->
+    <string name="set_group_accounts">Accounts &amp; appearance</string>
+    <string name="set_group_playback">Playback &amp; lyrics</string>
+    <string name="set_group_other">Other</string>
+
+    <!-- Section: accounts -->
+    <string name="set_sec_accounts_title">Accounts</string>
+    <string name="set_sec_accounts_desc">Manage NetEase, Kugou and Bilibili sign-in status</string>
+
+    <!-- Section: theme -->
+    <string name="set_sec_theme_title">Theme</string>
+    <string name="set_sec_theme_desc">Light and dark mode, UI size and network probe settings</string>
+
+    <!-- Section: quality -->
+    <string name="set_sec_quality_title">Quality</string>
+    <string name="set_sec_quality_desc">Default playback quality per source</string>
+
+    <!-- Section: playback -->
+    <string name="set_sec_playback_title">Playback</string>
+    <string name="set_sec_playback_desc">Continuous playback, cross-source fallback and bass boost</string>
+
+    <!-- Section: lyrics -->
+    <string name="set_sec_lyrics_title">Lyrics</string>
+    <string name="set_sec_lyrics_desc">Font size, wave, glow and auto-scroll</string>
+
+    <!-- Section: storage and cache -->
+    <string name="set_sec_cache_title">Storage and cache</string>
+    <string name="set_sec_cache_desc">Cache usage and cleanup</string>
+
+    <!-- Section: listen together -->
+    <string name="set_sec_listen_together_title">Listen Together</string>
+    <string name="set_sec_listen_together_desc">Create or join a room and listen with friends</string>
+
+    <!-- Section: Hook -->
+    <string name="set_sec_hook_title">Hook</string>
+    <string name="set_sec_hook_desc">Xposed extensions: System Settings entry and scope suggestions</string>
+
+    <!-- Hook: System Settings -->
+    <string name="set_hook_system_settings_title">System Settings</string>
+    <string name="set_hook_system_settings_desc">Inject this app\'s entry on the System Settings home page (requires the System Settings scope in LSPosed)</string>
+    <string name="set_hook_settings_entry">System Settings entry</string>
+    <string name="set_hook_settings_entry_summary">Show this app\'s entry on the System Settings home page</string>
+    <string name="set_hook_settings_entry_same_group">Use the same section</string>
+    <string name="set_hook_settings_entry_same_group_summary">Place it in the same section as the position anchor</string>
+    <string name="set_hook_settings_entry_position">Entry position</string>
+    <string name="set_hook_position_top">Top</string>
+    <string name="set_hook_position_middle">Middle</string>
+    <string name="set_hook_position_bottom">Bottom</string>
+    <string name="set_hook_icon_style">Icon style</string>
+    <string name="set_hook_icon_default">Default</string>
+    <string name="set_hook_icon_outline">Outline</string>
+    <string name="set_hook_settings_app_name">System Settings</string>
+
+    <!-- Hook: Xposed -->
+    <string name="set_hook_xposed_title">Xposed</string>
+    <string name="set_hook_xposed_desc">After installing, enable YZLiYin in LSPosed and add the System Settings scope, then reopen System Settings to see the entry</string>
+    <string name="set_hook_recommended_app">Suggested app: %1$s</string>
+
+    <!-- Section: about -->
+    <string name="set_sec_about_title">About</string>
+    <string name="set_sec_about_desc">Version, data sources and open-source credits</string>
+
+    <!-- Theme: appearance -->
+    <string name="set_theme_light">Light</string>
+    <string name="set_theme_dark">Dark</string>
+    <string name="set_appearance_title">Appearance</string>
+    <string name="set_appearance_desc">Switch between Light and Dark any time, or follow the system dark mode</string>
+
+    <!-- Theme: screen orientation -->
+    <string name="set_orientation_title">Screen orientation</string>
+    <string name="set_orientation_desc">Lock to portrait or landscape, or follow how you hold the phone</string>
+    <string name="set_orientation_note">Choosing Landscape switches to a landscape layout automatically (side navigation, limited content width). Changes apply immediately</string>
+    <string name="set_orientation_portrait">Portrait</string>
+    <string name="set_orientation_landscape">Landscape</string>
+
+    <!-- Theme: UI size / font size -->
+    <string name="set_ui_size">UI size</string>
+    <string name="set_ui_size_desc">Enlarge or shrink all controls, spacing and fonts together. Changes apply immediately</string>
+    <string name="set_font_size">Font size</string>
+    <string name="set_font_size_desc">Adjusts text size only; controls keep their size, scaled proportionally on top of the system font size</string>
+    <string name="set_restore_default_size">Reset size</string>
+
+    <!-- Theme: network probe -->
+    <string name="set_net_refresh_title">Network refresh rate</string>
+    <string name="set_net_refresh_desc">How often the Home badge checks the network (15 s by default). At the minimum it refreshes continuously, using more battery and data</string>
+    <string name="set_refresh_interval">Refresh interval</string>
+    <string name="set_net_timeout_title">Network latency timeout</string>
+    <string name="set_net_timeout_desc">Timeout for a single latency probe. Larger values avoid false offline results; smaller ones return results sooner</string>
+    <string name="set_probe_timeout">Probe timeout</string>
+
+    <!-- Quality -->
+    <string name="set_quality_playback_title">Playback quality</string>
+    <string name="set_quality_playback_desc">Member-only songs follow your account benefits; non-members automatically drop to an available quality. Kugou and Bilibili fetch links at the chosen quality and fall back automatically if unavailable</string>
+    <string name="set_quality_tip_switching">Quality switched to %1$s, refetching the link…</string>
+    <string name="set_quality_tip_done">%1$s quality switched to %2$s</string>
+    <string name="set_src_netease">NetEase Cloud Music</string>
+    <string name="set_src_netease_music">NetEase Cloud Music</string>
+    <string name="set_src_kugou">Kugou Music</string>
+    <string name="set_src_kugou_music">Kugou Music</string>
+    <string name="set_src_bilibili">Bilibili</string>
+    <string name="set_q_standard">Standard</string>
+    <string name="set_q_higher">Higher</string>
+    <string name="set_q_exhigh">Highest</string>
+    <string name="set_q_lossless">Lossless</string>
+    <string name="set_q_hires">Hi·Res</string>
+    <string name="set_q_super">Hi-Res</string>
+    <string name="set_q_high">High</string>
+    <string name="set_q_128k">128K</string>
+    <string name="set_q_320k">320K</string>
+    <string name="set_q_64k">64K</string>
+    <string name="set_q_132k">132K</string>
+    <string name="set_q_192k">192K</string>
+
+    <!-- Playback behavior -->
+    <string name="set_pb_behavior_title">Playback behavior</string>
+    <string name="set_auto_play_on_launch_title">Auto-play on launch</string>
+    <string name="set_auto_play_on_launch_desc">Resumes the last queue automatically when the app opens. Turn off to stay paused until you press play</string>
+    <string name="set_auto_next_title">Auto-play next</string>
+    <string name="set_auto_next_desc">When off, playback pauses on the last track of the list</string>
+    <string name="set_auto_source_title">Auto-find source</string>
+    <string name="set_auto_source_desc">If the current source cannot play a song, searches NetEase Cloud Music → Kugou Music → Bilibili in order for the same track (matched by title, artist and duration)</string>
+
+    <!-- Long-track confirmation -->
+    <string name="set_pb_longwarn_title">Long-track confirmation</string>
+    <string name="set_pb_longwarn_switch">Turn on long-track confirmation</string>
+    <string name="set_pb_longwarn_switch_desc">Tracks at or above the duration set below ask you to confirm first, then solve one arithmetic problem; turn it off to start playing right away</string>
+    <string name="set_pb_longwarn_limit">Alert duration</string>
+    <string name="set_pb_longwarn_limit_desc">Asks for confirmation first for tracks from NetEase / Kugou / Bilibili / YouTube that are at least this long. 1 minute to 12 hours, 30 minutes by default</string>
+
+    <!-- Cross-source follow -->
+    <string name="set_follow_title">Cross-source follow</string>
+    <string name="set_follow_desc">Whether cover, artist and lyrics follow another source during playback</string>
+    <string name="set_follow_note">Once you pick a source, the cover, artist and lyrics on the player and mini player prefer that source (matched by title, artist and duration; falls back to the current source if unavailable). With Off selected, the cover and artist come from the current source, while lyrics missing from it (such as Bilibili) are still fetched from NetEase / Kugou.</string>
+    <string name="set_follow_off">Off</string>
+
+    <!-- Sound effects -->
+    <string name="set_effect_title">Sound effects</string>
+    <string name="set_effect_desc">Bass boost applies per source and only affects songs from that source (may not work on some devices)</string>
+    <string name="set_effect_netease_desc">Boosts the bass when playing NetEase songs</string>
+    <string name="set_effect_kugou_desc">Boosts the bass when playing Kugou songs</string>
+    <string name="set_effect_bilibili_desc">Boosts the bass when playing Bilibili audio</string>
+
+    <!-- Lyrics -->
+    <string name="set_lyric_style_title">Lyric style</string>
+    <string name="set_lyric_style_desc">Applies immediately; you can also change it from the menu in the top-right of the player</string>
+    <string name="set_lyric_wave">Wave</string>
+    <string name="set_lyric_glow">Glow</string>
+    <string name="set_restore_default">Reset to default</string>
+    <string name="set_lyric_behavior_title">Lyric behavior</string>
+    <string name="set_autoscroll_title">Auto-scroll</string>
+    <string name="set_autoscroll_desc">Scrolls the lyrics along with the playback progress</string>
+    <string name="set_lyric_translation_title">Show lyric translation</string>
+    <string name="set_lyric_translation_desc">Shows the translation shipped with the lyrics below each line (no on-the-fly translation)</string>
+
+    <!-- Storage and cache -->
+    <string name="set_cache_auto_title">Auto-cache songs</string>
+    <string name="set_cache_auto_desc">Keeps a local copy of every track you play so the next play reads from disk instead of waiting on the network. Turn off and only manually downloaded tracks are kept</string>
+    <string name="set_cache_usage_title">Cache usage</string>
+    <string name="set_cache_image_title">Image and data cache</string>
+    <string name="set_cache_image_size">Currently using %1$s</string>
+    <string name="set_cache_clear">Clear cache</string>
+    <string name="set_cache_audio_title">Audio cache</string>
+    <string name="set_cache_audio_desc">%1$s tracks · %2$s. Delete individual tracks in Library → Local</string>
+
+    <!-- Storage file manager: pick the cache folder -->
+    <string name="set_cache_loc_title">Storage file manager</string>
+    <string name="set_cache_loc_current">Current cache folder</string>
+    <string name="set_cache_loc_default">App cache directory (default)</string>
+    <string name="set_cache_loc_choose">Choose folder</string>
+    <string name="set_cache_loc_reset">Restore default folder</string>
+    <string name="set_cache_loc_done">Switched; new caches go into the folder you picked</string>
+    <string name="set_cache_loc_fail">This folder cannot be used, try another one on a storage volume</string>
+
+    <!-- Custom cache limit -->
+    <string name="set_cache_limit_title">Set a custom cache limit</string>
+    <string name="set_cache_limit_value">Current limit %1$s; enter 0 to use the default %2$s</string>
+    <string name="set_cache_limit_auto">not customized</string>
+    <string name="set_cache_limit_dialog_title">Set a custom cache limit</string>
+    <string name="set_cache_limit_hint">Enter 0 to use the default limit (%1$s). Pick a unit or type it in the field, e.g. 500mb</string>
+
+    <!-- Listen together -->
+    <string name="set_lt_room">Listen Together room</string>
+    <string name="set_lt_room_info">Room %1$s · %2$s</string>
+    <string name="set_lt_role_host">Host</string>
+    <string name="set_lt_role_listener">Listener</string>
+
+    <!-- About -->
+    <string name="set_about_app">App</string>
+    <string name="set_about_package">Package name</string>
+    <string name="set_about_sources_label">Data sources</string>
+    <string name="set_about_sources">NetEase Cloud Music · Kugou Music · Bilibili</string>
+    <string name="set_about_stack">Tech stack</string>
+    <string name="set_about_license">Open source licenses</string>
+    <string name="set_about_license_value">Based on the reference project NeriPlayer (GPLv3); the original copyright notice is retained</string>
+
+    <!-- About: website link and what changed (popped once per visit) -->
+    <string name="set_about_site">YZLiYin website</string>
+    <string name="set_changelog_title">What changed in this version</string>
+    <string name="set_changelog_version">Version %1$s</string>
+    <string name="set_changelog_ok">Got it</string>
+    <string name="set_changelog_body">1. Playback: added “long-track confirmation” — very long tracks ask for confirmation first, then one arithmetic problem\n2. Storage: added a storage file manager so music can be cached into a folder you choose\n3. Storage: added a custom cache limit with KB / MB / GB / TB\n4. Library: long-press a track in Recent to download it\n5. About: added the YZLiYin website link</string>
+
+    <!-- Link opening failure toast -->
+    <string name="set_no_browser_app">No app found that can open this link</string>
+</resources>

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 日本語。ここに無いキーは values/（中国語）へフォールバック。 -->
+<resources>
+    <!-- 一起听：会话/房间状态机器串映射后的展示文案 -->
+    <string name="ltm_display_host_offline">ホストがオフラインのため、ルームは約 %1$s 分後に自動で閉じます</string>
+    <string name="ltm_display_member_joined">%1$s がルームに参加しました</string>
+    <string name="ltm_display_member_left">%1$s がルームを離れました</string>
+    <string name="ltm_display_auth_failed">ルームの認証に失敗しました。ホストに再度招待してもらってください</string>
+    <string name="ltm_display_room_not_found">ルームは存在しないか、すでに終了しています</string>
+
+    <!--
+      LtMessages 里那批常量的**展示**译法。
+      常量本身保留中文不动：服务端/会话会把它们原样回传，listenTogetherDisplayMessage
+      要拿它们做 == 匹配（见 normalized == LtMessages... 两处）。这里只翻「匹配上之后显示什么」，
+      而输出只流向 ListenTogether 房间页的 Text()，不回写会话，所以不会反噬匹配。
+    -->
+    <string name="ltm_notice_controller_reconnected">ホストが再接続しました、同期が再開されました</string>
+    <string name="ltm_notice_controller_left">ホストが退出しました、ルームは終了しました</string>
+    <string name="ltm_notice_room_closed">ホストが長く戻らないため、ルームは自動的に終了しました</string>
+    <string name="ltm_err_controller_offline">ホストはオフラインです。再接続までお待ちください</string>
+    <string name="ltm_err_member_control_disabled">ホストがリスナーの操作を無効にしました</string>
+    <string name="ltm_err_reconnecting">一緒に聴くの接続が一時的に切れました。再接続中…</string>
+    <string name="ltm_err_rejoining">一緒に聴くの接続が無効になりました。ルームに再参加中…</string>
+
+    <!-- 播放器：取链/播放失败时展示在播放页的错误原因 -->
+    <string name="ply_err_netease_vip">この曲は NetEase Music の会員限定です。このアカウントでは再生できません</string>
+    <string name="ply_err_bili_stream">bilibili の音声ストリームを取得できませんでした（チャージ限定・地域制限・要ログインの可能性があります）</string>
+    <string name="ply_err_youtube_stream">YouTube の音声ストリームを取得できませんでした（ネットワークが YouTube に届かないか、ログインが必要かもしれません）</string>
+    <string name="ply_err_url_invalid">取得した再生リンクが無効です。この曲は配信権限がない可能性があります</string>
+    <string name="ply_err_all_sources_failed">このソースでは再生できず、ほかのソースにも同じ曲が見つかりませんでした</string>
+    <string name="ply_err_player_init">プレーヤーの初期化に失敗しました。もう一度お試しください</string>
+    <string name="ply_err_playback">再生に失敗しました（%1$s）</string>
+    <!-- 一起听：建房/入房参数校验错误（validation/ListenTogetherValidationError） -->
+    <string name="ltm_validate_join_secret_required">招待シークレットを空にはできません</string>
+    <string name="ltm_validate_join_secret_length">招待シークレットは %1$d 文字以下にしてください</string>
+    <string name="ltm_validate_nickname_length">ニックネームの長さは %1$d〜%2$d 文字にしてください</string>
+    <string name="ltm_validate_nickname_chars">ニックネームには漢字・英字・数字のみ使用できます</string>
+    <string name="ltm_validate_room_id_length">ルーム ID は %1$d 文字で入力してください</string>
+    <string name="ltm_validate_room_id_chars">ルーム ID には大文字と数字のみ使用できます</string>
+    <string name="ltm_validate_user_uuid_required">ユーザー UUID を空にはできません</string>
+    <string name="ltm_validate_user_uuid_invalid">ユーザー UUID の形式が無効です</string>
+    <string name="ltm_validate_current_track_missing">再生中の曲がないため、一緒に聴くルームを作成できません</string>
+    <string name="ltm_validate_current_track_not_shareable">共有できない曲は一緒に聴くルームを作成できません。オンライン曲に切り替えてください</string>
+    <string name="ltm_validate_current_track_unavailable">曲が再生キューにないため、一緒に聴くルームを作成できません</string>
+</resources>

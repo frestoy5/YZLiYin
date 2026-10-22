@@ -29,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
@@ -38,6 +39,7 @@ import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.ui.PlayerView
 import androidx.navigation.NavController
+import top.aryun.yzliyin.R
 import top.aryun.yzliyin.core.net.BiliApi
 import top.aryun.yzliyin.core.net.BiliVideoStreams
 import top.aryun.yzliyin.player.PlaybackService
@@ -79,7 +81,7 @@ fun BiliVideoScreen(
         PlayerController.pause()
         val result = runCatching { BiliApi.videoStreams(bvid, cid) }.getOrNull()
         if (result == null) {
-            error = "取不到这条投稿的播放地址（可能需要大会员、登录或地区限制）"
+            error = context.getString(R.string.bili_video_load_fail)
         } else {
             streams = result
         }
@@ -128,7 +130,7 @@ fun BiliVideoScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(error.orEmpty(), color = Color.White, modifier = Modifier.padding(horizontal = 32.dp))
-                TextButton(onClick = { retryTick++ }) { Text("重试") }
+                TextButton(onClick = { retryTick++ }) { Text(stringResource(R.string.bili_retry)) }
             }
 
             else -> AndroidView(
@@ -157,12 +159,12 @@ fun BiliVideoScreen(
             IconButton(onClick = onBack) {
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "返回",
+                    contentDescription = stringResource(R.string.bili_back),
                     tint = Color.White,
                 )
             }
             Text(
-                name.ifBlank { "哔哩哔哩投稿" },
+                name.ifBlank { stringResource(R.string.bili_video_title_fallback) },
                 color = Color.White,
                 maxLines = 1,
                 modifier = Modifier
@@ -175,7 +177,7 @@ fun BiliVideoScreen(
             }) {
                 Icon(
                     Icons.Outlined.ChatBubbleOutline,
-                    contentDescription = "评论",
+                    contentDescription = stringResource(R.string.bili_video_comment),
                     tint = Color.White,
                 )
             }

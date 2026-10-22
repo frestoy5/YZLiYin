@@ -46,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -55,6 +56,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
+import top.aryun.yzliyin.R
 import top.aryun.yzliyin.core.AppGraph
 import top.aryun.yzliyin.core.model.Playlist
 import top.aryun.yzliyin.core.model.Source
@@ -63,6 +65,7 @@ import top.aryun.yzliyin.core.net.KugouApi
 import top.aryun.yzliyin.core.net.NeteaseApi
 import top.aryun.yzliyin.ui.Routes
 import top.aryun.yzliyin.ui.components.SectionHeader
+import top.aryun.yzliyin.ui.components.labelText
 
 /**
  * 账号面板：三个数据源各一张账号卡片（登录态、昵称头像、登录/切换/退出）。
@@ -122,17 +125,19 @@ internal fun AccountsPane(nav: NavController) {
     ) {
         // ===== 网易云音乐 =====
         AccountCard(
-            title = "网易云音乐",
+            title = stringResource(R.string.min_netease_title),
             avatar = store.neteaseAvatar.takeIf { loggedIn && it.isNotEmpty() },
             name = store.neteaseName.takeIf { loggedIn && it.isNotEmpty() },
             loggedIn = loggedIn,
             statusText = {
                 if (loggedIn) {
-                    buildString {
-                        append(store.neteaseName.ifBlank { "已登录" })
-                        if (store.neteaseVip) append(" · 黑胶VIP") else append(" · 网易云账号")
-                    }
-                } else "未登录（登录后可同步歌单、播放会员歌曲）"
+                    stringResource(
+                        if (store.neteaseVip) R.string.min_netease_status_vip else R.string.min_netease_status,
+                        store.neteaseName.ifBlank { stringResource(R.string.min_logged_in) },
+                    )
+                } else {
+                    stringResource(R.string.min_netease_offline)
+                }
             },
             actions = {
                 if (loggedIn) {
@@ -141,12 +146,12 @@ internal fun AccountsPane(nav: NavController) {
                         loggedIn = false
                         refreshKey++
                         nav.navigate(Routes.login(Routes.LOGIN_NETEASE_WEB)) { launchSingleTop = true }
-                    }) { Text("切换账号") }
+                    }) { Text(stringResource(R.string.min_switch_account)) }
                     TextButton(onClick = {
                         NeteaseApi.logout()
                         loggedIn = false
                         refreshKey++
-                    }) { Text("退出", color = MaterialTheme.colorScheme.error) }
+                    }) { Text(stringResource(R.string.min_sign_out), color = MaterialTheme.colorScheme.error) }
                 } else {
                     Column(
                         Modifier.fillMaxWidth(),
@@ -155,14 +160,14 @@ internal fun AccountsPane(nav: NavController) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             FilledTonalButton(onClick = {
                                 nav.navigate(Routes.login(Routes.LOGIN_NETEASE_WEB)) { launchSingleTop = true }
-                            }) { Text("网页登录") }
+                            }) { Text(stringResource(R.string.min_web_login)) }
                             OutlinedButton(onClick = {
                                 nav.navigate(Routes.login(Routes.LOGIN_NETEASE_CAPTCHA)) { launchSingleTop = true }
-                            }) { Text("验证码") }
+                            }) { Text(stringResource(R.string.min_captcha)) }
                         }
                         TextButton(onClick = {
                             nav.navigate(Routes.login(Routes.LOGIN_NETEASE_QR)) { launchSingleTop = true }
-                        }) { Text("扫码登录") }
+                        }) { Text(stringResource(R.string.min_qr_login)) }
                     }
                 }
             },
@@ -170,14 +175,19 @@ internal fun AccountsPane(nav: NavController) {
 
         // ===== 酷狗音乐 =====
         AccountCard(
-            title = "酷狗音乐",
+            title = stringResource(R.string.min_kugou_title),
             avatar = kugouAvatar.takeIf { kugouLoggedIn && it.isNotEmpty() },
             name = kugouName.takeIf { kugouLoggedIn && it.isNotEmpty() },
             loggedIn = kugouLoggedIn,
             statusText = {
                 if (kugouLoggedIn) {
-                    kugouName.ifBlank { "已登录" } + " · 酷狗账号"
-                } else "未登录（登录后可同步「我喜欢」与歌单）"
+                    stringResource(
+                        R.string.min_kugou_status,
+                        kugouName.ifBlank { stringResource(R.string.min_logged_in) },
+                    )
+                } else {
+                    stringResource(R.string.min_kugou_offline)
+                }
             },
             actions = {
                 if (kugouLoggedIn) {
@@ -186,25 +196,30 @@ internal fun AccountsPane(nav: NavController) {
                         kugouLoggedIn = false
                         kugouName = ""
                         kugouAvatar = ""
-                    }) { Text("退出", color = MaterialTheme.colorScheme.error) }
+                    }) { Text(stringResource(R.string.min_sign_out), color = MaterialTheme.colorScheme.error) }
                 } else {
                     FilledTonalButton(onClick = {
                         nav.navigate(Routes.login(Routes.LOGIN_KUGOU_QR)) { launchSingleTop = true }
-                    }) { Text("扫码登录") }
+                    }) { Text(stringResource(R.string.min_qr_login)) }
                 }
             },
         )
 
         // ===== 哔哩哔哩 =====
         AccountCard(
-            title = "哔哩哔哩",
+            title = stringResource(R.string.min_bili_title),
             avatar = biliAvatar.takeIf { biliLoggedIn && it.isNotEmpty() },
             name = biliName.takeIf { biliLoggedIn && it.isNotEmpty() },
             loggedIn = biliLoggedIn,
             statusText = {
                 if (biliLoggedIn) {
-                    biliName.ifBlank { "已登录" } + " · 播放视频的音频轨"
-                } else "未登录（登录后可同步收藏夹与「我喜欢」）"
+                    stringResource(
+                        R.string.min_bili_status,
+                        biliName.ifBlank { stringResource(R.string.min_logged_in) },
+                    )
+                } else {
+                    stringResource(R.string.min_bili_offline)
+                }
             },
             actions = {
                 if (biliLoggedIn) {
@@ -213,11 +228,11 @@ internal fun AccountsPane(nav: NavController) {
                         biliLoggedIn = false
                         biliName = ""
                         biliAvatar = ""
-                    }) { Text("退出", color = MaterialTheme.colorScheme.error) }
+                    }) { Text(stringResource(R.string.min_sign_out), color = MaterialTheme.colorScheme.error) }
                 } else {
                     FilledTonalButton(onClick = {
                         nav.navigate(Routes.login(Routes.LOGIN_BILIBILI_QR)) { launchSingleTop = true }
-                    }) { Text("扫码登录") }
+                    }) { Text(stringResource(R.string.min_qr_login)) }
                 }
             },
         )
@@ -231,16 +246,16 @@ internal fun LazyListScope.likesEntry(
     nav: NavController,
 ) {
     item {
-        SectionHeader(title = "我喜欢")
+        SectionHeader(title = stringResource(R.string.min_likes))
         ListItem(
-            headlineContent = { Text(likes?.name ?: "我喜欢") },
+            headlineContent = { Text(likes?.name ?: stringResource(R.string.min_likes)) },
             supportingContent = {
                 Text(
                     when {
-                        likes == null && source == Source.KUGOU -> "未在酷狗账号里找到「我喜欢」歌单"
-                        likes == null -> "未找到可用的收藏夹"
-                        likes.songCount > 0 -> "${likes.songCount} 首"
-                        else -> source.label
+                        likes == null && source == Source.KUGOU -> stringResource(R.string.min_kugou_likes_missing)
+                        likes == null -> stringResource(R.string.min_no_folder)
+                        likes.songCount > 0 -> stringResource(R.string.min_song_count, likes.songCount)
+                        else -> source.labelText()
                     },
                 )
             },
@@ -311,7 +326,7 @@ internal fun PlaylistCard(p: Playlist, modifier: Modifier = Modifier, onClick: (
             overflow = TextOverflow.Ellipsis,
         )
         Text(
-            if (p.songCount > 0) "${p.songCount} 首" else p.author,
+            if (p.songCount > 0) stringResource(R.string.min_song_count, p.songCount) else p.author,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
@@ -326,7 +341,7 @@ private fun AccountCard(
     avatar: String?,
     name: String?,
     loggedIn: Boolean,
-    statusText: () -> String,
+    statusText: @Composable () -> String,
     actions: @Composable () -> Unit,
 ) {
     Card(

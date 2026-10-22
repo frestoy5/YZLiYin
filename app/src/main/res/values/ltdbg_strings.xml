@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ui/screen/ListenTogetherDebug.kt（一起听开发者调试面板）。
+  中文是默认语言，values-ja / values-en 各自覆盖。
+-->
+<resources>
+    <!-- 标题栏 -->
+    <string name="ltd_title">一起听调试</string>
+    <string name="ltd_back">返回</string>
+
+    <!-- 状态文案（连接 / 角色 / 房间状态） -->
+    <string name="ltd_conn_disconnected">未连接</string>
+    <string name="ltd_conn_connecting">连接中</string>
+    <string name="ltd_conn_connected">已连接</string>
+    <string name="ltd_role_host">房主</string>
+    <string name="ltd_role_listener">听众</string>
+    <string name="ltd_role_none">无角色</string>
+    <string name="ltd_role_unknown">未知角色</string>
+    <string name="ltd_room_status_offline">房主离线</string>
+    <string name="ltd_room_status_closed">已关闭</string>
+    <string name="ltd_room_status_active">正常</string>
+    <string name="ltd_room_status_none">未加入</string>
+    <string name="ltd_playing">播放中</string>
+    <string name="ltd_paused">暂停</string>
+    <string name="ltd_playback_state_local_playing">播放中（本地）</string>
+    <string name="ltd_playback_state_local_paused">已暂停（本地）</string>
+    <string name="ltd_playback_state_room_playing">播放中（房间）</string>
+    <string name="ltd_playback_state_room_paused">已暂停（房间）</string>
+
+    <!-- 头部状态 -->
+    <string name="ltd_section_status">头部状态</string>
+    <string name="ltd_room_hash">房间 #%1$s</string>
+    <string name="ltd_not_in_room">未加入房间</string>
+    <string name="ltd_room_version">版本 v%1$s</string>
+
+    <!-- 快捷动作 -->
+    <string name="ltd_section_quick_actions">快捷动作</string>
+    <string name="ltd_action_testing_server">正在测服务端可达性</string>
+    <string name="ltd_server_reachable">服务端可达：%1$s</string>
+    <string name="ltd_server_unreachable">服务端不可达：%1$s</string>
+    <string name="ltd_btn_test_server">测服务端可达性</string>
+    <string name="ltd_ping_sent">ping 已发送</string>
+    <string name="ltd_ping_send_fail">ping 发送失败（WS 未连接）</string>
+    <string name="ltd_ws_requested">已请求连接 WebSocket</string>
+    <string name="ltd_btn_connect_ws">连接 WS</string>
+    <string name="ltd_ws_disconnected">已断开 WebSocket</string>
+    <string name="ltd_btn_disconnect_ws">断开 WS</string>
+    <string name="ltd_ws_url_empty">WS 地址为空</string>
+    <string name="ltd_ws_url">WS 地址</string>
+    <string name="ltd_ws_url_copied">已复制 WS 地址</string>
+    <string name="ltd_btn_copy_ws_url">复制 WS 地址</string>
+
+    <!-- 房间动作 -->
+    <string name="ltd_section_connected_actions">已连接动作</string>
+    <string name="ltd_section_room_actions">房间动作</string>
+    <string name="ltd_create_room_queue_note">创建房间需要当前队列快照</string>
+    <string name="ltd_create_room_queue_value">队列 %1$s 首 · 当前下标 %2$s</string>
+    <string name="ltd_action_creating_room">正在创建房间并连接</string>
+    <string name="ltd_room_created">房间已创建：%1$s</string>
+    <string name="ltd_btn_create_and_connect">创建并连接</string>
+    <string name="ltd_action_parsing_invite">正在解析邀请并加入</string>
+    <string name="ltd_no_valid_invite_in_clipboard">剪贴板里没有有效的一起听邀请链接</string>
+    <string name="ltd_room_joined">已加入房间：%1$s</string>
+    <string name="ltd_btn_paste_invite_join">粘贴邀请并加入</string>
+    <string name="ltd_action_refreshing_room">正在刷新房间状态</string>
+    <string name="ltd_no_room_now">当前没有房间</string>
+    <string name="ltd_room_state_refreshed">房间状态已刷新：ok=%1$s，version=%2$s</string>
+    <string name="ltd_btn_refresh_room">刷新房间状态</string>
+    <string name="ltd_left_room">已离开房间</string>
+    <string name="ltd_btn_leave_room">离开房间</string>
+    <string name="ltd_send_test_event">发送测试事件</string>
+    <string name="ltd_heartbeat_ws_sent">心跳已通过 WS 发送</string>
+    <string name="ltd_ws_not_connected_send_fail">WS 未连接，发送失败</string>
+    <string name="ltd_btn_heartbeat_ws">心跳 → WS</string>
+    <string name="ltd_action_sending_http_heartbeat">正在通过 HTTP 发送心跳</string>
+    <string name="ltd_heartbeat_http_sent">心跳已通过 HTTP 发送</string>
+    <string name="ltd_heartbeat_http_fail">HTTP 心跳失败：%1$s</string>
+    <string name="ltd_btn_heartbeat_http">心跳 → HTTP</string>
+    <string name="ltd_track_missing_stable_key">当前曲目缺少 stableKey</string>
+    <string name="ltd_play_link_requested">已请求播放链接（forceRefresh）</string>
+    <string name="ltd_btn_request_play_link_ws">请求播放链接 → WS</string>
+
+    <!-- 邀请与分享 -->
+    <string name="ltd_section_invite_share">邀请与分享</string>
+    <string name="ltd_not_in_room_no_invite">未加入房间，没有可分享的邀请信息</string>
+    <string name="ltd_invite_link_unavailable_toast">邀请链接不可用（缺少房间号或密钥）</string>
+    <string name="ltd_invite_link">邀请链接</string>
+    <string name="ltd_invite_link_copied">已复制邀请链接</string>
+    <string name="ltd_btn_copy_invite_link">复制邀请链接</string>
+    <string name="ltd_invite_secret">邀请密钥</string>
+    <string name="ltd_invite_secret_copied">已复制邀请密钥</string>
+    <string name="ltd_btn_copy_invite_secret">复制邀请密钥</string>
+    <string name="ltd_room_id">房间号</string>
+    <string name="ltd_room_id_copied">已复制房间号</string>
+    <string name="ltd_btn_copy_room_id">复制房间号</string>
+    <string name="ltd_friend">听友</string>
+    <string name="ltd_share_text">%1$s 邀请你一起听（房间 %2$s）</string>
+    <string name="ltd_invite_label">一起听邀请</string>
+    <string name="ltd_share_text_copied">已复制分享文案</string>
+    <string name="ltd_btn_copy_share_text">复制分享文案</string>
+    <string name="ltd_btn_parse_invite">粘贴解析邀请</string>
+    <string name="ltd_invite_parse_room">解析成功：房间 %1$s</string>
+    <string name="ltd_invite_parse_inviter">，邀请人 %1$s</string>
+    <string name="ltd_invite_parse_server">，服务端 %1$s</string>
+    <string name="ltd_invite_parse_default">默认</string>
+    <string name="ltd_invite_parse_bad_base_url">（baseUrl 非法，已忽略）</string>
+    <string name="ltd_invite_link_unavailable">邀请链接不可用</string>
+
+    <!-- 房间设置 -->
+    <string name="ltd_section_room_settings">房间设置</string>
+    <string name="ltd_settings_host_note">房主可修改，改动会立即同步到房间</string>
+    <string name="ltd_settings_host_only_note">仅房主可修改房间设置</string>
+    <string name="ltd_settings_local_default_note">未加入房间：这里保存的是建房默认设置</string>
+    <string name="ltd_allow_member_control_title">允许听众控制播放</string>
+    <string name="ltd_allow_member_control_desc">关闭后听众只能跟随房主播放</string>
+    <string name="ltd_auto_pause_title">成员变动自动暂停</string>
+    <string name="ltd_auto_pause_desc">有成员加入或离开时自动暂停本地播放</string>
+    <string name="ltd_share_audio_links_title">分享音频链接</string>
+    <string name="ltd_share_audio_links_desc">分享可直连的音频地址，减少听众端二次取链</string>
+    <string name="ltd_settings_saved_local">本地默认设置已保存</string>
+    <string name="ltd_btn_save_local_default">保存为本地默认</string>
+    <string name="ltd_btn_sync_to_room">同步到房间</string>
+    <string name="ltd_updating_room_settings">正在更新房间设置</string>
+    <string name="ltd_room_settings_updated">房间设置已更新</string>
+    <string name="ltd_room_settings_update_fail">房间设置更新失败：%1$s</string>
+    <string name="ltd_room_settings_summary">房间当前设置：允许听众控制=%1$s，成员变动暂停=%2$s，分享音频链接=%3$s</string>
+    <string name="ltd_websocket_not_connected">websocket 未连接</string>
+
+    <!-- 本地身份与服务器 -->
+    <string name="ltd_section_identity_server">本地身份与服务器</string>
+    <string name="ltd_server_url_label">服务端地址（留空用默认）</string>
+    <string name="ltd_effective_base_url">实际生效：%1$s</string>
+    <string name="ltd_nickname">昵称</string>
+    <string name="ltd_identity_uuid">身份 UUID</string>
+    <string name="ltd_identity_server_saved">本地身份与服务器设置已保存</string>
+    <string name="ltd_btn_save_locally">保存到本地</string>
+    <string name="ltd_leave_room_to_reset_identity">需要先离开房间才能重置身份</string>
+    <string name="ltd_identity_uuid_reset">已重置身份 UUID</string>
+    <string name="ltd_btn_reset_identity_uuid">重置身份 UUID</string>
+    <string name="ltd_default">默认</string>
+    <string name="ltd_saved_summary">已保存：服务端=%1$s，昵称=%2$s，UUID=%3$s</string>
+
+    <!-- 会话状态 -->
+    <string name="ltd_section_session_state">会话状态</string>
+    <string name="ltd_field_connection_state">连接状态</string>
+    <string name="ltd_field_role">角色</string>
+    <string name="ltd_field_room_status">房间状态</string>
+    <string name="ltd_field_version">版本</string>
+    <string name="ltd_field_member_count">成员数</string>
+    <string name="ltd_field_queue_length">队列长度</string>
+    <string name="ltd_field_playback_state">播放状态</string>
+    <string name="ltd_recent_error">最近错误</string>
+    <string name="ltd_room_notice">房间通知</string>
+    <string name="ltd_field_current_track">当前曲目</string>
+    <string name="ltd_field_effective_server">生效服务端</string>
+    <string name="ltd_field_session_nickname">会话昵称</string>
+
+    <!-- 当前曲目 payload -->
+    <string name="ltd_section_current_track_payload">当前曲目（房间 payload）</string>
+    <string name="ltd_field_title">曲名</string>
+    <string name="ltd_field_artist">歌手</string>
+    <string name="ltd_field_album">专辑</string>
+    <string name="ltd_field_duration">时长</string>
+    <string name="ltd_field_stream_urls_count">streamUrls 数量</string>
+    <string name="ltd_field_local_playback">本地正在播放</string>
+
+    <!-- 成员列表 -->
+    <string name="ltd_section_members">成员列表</string>
+    <string name="ltd_no_members">暂无成员</string>
+    <string name="ltd_field_total_members">成员总数</string>
+    <string name="ltd_member_debug_line">角色=%1$s · userId=%2$s · uuid=%3$s · 加入于 %4$s</string>
+
+    <!-- 队列 -->
+    <string name="ltd_section_queue">队列</string>
+    <string name="ltd_queue_count_local">%1$s（本地）</string>
+    <string name="ltd_queue_local_note">未加入房间。本地队列 %1$s 首，当前下标 %2$s，创建房间时会作为初始队列上传。</string>
+    <string name="ltd_room_queue_empty">房间队列为空</string>
+    <string name="ltd_current_track_line">当前曲目 · %1$s · %2$s</string>
+    <string name="ltd_queue_more">还有 %1$s 首，展开查看全部</string>
+
+    <!-- JSON 快照 -->
+    <string name="ltd_section_json_snapshot">JSON 快照</string>
+    <string name="ltd_debug_snapshot_label">一起听调试快照</string>
+    <string name="ltd_snapshot_copied">已复制 JSON 快照</string>
+    <string name="ltd_btn_copy_snapshot">复制快照</string>
+    <string name="ltd_snapshot_hint">展开查看 session / room / local / playback 的完整 JSON</string>
+
+    <!-- 折叠区块与复制 -->
+    <string name="ltd_collapse">收起</string>
+    <string name="ltd_expand">展开</string>
+    <string name="ltd_copy_empty">%1$s 为空</string>
+</resources>

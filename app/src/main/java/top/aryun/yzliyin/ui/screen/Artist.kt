@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -46,6 +47,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
+import top.aryun.yzliyin.R
 import top.aryun.yzliyin.core.model.Album
 import top.aryun.yzliyin.core.model.Artist
 import top.aryun.yzliyin.core.model.Song
@@ -69,16 +71,16 @@ fun ArtistScreen(nav: NavController, id: String) {
 
     LaunchedEffect(id) {
         if (id.isBlank()) {
-            error = "缺少歌手 ID"
+            error = context.getString(R.string.art_missing_id)
             return@LaunchedEffect
         }
         artist = runCatching { NeteaseApi.artistDetail(id) }.getOrNull()
         runCatching { NeteaseApi.artistSongs(id, page = 1, pageSize = 50) }
             .onSuccess { songs = it.items }
-            .onFailure { error = it.message ?: "加载歌曲失败" }
+            .onFailure { error = it.message ?: context.getString(R.string.art_load_songs_fail) }
         runCatching { NeteaseApi.artistAlbums(id, page = 1, pageSize = 30) }
             .onSuccess { albums = it.items }
-            .onFailure { error = it.message ?: "加载专辑失败" }
+            .onFailure { error = it.message ?: context.getString(R.string.art_load_albums_fail) }
     }
 
     fun play(index: Int) {
@@ -89,28 +91,29 @@ fun ArtistScreen(nav: NavController, id: String) {
         TopAppBar(
             title = {
                 Text(
-                    artist?.name?.ifBlank { "歌手" } ?: "歌手",
+                    artist?.name?.ifBlank { stringResource(R.string.art_fallback_title) }
+                        ?: stringResource(R.string.art_fallback_title),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             },
             navigationIcon = {
                 IconButton(onClick = { nav.popBackStack() }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.art_back))
                 }
             },
             actions = {
                 if (songs.isNotEmpty()) {
                     IconButton(onClick = { play(0) }) {
-                        Icon(Icons.Filled.PlayArrow, contentDescription = "播放全部")
+                        Icon(Icons.Filled.PlayArrow, contentDescription = stringResource(R.string.art_play_all))
                     }
                 }
             },
         )
 
         PrimaryTabRow(selectedTabIndex = tab) {
-            Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("热门歌曲") })
-            Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("专辑 ${albums.size}") })
+            Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text(stringResource(R.string.art_tab_songs)) })
+            Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text(stringResource(R.string.art_tab_albums, albums.size)) })
         }
 
         LazyColumn(
@@ -142,7 +145,7 @@ fun ArtistScreen(nav: NavController, id: String) {
                                     fontWeight = FontWeight.Bold,
                                 )
                                 Text(
-                                    "单曲 ${a.songCount} · 专辑 ${a.albumCount}",
+                                    stringResource(R.string.art_meta, a.songCount, a.albumCount),
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -174,7 +177,7 @@ fun ArtistScreen(nav: NavController, id: String) {
                 if (songs.isEmpty() && error == null) {
                     item {
                         Text(
-                            "暂无歌曲",
+                            stringResource(R.string.art_no_songs),
                             Modifier.padding(24.dp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -210,7 +213,10 @@ fun ArtistScreen(nav: NavController, id: String) {
                             Text(
                                 buildString {
                                     if (album.publishDate.isNotEmpty()) append(album.publishDate)
-                                    if (album.songCount > 0) append(" · ${album.songCount} 首")
+                                    if (album.songCount > 0) {
+                                        append(" · ")
+                                        append(stringResource(R.string.art_count_unit, album.songCount))
+                                    }
                                 },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -221,7 +227,7 @@ fun ArtistScreen(nav: NavController, id: String) {
                 if (albums.isEmpty()) {
                     item {
                         Text(
-                            "暂无专辑",
+                            stringResource(R.string.art_no_albums),
                             Modifier.padding(24.dp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

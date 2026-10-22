@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English. Any key missing here falls back to Chinese (values/) rather than showing blank. -->
+<resources>
+    <!-- Page header -->
+    <string name="lt_back">Back</string>
+    <string name="lt_title">Listen Together</string>
+    <string name="lt_debug">Debug</string>
+    <string name="lt_op_failed">Something went wrong</string>
+
+    <!-- Server -->
+    <string name="lt_server">Server</string>
+    <string name="lt_server_default">Using the default server: %1$s</string>
+    <string name="lt_server_custom">Using a custom server: %1$s</string>
+    <string name="lt_server_url_label">Custom server URL</string>
+    <string name="lt_test_server">Test server</string>
+    <string name="lt_save">Save</string>
+    <string name="lt_server_reset">Restored the default server</string>
+    <string name="lt_server_saved">Server address saved</string>
+
+    <!-- Identity (nickname, UUID) -->
+    <string name="lt_identity">Identity</string>
+    <string name="lt_nickname">Nickname</string>
+    <string name="lt_invite_default_nickname">Listener%1$s</string>
+    <string name="lt_identity_uuid">Identity UUID: %1$s…</string>
+    <string name="lt_not_generated">Not generated yet</string>
+    <string name="lt_save_nickname">Save nickname</string>
+    <string name="lt_nickname_saved">Nickname saved</string>
+    <string name="lt_leave_to_reset">Leave the room before resetting your identity</string>
+    <string name="lt_reset_identity">Reset identity UUID</string>
+    <string name="lt_reset_identity_message">Resetting invalidates your current identity UUID and replaces it with a new one. Continue?</string>
+    <string name="lt_reset">Reset</string>
+    <string name="lt_cancel">Cancel</string>
+    <string name="lt_identity_reset_done">Identity UUID reset</string>
+
+    <!-- Top tip bar / toasts -->
+    <string name="lt_left_room">You left the room</string>
+    <string name="lt_room_updated">Room settings updated</string>
+    <string name="lt_room_update_failed">Could not update settings</string>
+    <string name="lt_clipboard_no_invite">No valid invite found on the clipboard</string>
+
+    <!-- Create / join results -->
+    <string name="lt_create_room_failed">Could not create the room</string>
+    <string name="lt_room_created">Room %1$s created</string>
+    <string name="lt_join_room_failed">Could not join the room</string>
+    <string name="lt_room_joined">Joined room %1$s</string>
+    <string name="lt_invite_url_invalid">The invite has an invalid server URL — configure one manually, then join</string>
+
+    <!-- Room info -->
+    <string name="lt_room">Room</string>
+    <string name="lt_room_id">Room ID</string>
+    <string name="lt_role">Role</string>
+    <string name="lt_role_host">Host</string>
+    <string name="lt_role_listener">Listener</string>
+    <string name="lt_connection_state">Connection</string>
+    <string name="lt_connected">Connected</string>
+    <string name="lt_connecting">Connecting</string>
+    <string name="lt_disconnected">Not connected</string>
+    <string name="lt_room_status">Room status</string>
+    <string name="lt_status_active">Active</string>
+    <string name="lt_status_host_offline">Host offline</string>
+    <string name="lt_status_closed">Closed</string>
+    <string name="lt_member_count">Members</string>
+    <string name="lt_queue_count">Queue size</string>
+    <string name="lt_current_song">Now playing</string>
+    <string name="lt_artist">Artist</string>
+    <string name="lt_playback_state">Playback</string>
+    <string name="lt_playing">Playing</string>
+    <string name="lt_paused">Paused</string>
+    <string name="lt_close_reason">Close reason</string>
+
+    <!-- Room action buttons -->
+    <string name="lt_copy_invite">Copy invite</string>
+    <string name="lt_copy_secret">Copy key</string>
+    <string name="lt_leave_room">Leave room</string>
+
+    <!-- Room setting switches -->
+    <string name="lt_room_settings">Room settings</string>
+    <string name="lt_allow_member_control">Allow member control</string>
+    <string name="lt_allow_member_control_desc">When off, listeners cannot pause, skip, or seek</string>
+    <string name="lt_allow_member_control_desc_create">Listeners can pause, skip, and seek (the host must allow syncing)</string>
+    <string name="lt_auto_pause">Auto-pause on member change</string>
+    <string name="lt_auto_pause_desc">Pauses automatically when someone joins or leaves</string>
+    <string name="lt_share_audio_links">Share resolved audio links</string>
+    <string name="lt_share_audio_links_desc">Listeners can play links the host resolved without finding their own source</string>
+
+    <!-- Members and queue -->
+    <string name="lt_members">Members</string>
+    <string name="lt_me">Me</string>
+    <string name="lt_queue">Queue</string>
+    <string name="lt_queue_more">… %1$s more tracks not shown</string>
+
+    <!-- Create room -->
+    <string name="lt_create_room">Create room</string>
+    <string name="lt_create_room_empty">No queue yet — play a song before creating a room</string>
+    <string name="lt_create_room_hint">Create a room from the current queue (%1$s tracks, track %2$s is now playing)</string>
+    <string name="lt_host_can_copy_invite">The host can copy the invite and share it with friends</string>
+
+    <!-- Join room -->
+    <string name="lt_join_room">Join room</string>
+    <string name="lt_room_id_label">Room ID</string>
+    <string name="lt_room_id_hint">6 alphanumeric characters</string>
+    <string name="lt_invite_secret">Invite key</string>
+    <string name="lt_paste_invite">Paste invite to join</string>
+
+    <!-- Clipboard copy -->
+    <string name="lt_invite_info">Invite</string>
+    <string name="lt_copy_empty">%1$s is empty</string>
+    <string name="lt_copy_done">%1$s copied</string>
+</resources>

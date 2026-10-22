@@ -1,9 +1,15 @@
 package top.aryun.yzliyin.listentogether
 
+import top.aryun.yzliyin.R
+import top.aryun.yzliyin.util.AppLocale
+
 /**
- * 把会话/房间状态里的机器串（roomNotice / lastError）映射成面向用户的中文文案。
+ * 把会话/房间状态里的机器串（roomNotice / lastError）映射成面向用户的文案（随界面语言切换）。
  *
- * 上游用 R.string/plurals 实现同样的映射；音之理音不做多语言，文案集中在 [LtMessages]。
+ * ⚠ **左侧的匹配必须继续用中文**：服务端与会话会把 [LtMessages] 的常量原样回传，
+ * `normalized == LtMessages...` 靠的就是那份字节，改成资源会直接让匹配失效。
+ * 所以本函数只把「匹配上之后显示什么」换成资源，匹配条件一律不动。
+ * 输出只流向 ListenTogether 房间页的 `Text()`、不回写会话状态，因此本地化不会反噬匹配。
  */
 fun listenTogetherDisplayMessage(raw: String?): String? {
     val normalized = raw?.trim().orEmpty()
@@ -17,43 +23,45 @@ fun listenTogetherDisplayMessage(raw: String?): String? {
                 ?.coerceAtMost(Int.MAX_VALUE.toLong())
                 ?.toInt()
                 ?: 10
-            "房主已离线，房间将在约 $minutes 分钟后自动关闭"
+            AppLocale.string(R.string.ltm_display_host_offline, minutes)
         }
 
         normalized.startsWith("member_joined:") ->
-            "${normalized.substringAfter(':')} 加入了房间"
+            AppLocale.string(R.string.ltm_display_member_joined, normalized.substringAfter(':'))
 
         normalized.startsWith("member_left:") ->
-            "${normalized.substringAfter(':')} 离开了房间"
+            AppLocale.string(R.string.ltm_display_member_left, normalized.substringAfter(':'))
 
         normalized == "controller_reconnected" ->
-            LtMessages.listen_together_notice_controller_reconnected
+            AppLocale.string(R.string.ltm_notice_controller_reconnected)
 
         normalized.equals("controller_left", ignoreCase = true) ->
-            LtMessages.listen_together_notice_controller_left
+            AppLocale.string(R.string.ltm_notice_controller_left)
 
         normalized == "controller_timeout" || normalized == "room_closed" || "room closed" in lowered ->
-            LtMessages.listen_together_notice_room_closed
+            AppLocale.string(R.string.ltm_notice_room_closed)
 
         "unauthorized" in lowered || "http=401" in lowered || "(401)" in lowered ->
-            "房间鉴权失败，请让房主重新邀请"
+            AppLocale.string(R.string.ltm_display_auth_failed)
 
         "room not initialized" in lowered || "not found in do" in lowered ->
-            "房间不存在或已结束"
+            AppLocale.string(R.string.ltm_display_room_not_found)
 
         "controller offline" in lowered ->
-            LtMessages.listen_together_error_controller_offline
+            AppLocale.string(R.string.ltm_err_controller_offline)
 
         "member control disabled" in lowered ->
-            LtMessages.listen_together_error_member_control_disabled
+            AppLocale.string(R.string.ltm_err_member_control_disabled)
 
+        // ⚠ 左侧拿中文常量做 == 是**故意**的：会话把它们原样回传，字节必须对得上；
+        //   只有右侧「匹配上之后显示什么」换成资源。
         normalized == LtMessages.listen_together_error_reconnecting ||
             ("listen together" in lowered && "reconnect" in lowered) ->
-            LtMessages.listen_together_error_reconnecting
+            AppLocale.string(R.string.ltm_err_reconnecting)
 
         normalized == LtMessages.listen_together_error_rejoining ||
             ("rejoin" in lowered && "room" in lowered) ->
-            LtMessages.listen_together_error_rejoining
+            AppLocale.string(R.string.ltm_err_rejoining)
 
         else -> normalized
     }

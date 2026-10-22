@@ -18,6 +18,7 @@ import androidx.media3.session.SessionResult
 import top.aryun.yzliyin.core.AppGraph
 import top.aryun.yzliyin.core.model.Source
 import top.aryun.yzliyin.util.NPLogger
+import top.aryun.yzliyin.youtube.platform.isYouTubeGoogleVideoHost
 
 /**
  * 播放服务（Media3 MediaSessionService）。
@@ -44,10 +45,14 @@ class PlaybackService : MediaSessionService() {
             DefaultDataSource.Factory(this),
         ) { spec ->
             val host = spec.uri.host.orEmpty()
-            if (BILI_CDN_HOSTS.any { host.endsWith(it) }) {
-                spec.withRequestHeaders(BILI_REQUEST_HEADERS)
-            } else {
-                spec
+            when {
+                BILI_CDN_HOSTS.any { host.endsWith(it) } ->
+                    spec.withRequestHeaders(BILI_REQUEST_HEADERS)
+
+                isYouTubeGoogleVideoHost(host) ->
+                    spec.withRequestHeaders(YOUTUBE_REQUEST_HEADERS)
+
+                else -> spec
             }
         }
 
@@ -187,6 +192,17 @@ class PlaybackService : MediaSessionService() {
             "Referer" to "https://www.bilibili.com",
             "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
                 "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        )
+
+        /**
+         * YouTube googlevideo CDN 的请求头。
+         * 直链本身已带签名参数，这里补浏览器 UA 与 Origin/Referer 即可（与移植栈的 stream 头一致）。
+         */
+        val YOUTUBE_REQUEST_HEADERS = mapOf(
+            "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Origin" to "https://www.youtube.com",
+            "Referer" to "https://www.youtube.com/",
         )
     }
 }

@@ -4,6 +4,8 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -36,6 +38,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -53,8 +56,10 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.navigation.NavController
@@ -66,14 +71,19 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import top.aryun.yzliyin.R
 import top.aryun.yzliyin.core.AppGraph
 import top.aryun.yzliyin.core.net.BiliApi
 import top.aryun.yzliyin.core.net.KugouApi
 import top.aryun.yzliyin.core.net.NeteaseApi
 import top.aryun.yzliyin.core.net.NeteaseQrLoginClient
 import top.aryun.yzliyin.core.net.NeteaseQrLoginSession
+import top.aryun.yzliyin.core.net.YouTubeApi
 import top.aryun.yzliyin.core.model.QrStatus
 import top.aryun.yzliyin.ui.Routes
+import top.aryun.yzliyin.youtube.auth.YouTubeAuthBundle
+import top.aryun.yzliyin.youtube.auth.YouTubeCookieSupport
+import top.aryun.yzliyin.youtube.auth.parseYouTubeAuthBundleFromRaw
 
 /**
  * 登录页：按 method 路由。
@@ -92,18 +102,19 @@ fun LoginScreen(nav: NavController, method: String = Routes.LOGIN_NETEASE_WEB) {
             title = {
                 Text(
                     when (method) {
-                        Routes.LOGIN_NETEASE_CAPTCHA -> "验证码登录"
-                        Routes.LOGIN_NETEASE_WEB -> "网易云登录"
-                        Routes.LOGIN_KUGOU_QR -> "酷狗登录"
-                        Routes.LOGIN_BILIBILI_QR -> "B 站登录"
-                        else -> "扫码登录"
+                        Routes.LOGIN_NETEASE_CAPTCHA -> stringResource(R.string.lgn_title_captcha)
+                        Routes.LOGIN_NETEASE_WEB -> stringResource(R.string.lgn_title_netease)
+                        Routes.LOGIN_KUGOU_QR -> stringResource(R.string.lgn_title_kugou)
+                        Routes.LOGIN_BILIBILI_QR -> stringResource(R.string.lgn_title_bili)
+                        Routes.LOGIN_YOUTUBE_WEB -> stringResource(R.string.lgn_title_youtube)
+                        else -> stringResource(R.string.lgn_title_qr)
                     },
                     fontWeight = FontWeight.Bold,
                 )
             },
             navigationIcon = {
                 IconButton(onClick = { nav.popBackStack() }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.lgn_back))
                 }
             },
         )
@@ -113,6 +124,7 @@ fun LoginScreen(nav: NavController, method: String = Routes.LOGIN_NETEASE_WEB) {
             Routes.LOGIN_NETEASE_CAPTCHA -> NeteaseCaptchaLoginContent(onDone = { nav.popBackStack() })
             Routes.LOGIN_KUGOU_QR -> KugouQrLoginContent(onDone = { nav.popBackStack() })
             Routes.LOGIN_BILIBILI_QR -> BiliQrLoginContent(onDone = { nav.popBackStack() })
+            Routes.LOGIN_YOUTUBE_WEB -> YouTubeLoginContent(nav)
             else -> NeteaseQrLoginContent(onDone = { nav.popBackStack() })
         }
     }
@@ -139,13 +151,291 @@ private fun NeteaseWebLoginContent(nav: NavController) {
         clearKeys = listOf("MUSIC_U", "__csrf", "__remember_me"),
         requiredKey = "MUSIC_U",
         desktopUa = true,
-        hint = "请在下方页面完成网易云音乐登录",
+        hint = stringResource(R.string.lgn_netease_web_hint),
         onSave = { cookies ->
             AppGraph.store.saveNeteaseCookies(cookies)
             NeteaseApi.syncCookies()
             runCatching { NeteaseApi.refreshAccount() }
         },
     )
+}
+
+// ================= 网页登录（YouTube / Google 账号） =================
+
+private const val YOUTUBE_LOGIN_URL =
+    "https://accounts.google.com/ServiceLogin?service=youtube&continue=https%3A%2F%2Fmusic.youtube.com%2F"
+/** 「电脑模式」用的桌面 Chrome UA（页面渲染成桌面版，排版与电脑一致）。 */
+private const val YOUTUBE_DESKTOP_UA =
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) " +
+        "Chrome/124.0.0.0 Safari/537.36"
+private val YOUTUBE_COOKIE_URLS = listOf(
+    "https://music.youtube.com",
+    "https://www.youtube.com",
+    "https://accounts.google.com",
+)
+
+/**
+ * YouTube 登录（网页兜底）：WebView 打开 Google 登录页，轮询 CookieManager 里的身份 Cookie
+ * （SAPISID / __Secure-3PAPISID 等，判定复用移植栈的 [YouTubeCookieSupport.isLoggedIn]），
+ * 命中即组装 [YouTubeAuthBundle] 存进加密仓库。
+ *
+ * 右上角工具条提供：**电脑模式**（切桌面 Chrome UA 按桌面版渲染，页面卡住/排版不适时用）、
+ * **刷新**（重载当前页）、**粘贴 Cookie**（WebView 被 Google 拒绝时，把浏览器里
+ * music.youtube.com 的请求 Cookie 整段贴进来兜底）。
+ */
+@Composable
+private fun YouTubeLoginContent(nav: NavController) {
+    val context = LocalContext.current
+    val holder = remember { arrayOfNulls<WebView>(1) }
+    var loading by remember { mutableStateOf(true) }
+    var progress by remember { mutableIntStateOf(0) }
+    // ⚠ remember 的 lambda 不是 @Composable 上下文，stringResource 必须在外面解析好再喂进去
+    val googleWebHint = stringResource(R.string.lgn_google_web_hint)
+    var status by remember { mutableStateOf(googleWebHint) }
+    var done by remember { mutableStateOf(false) }
+    var pasteMode by remember { mutableStateOf(false) }
+    var pasteText by remember { mutableStateOf("") }
+    var pasteError by remember { mutableStateOf<String?>(null) }
+    /** 电脑模式：把 WebView UA 换成桌面 Chrome，页面按桌面版渲染。 */
+    var desktopMode by remember { mutableStateOf(false) }
+    /** 保存是否真的成功（saveAuth 后回读校验，避免「页面登录了但落盘失败」时空报成功）。 */
+    var saveOk by remember { mutableStateOf(false) }
+    /** WebView 的出厂 UA（退出电脑模式时还原用）。 */
+    val defaultUaHolder = remember { arrayOf("") }
+
+    fun readCookies(): Map<String, String> {
+        val cm = CookieManager.getInstance()
+        val out = linkedMapOf<String, String>()
+        YOUTUBE_COOKIE_URLS.forEach { url ->
+            cm.getCookie(url)?.split(";")?.forEach { pair ->
+                val i = pair.indexOf('=')
+                if (i > 0) out[pair.substring(0, i).trim()] = pair.substring(i + 1).trim()
+            }
+        }
+        return out
+    }
+
+    Column(Modifier.fillMaxSize()) {
+        if (pasteMode) {
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    stringResource(R.string.lgn_paste_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = pasteText,
+                    onValueChange = {
+                        pasteText = it
+                        pasteError = null
+                    },
+                    placeholder = { Text("SAPISID=...; __Secure-3PAPISID=...; ...") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(180.dp),
+                )
+                pasteError?.let {
+                    Text(
+                        it,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedButton(onClick = { pasteMode = false }) { Text(stringResource(R.string.lgn_back_to_web)) }
+                    Button(
+                        onClick = {
+                            val bundle = parseYouTubeAuthBundleFromRaw(pasteText.trim())
+                            if (bundle != null && bundle.hasLoginCookies()) {
+                                YouTubeApi.saveAuth(bundle.normalized(savedAt = System.currentTimeMillis()))
+                                if (YouTubeApi.isLoggedIn()) {
+                                    status = context.getString(R.string.lgn_login_success_syncing)
+                                    saveOk = true
+                                    done = true
+                                } else {
+                                    pasteError = context.getString(R.string.lgn_paste_save_fail)
+                                }
+                            } else {
+                                pasteError = context.getString(R.string.lgn_paste_invalid)
+                            }
+                        },
+                    ) { Text(stringResource(R.string.lgn_sign_in)) }
+                }
+            }
+        } else {
+            // 右上角工具条：状态提示 + 电脑模式 + 刷新 + 粘贴 Cookie 兜底
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    status,
+                    Modifier
+                        .weight(1f)
+                        .padding(start = 12.dp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                TextButton(onClick = {
+                    desktopMode = !desktopMode
+                    holder[0]?.settings?.let { s ->
+                        s.userAgentString =
+                            if (desktopMode) YOUTUBE_DESKTOP_UA
+                            else defaultUaHolder[0].ifBlank { null }
+                    }
+                    holder[0]?.reload()
+                }) {
+                    Text(
+                        if (desktopMode) stringResource(R.string.lgn_desktop_mode_off)
+                        else stringResource(R.string.lgn_desktop_mode),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (desktopMode) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                IconButton(onClick = { holder[0]?.reload() }) {
+                    Icon(
+                        Icons.Filled.Refresh,
+                        contentDescription = stringResource(R.string.lgn_refresh),
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+                TextButton(onClick = { pasteMode = true }) {
+                    Text(stringResource(R.string.lgn_paste_cookie), style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            if (loading) {
+                LinearProgressIndicator(
+                    progress = { progress / 100f },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            Box(
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+            ) {
+                AndroidView(
+                    factory = { ctx ->
+                        WebView(ctx).apply {
+                            holder[0] = this
+                            defaultUaHolder[0] = settings.userAgentString.orEmpty()
+                            settings.apply {
+                                javaScriptEnabled = true
+                                domStorageEnabled = true
+                                mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+                                useWideViewPort = true
+                                loadWithOverviewMode = true
+                                // 保持默认移动 Chrome UA：Google 会拒绝「桌面前缀 UA 的 Android WebView」
+                            }
+                            val cm = CookieManager.getInstance()
+                            cm.setAcceptCookie(true)
+                            cm.setAcceptThirdPartyCookies(this, true)
+
+                            webViewClient = object : WebViewClient() {
+                                @Deprecated("Deprecated in Java")
+                                override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
+                                    val scheme = android.net.Uri.parse(url.orEmpty()).scheme?.lowercase()
+                                    return scheme != "http" && scheme != "https"
+                                }
+
+                                override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                                    super.onPageStarted(view, url, favicon)
+                                    loading = true
+                                }
+
+                                override fun onPageFinished(view: WebView?, url: String?) {
+                                    super.onPageFinished(view, url)
+                                    loading = false
+                                }
+
+                                override fun onReceivedError(
+                                    view: WebView?,
+                                    request: WebResourceRequest?,
+                                    error: WebResourceError?,
+                                ) {
+                                    super.onReceivedError(view, request, error)
+                                    if (request?.isForMainFrame == true) {
+                                        status = context.getString(
+                                            R.string.lgn_page_load_fail,
+                                            error?.description
+                                                ?: context.getString(R.string.lgn_network_error),
+                                        )
+                                    }
+                                }
+                            }
+                            webChromeClient = object : WebChromeClient() {
+                                override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                                    progress = newProgress
+                                    if (newProgress >= 100) loading = false
+                                }
+                            }
+                            loadUrl(YOUTUBE_LOGIN_URL)
+                        }
+                    },
+                    onRelease = { wv ->
+                        wv.stopLoading()
+                        wv.destroy()
+                        holder[0] = null
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
+    }
+
+    // 轮询 Cookie：拿到身份 Cookie（SAPISID 等）即视为登录成功
+    LaunchedEffect(Unit) {
+        while (!done) {
+            delay(1500)
+            val cookies = withContext(Dispatchers.IO) { readCookies() }
+            if (YouTubeCookieSupport.isLoggedIn(cookies)) {
+                val ua = withContext(Dispatchers.Main) { holder[0]?.settings?.userAgentString.orEmpty() }
+                val saved = withContext(Dispatchers.IO) {
+                    val now = System.currentTimeMillis()
+                    YouTubeApi.saveAuth(
+                        YouTubeAuthBundle(
+                            cookies = LinkedHashMap(cookies),
+                            cookieHeader = cookies.entries.joinToString("; ") { (k, v) -> "$k=$v" },
+                            userAgent = ua,
+                            savedAt = now,
+                        ).normalized(savedAt = now),
+                    )
+                    YouTubeApi.isLoggedIn()
+                }
+                if (saved) {
+                    status = context.getString(R.string.lgn_login_success_syncing)
+                    saveOk = true
+                    done = true
+                } else {
+                    // 页面明明登录了却存不进去：不再谎报成功，让用户看到真实状态
+                    status = context.getString(R.string.lgn_page_login_save_fail)
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(done) {
+        if (done && saveOk) {
+            delay(500)
+            nav.popBackStack()
+        }
+    }
+
+    BackHandler {
+        val wv = holder[0]
+        if (!pasteMode && wv?.canGoBack() == true) wv.goBack() else nav.popBackStack()
+    }
 }
 
 /**
@@ -163,6 +453,7 @@ private fun WebLoginContent(
     desktopUa: Boolean = false,
     onSave: suspend (Map<String, String>) -> Unit,
 ) {
+    val context = LocalContext.current
     val holder = remember { arrayOfNulls<WebView>(1) }
     var loading by remember { mutableStateOf(true) }
     var progress by remember { mutableIntStateOf(0) }
@@ -268,7 +559,7 @@ private fun WebLoginContent(
             val cookies = withContext(Dispatchers.IO) { readCookies() }
             if (!cookies[requiredKey].isNullOrBlank()) {
                 done = true
-                status = "登录成功，正在同步账号…"
+                status = context.getString(R.string.lgn_login_success_syncing)
                 runCatching { onSave(cookies) }
                 delay(300)
                 nav.popBackStack()
@@ -296,6 +587,7 @@ private fun expireCookie(cm: CookieManager, url: String, key: String, domain: St
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun NeteaseCaptchaLoginContent(onDone: () -> Unit) {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var mobile by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
@@ -318,11 +610,11 @@ private fun NeteaseCaptchaLoginContent(onDone: () -> Unit) {
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Text("手机号验证码登录", style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.lgn_phone_title), style = MaterialTheme.typography.titleMedium)
         OutlinedTextField(
             value = mobile,
             onValueChange = { if (it.length <= 11) mobile = it.filter { c -> c.isDigit() } },
-            label = { Text("手机号") },
+            label = { Text(stringResource(R.string.lgn_phone_hint)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
             modifier = Modifier.fillMaxWidth(),
@@ -331,7 +623,7 @@ private fun NeteaseCaptchaLoginContent(onDone: () -> Unit) {
             OutlinedTextField(
                 value = code,
                 onValueChange = { if (it.length <= 8) code = it.filter { c -> c.isDigit() } },
-                label = { Text("验证码") },
+                label = { Text(stringResource(R.string.lgn_code_hint)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.weight(1f),
@@ -340,20 +632,24 @@ private fun NeteaseCaptchaLoginContent(onDone: () -> Unit) {
             OutlinedButton(
                 onClick = {
                     if (mobile.length != 11) {
-                        tip = "请输入 11 位手机号"
+                        tip = context.getString(R.string.lgn_phone_invalid)
                         return@OutlinedButton
                     }
                     sending = true
                     scope.launch {
                         NeteaseApi.sendCaptcha(mobile)
                             .onSuccess { tip = it; countdown = 60 }
-                            .onFailure { tip = it.message ?: "验证码发送失败" }
+                            .onFailure { tip = it.message ?: context.getString(R.string.lgn_send_fail) }
                         sending = false
                     }
                 },
                 enabled = countdown == 0 && !sending,
             ) {
-                Text(if (countdown > 0) "${countdown}s" else if (sending) "发送中" else "获取验证码")
+                Text(
+                    if (countdown > 0) stringResource(R.string.lgn_send_countdown, countdown)
+                    else if (sending) stringResource(R.string.lgn_sending)
+                    else stringResource(R.string.lgn_get_code),
+                )
             }
         }
 
@@ -364,21 +660,21 @@ private fun NeteaseCaptchaLoginContent(onDone: () -> Unit) {
         Button(
             onClick = {
                 if (mobile.length != 11) {
-                    tip = "请输入 11 位手机号"
+                    tip = context.getString(R.string.lgn_phone_invalid)
                     return@Button
                 }
                 if (code.length < 4) {
-                    tip = "请输入验证码"
+                    tip = context.getString(R.string.lgn_code_required)
                     return@Button
                 }
                 loggingIn = true
                 scope.launch {
                     NeteaseApi.loginByCaptcha(mobile, code)
                         .onSuccess {
-                            tip = "登录成功"
+                            tip = context.getString(R.string.lgn_login_success)
                             onDone()
                         }
-                        .onFailure { tip = it.message ?: "登录失败" }
+                        .onFailure { tip = it.message ?: context.getString(R.string.lgn_login_fail) }
                     loggingIn = false
                 }
             },
@@ -392,12 +688,12 @@ private fun NeteaseCaptchaLoginContent(onDone: () -> Unit) {
                     strokeWidth = 2.dp,
                 )
             } else {
-                Text("登录")
+                Text(stringResource(R.string.lgn_sign_in))
             }
         }
 
         Text(
-            "验证码由网易云音乐发送；登录后可播放会员歌曲。",
+            stringResource(R.string.lgn_captcha_note),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -420,6 +716,7 @@ private fun QrLoginContent(
     check: suspend () -> QrStatus,
     onDone: () -> Unit,
 ) {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var qrBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var loading by remember { mutableStateOf(true) }
@@ -432,7 +729,7 @@ private fun QrLoginContent(
         status = QrStatus.Waiting
         qrBitmap = null
         val content = runCatching { createContent() }
-            .onFailure { status = QrStatus.Failed(it.message ?: "二维码获取失败") }
+            .onFailure { status = QrStatus.Failed(it.message ?: context.getString(R.string.lgn_qr_fetch_fail)) }
             .getOrDefault("")
         if (content.isNotBlank()) {
             qrBitmap = runCatching {
@@ -450,7 +747,7 @@ private fun QrLoginContent(
         repeat(120) {
             val next = runCatching { check() }
                 .getOrElse {
-                    status = QrStatus.Failed(it.message ?: "轮询失败")
+                    status = QrStatus.Failed(it.message ?: context.getString(R.string.lgn_qr_poll_fail))
                     return@LaunchedEffect
                 }
             status = next
@@ -498,7 +795,7 @@ private fun QrLoginContent(
                     verticalArrangement = Arrangement.Center,
                 ) {
                     Text(
-                        "二维码生成失败",
+                        stringResource(R.string.lgn_qr_render_fail),
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodyMedium,
                     )
@@ -506,7 +803,7 @@ private fun QrLoginContent(
 
                 else -> androidx.compose.foundation.Image(
                     bitmap = qrBitmap!!.asImageBitmap(),
-                    contentDescription = "登录二维码",
+                    contentDescription = stringResource(R.string.lgn_qr_desc),
                     contentScale = ContentScale.Fit,
                     modifier = Modifier.fillMaxSize().padding(12.dp),
                 )
@@ -517,7 +814,7 @@ private fun QrLoginContent(
             is QrStatus.Waiting -> waitingText
             is QrStatus.Scanned -> scannedText
             is QrStatus.Failed -> s.reason
-            is QrStatus.Success -> "登录成功"
+            is QrStatus.Success -> stringResource(R.string.lgn_login_success)
         }
         Text(
             statusText,
@@ -532,7 +829,7 @@ private fun QrLoginContent(
             OutlinedButton(onClick = { scope.launch { refresh() } }) {
                 Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("刷新二维码")
+                Text(stringResource(R.string.lgn_qr_refresh))
             }
         }
     }
@@ -546,10 +843,10 @@ private fun NeteaseQrLoginContent(onDone: () -> Unit) {
     var session by remember { mutableStateOf<NeteaseQrLoginSession?>(null) }
 
     QrLoginContent(
-        title = "使用网易云音乐 App 扫描二维码",
-        subtitle = "登录后可播放会员歌曲、获取账号曲库",
-        waitingText = "请打开网易云音乐 App 扫码",
-        scannedText = "已扫描，请在手机上确认登录",
+        title = stringResource(R.string.lgn_qr_netease_title),
+        subtitle = stringResource(R.string.lgn_qr_netease_subtitle),
+        waitingText = stringResource(R.string.lgn_qr_netease_waiting),
+        scannedText = stringResource(R.string.lgn_qr_scanned),
         createContent = {
             client.reset()
             val created = withContext(Dispatchers.IO) { client.createSession() }
@@ -566,7 +863,7 @@ private fun NeteaseQrLoginContent(onDone: () -> Unit) {
                     803 -> {
                         val cookies = result.cookies
                         if (cookies["MUSIC_U"].isNullOrBlank()) {
-                            QrStatus.Failed("登录确认但 Cookie 不完整，请重试")
+                            QrStatus.Failed(context.getString(R.string.lgn_qr_cookie_incomplete))
                         } else {
                             AppGraph.store.saveNeteaseCookies(cookies)
                             NeteaseApi.syncCookies()
@@ -576,7 +873,7 @@ private fun NeteaseQrLoginContent(onDone: () -> Unit) {
                     }
                     802 -> QrStatus.Scanned
                     801 -> QrStatus.Waiting
-                    800 -> QrStatus.Failed("二维码已过期，请刷新")
+                    800 -> QrStatus.Failed(context.getString(R.string.lgn_qr_expired))
                     else -> QrStatus.Failed(result.message.ifBlank { "code=${result.code}" })
                 }
             }
@@ -593,10 +890,10 @@ private fun KugouQrLoginContent(onDone: () -> Unit) {
     var key by remember { mutableStateOf("") }
 
     QrLoginContent(
-        title = "使用酷狗音乐 App 扫描二维码",
-        subtitle = "登录后可同步「我喜欢」与歌单",
-        waitingText = "请打开酷狗音乐 App 扫码",
-        scannedText = "已扫码，请在手机上确认登录",
+        title = stringResource(R.string.lgn_qr_kugou_title),
+        subtitle = stringResource(R.string.lgn_qr_kugou_subtitle),
+        waitingText = stringResource(R.string.lgn_qr_kugou_waiting),
+        scannedText = stringResource(R.string.lgn_qr_kugou_scanned),
         createContent = {
             val created = KugouApi.createQrKey()
             key = created
@@ -611,10 +908,10 @@ private fun KugouQrLoginContent(onDone: () -> Unit) {
 @Composable
 private fun BiliQrLoginContent(onDone: () -> Unit) {
     QrLoginContent(
-        title = "使用哔哩哔哩 App 扫描二维码",
-        subtitle = "登录后可同步收藏夹与「我喜欢」",
-        waitingText = "请打开哔哩哔哩 App 扫码",
-        scannedText = "已扫描，请在手机上确认登录",
+        title = stringResource(R.string.lgn_qr_bili_title),
+        subtitle = stringResource(R.string.lgn_qr_bili_subtitle),
+        waitingText = stringResource(R.string.lgn_qr_bili_waiting),
+        scannedText = stringResource(R.string.lgn_qr_scanned),
         createContent = { BiliApi.createQrContent() },
         check = { BiliApi.checkQr() },
         onDone = onDone,

@@ -1,0 +1,1461 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>音之理音 — 听见，就是道理 | 开源全网音乐播放器</title>
+<meta name="description" content="音之理音（YZLiYin）：开源免费的 Android 音乐播放器，聚合网易云音乐、酷狗音乐、哔哩哔哩、YouTube 四大音源，跨源自动找歌、一起听、B站直播弹幕、歌词译文、800MB 智能缓存。">
+<meta name="theme-color" content="#3A6BFF">
+<meta property="og:title" content="音之理音 — 听见，就是道理">
+<meta property="og:description" content="一个 App，听遍全网。开源、免费、无广告的 Android 音乐播放器。">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%23101728'/%3E%3Cg fill='%233A6BFF'%3E%3Crect x='24' y='34' width='12' height='32' rx='6'/%3E%3Crect x='44' y='22' width='12' height='56' rx='6'/%3E%3Crect x='64' y='40' width='12' height='20' rx='6'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ============ 基础 ============ */
+:root{
+  --blue:#3A6BFF; --purple:#7C5CFF; --aqua:#00C2A8; --amber:#FFB020; --rose:#FF5C7A;
+  --g-blue:#4285F4; --g-red:#EA4335; --g-yellow:#FBBC05; --g-green:#34A853;
+  --ink:#1F2430; --muted:#5F6368; --line:#E4E7EC; --surface:#fff;
+  --bg:#F6F8FF; --tint:#EEF2FE; --tint2:#F1F3F4;
+  --radius:28px; --shadow1:0 1px 2px rgba(60,64,67,.12),0 1px 3px rgba(60,64,67,.08);
+  --shadow2:0 4px 12px rgba(60,64,67,.12),0 8px 28px rgba(60,64,67,.10);
+  --shadow3:0 12px 40px rgba(58,107,255,.18),0 4px 14px rgba(60,64,67,.10);
+  --ease:cubic-bezier(.2,.8,.3,1);
+  --font:"Google Sans","Product Sans",Roboto,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:88px}
+body{
+  margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);
+  font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased;overflow-x:hidden;
+}
+body.loading{overflow:hidden}
+h1,h2,h3{margin:0;font-weight:700;letter-spacing:-.02em;line-height:1.18}
+p{margin:0}
+a{color:var(--g-blue);text-decoration:none}
+a:hover{text-decoration:underline}
+img,svg{display:block}
+::selection{background:#D7E3FF;color:var(--ink)}
+:focus-visible{outline:3px solid var(--blue);outline-offset:3px;border-radius:8px}
+.wrap{width:min(1180px,92vw);margin:0 auto}
+
+/* ============ 加载动画（Google 四色点） ============ */
+#loader{
+  position:fixed;inset:0;z-index:9999;background:var(--surface);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:34px;
+  transition:opacity .5s var(--ease),visibility .5s;
+}
+#loader.hide{opacity:0;visibility:hidden}
+.loader-brand{display:flex;align-items:center;gap:14px;animation:brandIn .7s var(--ease) both}
+.loader-brand .mark{
+  width:54px;height:54px;border-radius:16px;background:#101728;
+  display:flex;align-items:center;justify-content:center;gap:4px;
+}
+.loader-brand .mark i{display:block;width:7px;border-radius:4px;background:var(--blue);animation:eq 1s ease-in-out infinite}
+.loader-brand .mark i:nth-child(1){height:18px;animation-delay:0s}
+.loader-brand .mark i:nth-child(2){height:30px;animation-delay:.18s;background:var(--purple)}
+.loader-brand .mark i:nth-child(3){height:13px;animation-delay:.36s;background:var(--aqua)}
+.loader-brand span{font-size:26px;font-weight:700;letter-spacing:-.02em}
+@keyframes eq{0%,100%{transform:scaleY(.55)}50%{transform:scaleY(1.35)}}
+@keyframes brandIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.gdots{display:flex;gap:13px}
+.gdots i{
+  width:14px;height:14px;border-radius:50%;display:block;
+  animation:dotBounce 1.5s cubic-bezier(.4,0,.2,1) infinite;
+}
+.gdots i:nth-child(1){background:var(--g-blue)}
+.gdots i:nth-child(2){background:var(--g-red);animation-delay:.15s}
+.gdots i:nth-child(3){background:var(--g-yellow);animation-delay:.3s}
+.gdots i:nth-child(4){background:var(--g-green);animation-delay:.45s}
+@keyframes dotBounce{
+  0%,80%,100%{transform:translateY(0) scale(.82);opacity:.55}
+  40%{transform:translateY(-20px) scale(1);opacity:1}
+}
+.loader-bar{width:180px;height:4px;border-radius:99px;background:var(--tint2);overflow:hidden;position:relative}
+.loader-bar::after{
+  content:"";position:absolute;inset:0;transform:translateX(-100%);
+  background:linear-gradient(90deg,var(--g-blue),var(--g-red),var(--g-yellow),var(--g-green));
+  animation:indet 1.3s var(--ease) infinite;
+}
+@keyframes indet{0%{transform:translateX(-100%)}60%,100%{transform:translateX(100%)}}
+.loader-cap{font-size:13px;color:var(--muted);letter-spacing:.06em}
+
+/* ============ 顶部滚动进度 ============ */
+#scrollbar{
+  position:fixed;top:0;left:0;height:3px;width:0;z-index:120;
+  background:linear-gradient(90deg,var(--g-blue) 0 25%,var(--g-red) 25% 50%,var(--g-yellow) 50% 75%,var(--g-green) 75% 100%);
+  transition:width .1s linear;
+}
+
+/* ============ 顶栏 ============ */
+header#top{
+  position:sticky;top:0;z-index:100;background:rgba(246,248,255,.82);
+  backdrop-filter:saturate(180%) blur(14px);-webkit-backdrop-filter:saturate(180%) blur(14px);
+  border-bottom:1px solid transparent;transition:border-color .3s,box-shadow .3s,background .3s;
+}
+header#top.scrolled{border-bottom-color:var(--line);box-shadow:0 1px 8px rgba(60,64,67,.06);background:rgba(255,255,255,.9)}
+.nav{display:flex;align-items:center;gap:18px;height:72px}
+.brand{display:flex;align-items:center;gap:11px;color:var(--ink);flex:none}
+.brand:hover{text-decoration:none}
+.brand .mark{
+  width:38px;height:38px;border-radius:12px;background:#101728;
+  display:flex;align-items:center;justify-content:center;gap:3.5px;
+  box-shadow:var(--shadow1);transition:transform .4s var(--ease);
+}
+.brand:hover .mark{transform:rotate(-6deg) scale(1.05)}
+.brand .mark i{width:5px;border-radius:3px;background:var(--blue);display:block}
+.brand .mark i:nth-child(1){height:13px}
+.brand .mark i:nth-child(2){height:21px;background:var(--purple)}
+.brand .mark i:nth-child(3){height:9px;background:var(--aqua)}
+.brand b{font-size:19px;letter-spacing:-.01em;font-weight:700}
+.brand small{display:block;font-size:10.5px;color:var(--muted);font-weight:400;letter-spacing:.14em;margin-top:-3px}
+.nav-links{display:flex;gap:4px;margin-left:14px;flex:1}
+.nav-links a{
+  padding:9px 15px;border-radius:99px;color:#3C4043;font-size:14.5px;font-weight:500;
+  position:relative;transition:background .2s,color .2s;
+}
+.nav-links a:hover{background:var(--tint);text-decoration:none}
+.nav-links a.active{color:var(--blue);background:#E4EBFF}
+.nav-cta{display:flex;align-items:center;gap:10px;flex:none}
+.menu-btn{display:none}
+
+/* 按钮 */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:9px;
+  padding:11px 22px;border-radius:99px;font-size:15px;font-weight:500;font-family:var(--font);
+  border:1px solid transparent;cursor:pointer;position:relative;overflow:hidden;
+  transition:box-shadow .25s,transform .18s var(--ease),background .2s,color .2s;
+}
+.btn:hover{text-decoration:none;transform:translateY(-1px)}
+.btn:active{transform:translateY(0) scale(.98)}
+.btn-filled{background:var(--blue);color:#fff;box-shadow:0 1px 3px rgba(58,107,255,.4)}
+.btn-filled:hover{box-shadow:0 6px 18px rgba(58,107,255,.42)}
+.btn-tonal{background:var(--tint);color:var(--blue)}
+.btn-tonal:hover{background:#DFE8FF}
+.btn-out{background:var(--surface);color:#3C4043;border-color:var(--line)}
+.btn-out:hover{background:var(--tint2);box-shadow:var(--shadow1)}
+.btn-lg{padding:15px 30px;font-size:16.5px}
+.btn svg{width:19px;height:19px;flex:none}
+.ripple{position:absolute;border-radius:50%;transform:scale(0);background:rgba(255,255,255,.5);pointer-events:none;animation:rip .6s var(--ease) forwards}
+.btn-out .ripple,.btn-tonal .ripple{background:rgba(58,107,255,.22)}
+@keyframes rip{to{transform:scale(2.6);opacity:0}}
+
+/* ============ Hero ============ */
+.hero{padding:66px 0 40px;position:relative;overflow:hidden}
+.hero-bg{position:absolute;inset:0;pointer-events:none;z-index:-1}
+.hero-bg i{position:absolute;border-radius:50%;filter:blur(70px);opacity:.4}
+.hero-bg i:nth-child(1){width:340px;height:340px;background:#BBD0FF;top:-80px;left:-60px}
+.hero-bg i:nth-child(2){width:280px;height:280px;background:#E4D6FF;top:40px;right:-40px}
+.hero-bg i:nth-child(3){width:220px;height:220px;background:#C9F5EE;bottom:-70px;left:38%}
+.chip{
+  display:inline-flex;align-items:center;gap:8px;padding:7px 16px 7px 10px;border-radius:99px;
+  background:var(--tint);color:var(--blue);font-size:13.5px;font-weight:500;
+  border:1px solid #DCE5FF;
+}
+.chip .dot{width:8px;height:8px;border-radius:50%;background:var(--g-green);box-shadow:0 0 0 4px rgba(52,168,83,.16);animation:pulse 2s infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 8px rgba(52,168,83,.04)}}
+.hero h1{font-size:clamp(2.3rem,5.6vw,4.1rem);margin:24px 0 0}
+.hero h1 .grad{
+  background:linear-gradient(96deg,var(--g-blue),var(--purple) 55%,var(--aqua));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.hero .lede .c1{color:var(--g-blue);font-weight:500}.hero .lede .c2{color:#FF7A45;font-weight:500}
+.hero .lede .c3{color:#FB7299;font-weight:500}.hero .lede .c4{color:var(--g-red);font-weight:500}
+.hero .lede{margin-top:22px;font-size:clamp(1.02rem,1.6vw,1.22rem);color:var(--muted);max-width:660px}
+.hero-actions{display:flex;flex-wrap:wrap;gap:14px;margin-top:34px;align-items:center}
+.hero-meta{display:flex;flex-wrap:wrap;gap:10px 26px;margin-top:32px;font-size:13.5px;color:var(--muted)}
+.hero-meta span{display:flex;align-items:center;gap:7px}
+.hero-meta svg{width:16px;height:16px;color:var(--g-green)}
+.hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:44px;align-items:center}
+
+/* 搜索框（Google 风格联想） */
+.gsearch{
+  position:relative;margin-top:36px;max-width:600px;
+}
+.gsearch .box{
+  display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--line);
+  border-radius:99px;padding:15px 22px;box-shadow:var(--shadow1);
+  transition:box-shadow .28s var(--ease),border-color .28s;
+}
+.gsearch.open .box{box-shadow:var(--shadow2);border-color:transparent}
+.gsearch .box svg{width:21px;height:21px;color:var(--g-blue);flex:none}
+.gsearch input{
+  flex:1;border:0;outline:0;font-family:var(--font);font-size:16.5px;color:var(--ink);background:transparent;
+}
+.gsearch input::placeholder{color:#9AA0A6}
+.sugg{
+  position:absolute;top:calc(100% + 8px);left:0;right:0;background:var(--surface);
+  border-radius:22px;box-shadow:var(--shadow2);padding:8px;opacity:0;visibility:hidden;
+  transform:translateY(-8px);transition:.26s var(--ease);z-index:20;
+}
+.gsearch.open .sugg{opacity:1;visibility:visible;transform:none}
+.sugg button{
+  display:flex;align-items:center;gap:13px;width:100%;padding:11px 15px;border:0;background:transparent;
+  border-radius:99px;font-family:var(--font);font-size:15px;color:#3C4043;cursor:pointer;text-align:left;
+}
+.sugg button:hover,.sugg button:focus-visible{background:var(--tint2);outline:none}
+.sugg button svg{width:18px;height:18px;color:#9AA0A6;flex:none}
+.sugg button b{margin-left:auto;font-size:12px;color:#9AA0A6;font-weight:500}
+
+/* ============ 手机 Mock ============ */
+.phone-wrap{display:flex;justify-content:center;position:relative}
+.phone-wrap::before{
+  content:"";position:absolute;width:78%;height:78%;border-radius:50%;
+  background:radial-gradient(circle,rgba(58,107,255,.28),transparent 68%);filter:blur(30px);
+}
+.phone{
+  position:relative;width:288px;background:#0E0F13;border-radius:42px;padding:9px;
+  box-shadow:0 30px 70px rgba(31,36,48,.34),0 0 0 1.5px rgba(255,255,255,.08) inset;
+  animation:float 6.5s ease-in-out infinite;
+}
+@keyframes float{50%{transform:translateY(-16px)}}
+.screen{
+  background:linear-gradient(170deg,#151726 0%,#0E0F13 45%,#14102A 100%);
+  border-radius:34px;overflow:hidden;aspect-ratio:9/18.6;padding:16px 15px;color:#fff;
+  display:flex;flex-direction:column;gap:13px;
+}
+.st{display:flex;justify-content:space-between;font-size:10.5px;color:rgba(255,255,255,.65);letter-spacing:.03em}
+.st i{font-style:normal}
+.p-hi{font-size:10.5px;color:rgba(255,255,255,.55)}
+.p-title{font-size:17.5px;font-weight:700;margin-top:-6px;letter-spacing:-.01em}
+.p-search{
+  display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.09);border-radius:99px;
+  padding:8px 13px;font-size:10.5px;color:rgba(255,255,255,.6);
+}
+.p-search .bar{width:2px;height:11px;background:var(--g-blue);animation:caret 1s step-end infinite;margin-left:auto}
+@keyframes caret{50%{opacity:0}}
+.p-chips{display:flex;gap:6px;flex-wrap:wrap}
+.p-chips span{
+  font-size:9.5px;padding:4.5px 10px;border-radius:99px;background:rgba(255,255,255,.1);
+  color:rgba(255,255,255,.75);border:1px solid rgba(255,255,255,.08);
+}
+.p-chips span.on{background:var(--blue);color:#fff;border-color:transparent}
+.p-card{
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.07);
+  border-radius:18px;padding:12px;display:flex;gap:11px;align-items:center;
+}
+.p-art{
+  width:46px;height:46px;border-radius:12px;flex:none;
+  background:linear-gradient(135deg,var(--blue),var(--purple));
+  display:flex;align-items:center;justify-content:center;gap:3px;
+}
+.p-art i{width:4px;background:#fff;border-radius:3px;display:block;animation:eq .9s ease-in-out infinite}
+.p-art i:nth-child(1){height:14px}.p-art i:nth-child(2){height:24px;animation-delay:.15s}
+.p-art i:nth-child(3){height:18px;animation-delay:.3s}.p-art i:nth-child(4){height:10px;animation-delay:.45s}
+.p-meta{min-width:0;flex:1}
+.p-meta b{display:block;font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.p-meta span{font-size:10px;color:rgba(255,255,255,.55)}
+.p-tag{
+  font-size:8.5px;padding:3px 7px;border-radius:99px;background:rgba(0,194,168,.18);color:#5CE0CD;
+  white-space:nowrap;border:1px solid rgba(0,194,168,.3);
+}
+.p-prog{height:3px;border-radius:99px;background:rgba(255,255,255,.14);overflow:hidden;margin-top:11px}
+.p-prog i{display:block;height:100%;width:35%;border-radius:99px;background:var(--g-blue);animation:prog 9s linear infinite}
+@keyframes prog{from{width:6%}to{width:97%}}
+.p-ctrl{display:flex;align-items:center;justify-content:center;gap:20px;margin-top:10px}
+.p-ctrl span{display:flex;align-items:center;color:rgba(255,255,255,.72)}
+.p-ctrl .play{
+  width:38px;height:38px;border-radius:50%;background:#fff;color:#0E0F13;
+  align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.35);
+}
+.p-list{display:flex;flex-direction:column;gap:7px;margin-top:2px}
+.p-row{display:flex;align-items:center;gap:9px;font-size:10.5px;color:rgba(255,255,255,.72)}
+.p-row .n{width:15px;color:rgba(255,255,255,.4);font-size:9.5px}
+.p-row .g{margin-left:auto;font-size:8.5px;color:rgba(255,255,255,.4)}
+.p-nav{
+  margin-top:auto;display:flex;justify-content:space-around;padding-top:11px;
+  border-top:1px solid rgba(255,255,255,.08);
+}
+.p-nav i{display:block;width:17px;height:17px;border-radius:5px;background:rgba(255,255,255,.24)}
+.p-nav i.on{background:var(--g-blue);box-shadow:0 0 12px rgba(66,133,244,.7)}
+.float-badge{
+  position:absolute;background:var(--surface);border-radius:16px;padding:10px 14px;
+  box-shadow:var(--shadow2);display:flex;align-items:center;gap:9px;font-size:12.5px;font-weight:500;
+  animation:float2 5s ease-in-out infinite;
+}
+@keyframes float2{50%{transform:translateY(-12px)}}
+.float-badge svg{width:17px;height:17px}
+.fb1{top:14%;left:-6%;color:var(--g-blue)}
+.fb2{bottom:19%;right:-8%;color:var(--g-green);animation-delay:1.4s}
+.fb3{bottom:6%;left:-2%;color:var(--purple);animation-delay:.7s}
+
+/* ============ 区块通用 ============ */
+section{padding:78px 0}
+.sec-head{max-width:720px;margin-bottom:44px}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--blue);margin-bottom:14px;
+}
+.eyebrow::before{content:"";width:26px;height:3px;border-radius:99px;background:linear-gradient(90deg,var(--g-blue),var(--purple))}
+.sec-head h2{font-size:clamp(1.75rem,3.4vw,2.6rem)}
+.sec-head p{margin-top:16px;color:var(--muted);font-size:1.04rem}
+.reveal{opacity:0;transform:translateY(28px);transition:opacity .7s var(--ease),transform .7s var(--ease)}
+.reveal.in{opacity:1;transform:none}
+
+/* ============ 音源卡片 ============ */
+.src-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+.src-card{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  padding:26px 24px;position:relative;overflow:hidden;cursor:default;
+  transition:transform .3s var(--ease),box-shadow .3s var(--ease),border-color .3s;
+}
+.src-card::after{
+  content:"";position:absolute;left:0;top:0;height:4px;width:100%;transform:scaleX(0);transform-origin:left;
+  background:var(--c);transition:transform .4s var(--ease);
+}
+.src-card:hover{transform:translateY(-6px);box-shadow:var(--shadow2);border-color:transparent}
+.src-card:hover::after{transform:scaleX(1)}
+.src-ic{
+  width:50px;height:50px;border-radius:16px;display:flex;align-items:center;justify-content:center;
+  background:var(--cbg);color:var(--c);font-weight:700;font-size:19px;margin-bottom:16px;
+}
+.src-card h3{font-size:1.12rem}
+.src-card p{margin-top:9px;font-size:14px;color:var(--muted);line-height:1.6}
+.src-q{
+  margin-top:14px;font-size:12.5px;color:#3C4043;background:var(--tint2);
+  border-radius:12px;padding:7px 11px;display:inline-block;
+}
+
+/* ============ 功能卡 ============ */
+.feat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+.feat{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  padding:26px 22px;position:relative;overflow:hidden;
+  transition:transform .3s var(--ease),box-shadow .3s var(--ease),border-color .3s;
+}
+.feat:hover{transform:translateY(-6px);box-shadow:var(--shadow2);border-color:transparent}
+.feat .ic{
+  width:46px;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;
+  margin-bottom:16px;color:#fff;background:linear-gradient(135deg,var(--g1),var(--g2));
+  box-shadow:0 6px 16px rgba(60,64,67,.14);
+}
+.feat .ic svg{width:23px;height:23px}
+.feat h3{font-size:1.05rem}
+.feat p{margin-top:9px;font-size:14px;color:var(--muted);line-height:1.62}
+.feat.wide{grid-column:span 2}
+
+/* ============ 跨源找歌演示 ============ */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+.demo{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  padding:28px;box-shadow:var(--shadow1);
+}
+.demo-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.demo-head b{font-size:15px}
+.demo-head span{font-size:12px;color:var(--muted)}
+.flow{display:flex;flex-direction:column;gap:12px}
+.node{
+  display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:18px;
+  background:var(--tint2);border:1.5px solid transparent;
+  transition:.45s var(--ease);opacity:.55;
+}
+.node .badge{
+  width:38px;height:38px;border-radius:12px;flex:none;display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:700;color:#fff;background:#9AA0A6;transition:.45s;
+}
+.node .txt{flex:1;min-width:0}
+.node .txt b{display:block;font-size:14.5px;font-weight:600}
+.node .txt span{font-size:12.5px;color:var(--muted)}
+.node .stt{font-size:12px;font-weight:600;color:#9AA0A6;white-space:nowrap;transition:.3s}
+.node.active{opacity:1;background:#EAF1FF;border-color:#C9D9FF;box-shadow:var(--shadow1)}
+.node.fail{opacity:1;background:#FDECEA;border-color:#F7C9C4}
+.node.fail .stt{color:var(--g-red)}
+.node.win{opacity:1;background:#E9F7EF;border-color:#B9E4C9}
+.node.win .stt{color:var(--g-green)}
+.node.active .badge,.node.win .badge,.node.fail .badge{transform:scale(1.05)}
+.node[data-src="netease"].fail .badge{background:var(--g-red)}
+.node[data-src="kugou"].fail .badge{background:#FF8A34}
+.node[data-src="bilibili"].win .badge{background:#FB7299}
+.node[data-src="bilibili"].active .badge{background:#FB7299}
+.node[data-src="netease"].active .badge{background:var(--g-blue)}
+.node[data-src="kugou"].active .badge{background:#FF8A34}
+.score{margin-top:18px;padding-top:16px;border-top:1px dashed var(--line)}
+.score-row{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:7px}
+.score-row b{color:var(--ink);font-weight:600}
+.score-bar{height:8px;border-radius:99px;background:var(--tint2);overflow:hidden}
+.score-bar i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,var(--g-blue),var(--aqua));transition:width .9s var(--ease)}
+.checklist{list-style:none;padding:0;margin:26px 0 0;display:flex;flex-direction:column;gap:14px}
+.checklist li{display:flex;gap:13px;align-items:flex-start;font-size:15.5px;color:#3C4043}
+.checklist svg{width:22px;height:22px;color:var(--g-green);flex:none;margin-top:2px}
+.checklist b{display:block;color:var(--ink);font-weight:600;font-size:15.5px}
+.checklist span{font-size:13.8px;color:var(--muted);display:block;margin-top:2px;line-height:1.6}
+
+/* ============ 一起听 ============ */
+.lt-stage{display:flex;gap:26px;align-items:center;justify-content:center;flex-wrap:wrap}
+.pal{
+  background:var(--surface);border:1px solid var(--line);border-radius:24px;padding:22px;width:230px;
+  box-shadow:var(--shadow1);position:relative;transition:.3s var(--ease);
+}
+.pal:hover{transform:translateY(-5px);box-shadow:var(--shadow2)}
+.pal .av{
+  width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  color:#fff;font-weight:700;font-size:18px;margin-bottom:12px;
+}
+.pal.p1 .av{background:linear-gradient(135deg,var(--g-blue),var(--purple))}
+.pal.p2 .av{background:linear-gradient(135deg,var(--aqua),var(--g-green))}
+.pal b{font-size:15.5px;display:block}
+.pal .role{font-size:12px;color:var(--muted);margin-top:2px;display:block}
+.pal .wave{display:flex;gap:3.5px;align-items:flex-end;height:30px;margin-top:16px}
+.pal .wave i{flex:1;background:var(--blue);border-radius:3px;animation:eq 1.1s ease-in-out infinite;opacity:.85}
+.pal.p2 .wave i{background:var(--aqua)}
+.pal .sync{
+  margin-top:14px;font-size:11.5px;display:flex;align-items:center;gap:7px;color:var(--g-green);
+  background:#E9F7EF;border-radius:99px;padding:5px 11px;justify-content:center;
+}
+.pal .sync .lv{width:7px;height:7px;border-radius:50%;background:var(--g-green);animation:pulse 1.6s infinite}
+.link-line{
+  width:74px;height:2px;background:repeating-linear-gradient(90deg,var(--blue) 0 8px,transparent 8px 16px);
+  position:relative;flex:none;
+}
+.link-line::after{
+  content:"";position:absolute;top:-3.5px;width:9px;height:9px;border-radius:50%;background:var(--blue);
+  box-shadow:0 0 10px var(--blue);animation:travel 1.6s linear infinite;
+}
+@keyframes travel{from{left:-4px}to{left:calc(100% - 4px)}}
+.lt-features{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:44px}
+.lt-f{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px;transition:.3s}
+.lt-f:hover{box-shadow:var(--shadow1);transform:translateY(-4px)}
+.lt-f b{display:block;font-size:15px;margin-bottom:6px}
+.lt-f p{font-size:13.8px;color:var(--muted);line-height:1.6}
+
+/* ============ B站区 ============ */
+.bili{background:linear-gradient(180deg,#FFF5F8 0%,#F6F8FF 100%);border-radius:44px;margin:0 auto;padding:78px 0}
+.bili-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.bili-card{
+  background:var(--surface);border:1px solid #F1E3E9;border-radius:24px;padding:24px;
+  transition:.3s var(--ease);overflow:hidden;position:relative;
+}
+.bili-card:hover{transform:translateY(-6px);box-shadow:0 10px 30px rgba(251,114,153,.16)}
+.bili-card .ic{
+  width:46px;height:46px;border-radius:14px;background:#FB7299;color:#fff;
+  display:flex;align-items:center;justify-content:center;margin-bottom:15px;
+}
+.bili-card .ic svg{width:24px;height:24px}
+.bili-card h3{font-size:1.05rem}
+.bili-card p{margin-top:8px;font-size:14px;color:var(--muted);line-height:1.62}
+.sanlian{
+  display:flex;gap:10px;margin-top:16px;padding-top:16px;border-top:1px dashed #F1E3E9;flex-wrap:wrap;
+}
+.sanlian button{
+  flex:1;min-width:80px;border:1px solid var(--line);background:var(--surface);border-radius:99px;
+  padding:9px 8px;font-family:var(--font);font-size:13px;color:#3C4043;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:6px;transition:.22s var(--ease);
+  position:relative;overflow:hidden;
+}
+.sanlian button:hover{background:var(--tint2)}
+.sanlian button svg{width:16px;height:16px}
+.sanlian button.done{color:#fff;border-color:transparent}
+.sanlian button.done.b1{background:var(--g-blue)}
+.sanlian button.done.b2{background:var(--g-yellow);color:#3C4043}
+.sanlian button.done.b3{background:var(--rose)}
+.danmaku{
+  position:relative;height:120px;border-radius:16px;overflow:hidden;margin-top:16px;
+  background:linear-gradient(150deg,#1A1B2E,#241A33);
+}
+.danmaku span{
+  position:absolute;white-space:nowrap;font-size:13px;color:#fff;font-weight:500;
+  text-shadow:0 1px 3px rgba(0,0,0,.55);animation:dmm 9s linear infinite;
+}
+.danmaku span:nth-child(1){top:12px;animation-delay:0s}
+.danmaku span:nth-child(2){top:44px;animation-delay:2.4s;color:#FFE066}
+.danmaku span:nth-child(3){top:76px;animation-delay:4.8s;color:#8BE9FD}
+.danmaku span:nth-child(4){top:104px;animation-delay:6.6s;color:#FF9EB5}
+@keyframes dmm{from{left:100%}to{left:-100%}}
+.danmaku .lb{
+  position:absolute;bottom:8px;left:10px;font-size:10.5px;color:rgba(255,255,255,.5);
+  background:rgba(0,0,0,.4);padding:3px 9px;border-radius:99px;letter-spacing:.06em;z-index:2;
+}
+
+/* ============ 数据带 ============ */
+.stats{background:#101728;border-radius:44px;padding:56px 40px;color:#fff;position:relative;overflow:hidden}
+.stats::before{
+  content:"";position:absolute;inset:0;
+  background:radial-gradient(700px 240px at 12% 0%,rgba(58,107,255,.35),transparent 60%),
+             radial-gradient(600px 260px at 88% 100%,rgba(124,92,255,.3),transparent 60%);
+}
+.stats-grid{position:relative;display:grid;grid-template-columns:repeat(4,1fr);gap:30px;text-align:center}
+.stat b{
+  display:block;font-size:clamp(2.1rem,4.4vw,3.2rem);font-weight:700;letter-spacing:-.03em;
+  background:linear-gradient(135deg,#fff,#B9CBFF);-webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.stat span{display:block;font-size:14px;color:rgba(255,255,255,.62);margin-top:6px;letter-spacing:.04em}
+.stat .sub{font-size:11.5px;color:rgba(255,255,255,.4);margin-top:3px}
+
+/* ============ CTA ============ */
+.cta{
+  background:linear-gradient(135deg,#EAF1FF 0%,#F3EEFF 55%,#E7FAF6 100%);
+  border:1px solid #DCE5FF;border-radius:44px;padding:60px 44px;text-align:center;position:relative;overflow:hidden;
+}
+.cta h2{font-size:clamp(1.8rem,3.6vw,2.7rem)}
+.cta p{color:var(--muted);max-width:600px;margin:16px auto 0;font-size:1.04rem}
+.cta-btns{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-top:34px}
+.cta-note{margin-top:24px;font-size:13px;color:var(--muted);display:flex;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap}
+.cta-note code{
+  background:rgba(255,255,255,.75);border:1px solid var(--line);padding:4px 10px;border-radius:8px;
+  font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;color:#3C4043;
+}
+.copy-btn{
+  border:1px solid var(--line);background:rgba(255,255,255,.8);border-radius:99px;padding:6px 15px;
+  font-family:var(--font);font-size:13px;color:#3C4043;cursor:pointer;display:inline-flex;align-items:center;gap:7px;
+  transition:.2s;position:relative;overflow:hidden;
+}
+.copy-btn:hover{background:#fff;box-shadow:var(--shadow1)}
+.copy-btn svg{width:15px;height:15px}
+
+/* ============ FAQ ============ */
+.faq-list{display:grid;gap:14px;max-width:860px}
+details.qa{
+  background:var(--surface);border:1px solid var(--line);border-radius:22px;overflow:hidden;
+  transition:box-shadow .3s,border-color .3s;
+}
+details.qa[open]{box-shadow:var(--shadow1);border-color:#D7E0F5}
+details.qa summary{
+  list-style:none;cursor:pointer;padding:21px 26px;font-size:16.5px;font-weight:500;
+  display:flex;align-items:center;gap:16px;color:var(--ink);
+}
+details.qa summary::-webkit-details-marker{display:none}
+details.qa summary .plus{
+  margin-left:auto;width:26px;height:26px;border-radius:50%;background:var(--tint);color:var(--blue);
+  display:flex;align-items:center;justify-content:center;flex:none;transition:transform .3s var(--ease);
+}
+details.qa[open] summary .plus{transform:rotate(45deg);background:var(--blue);color:#fff}
+details.qa .ans{padding:0 26px 22px 66px;color:var(--muted);font-size:15px;line-height:1.75}
+details.qa .ans a{font-weight:500}
+.qa-ic{
+  width:26px;height:26px;border-radius:8px;background:var(--tint);color:var(--blue);
+  display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex:none;
+}
+
+/* ============ Footer ============ */
+footer{background:var(--bg);border-top:1px solid var(--line);padding:54px 0 34px;margin-top:20px}
+.foot-grid{display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:34px}
+.foot-brand p{font-size:14px;color:var(--muted);margin-top:14px;max-width:300px;line-height:1.7}
+.foot-col h4{font-size:13px;text-transform:uppercase;letter-spacing:.09em;color:#3C4043;margin:0 0 14px;font-weight:600}
+.foot-col a{display:block;color:var(--muted);font-size:14.5px;padding:5px 0;transition:color .2s}
+.foot-col a:hover{color:var(--g-blue);text-decoration:none}
+.socials{display:flex;gap:10px;margin-top:20px}
+.socials a{
+  width:42px;height:42px;border-radius:50%;background:var(--surface);border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;color:#3C4043;transition:.25s var(--ease);
+}
+.socials a:hover{transform:translateY(-3px);box-shadow:var(--shadow2);border-color:transparent;color:var(--g-blue)}
+.socials a.bili:hover{color:#FB7299}
+.socials svg{width:20px;height:20px}
+.foot-bot{
+  margin-top:42px;padding-top:24px;border-top:1px solid var(--line);
+  display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:13.5px;color:var(--muted);
+}
+.foot-bot .langs{display:flex;gap:6px}
+.foot-bot .langs span{
+  padding:4px 11px;border-radius:99px;background:var(--surface);border:1px solid var(--line);font-size:12.5px;
+}
+
+/* ============ 回到顶 FAB + Snackbar ============ */
+#fab{
+  position:fixed;right:26px;bottom:26px;width:54px;height:54px;border-radius:18px;border:0;cursor:pointer;
+  background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 6px 20px rgba(58,107,255,.42);opacity:0;visibility:hidden;transform:translateY(20px) scale(.9);
+  transition:.35s var(--ease);z-index:90;
+}
+#fab.show{opacity:1;visibility:visible;transform:none}
+#fab:hover{background:#2E5CF5;transform:translateY(-3px)}
+#fab svg{width:24px;height:24px}
+#snack{
+  position:fixed;left:50%;bottom:34px;transform:translate(-50%,120%);z-index:200;
+  background:#2B2F3A;color:#fff;padding:14px 22px;border-radius:14px;font-size:14.5px;
+  box-shadow:var(--shadow3);display:flex;align-items:center;gap:11px;transition:transform .4s var(--ease);
+  max-width:90vw;
+}
+#snack.show{transform:translate(-50%,0)}
+#snack svg{width:18px;height:18px;color:#7CE0A5;flex:none}
+
+/* ============ 响应式 ============ */
+@media (max-width:1080px){
+  .src-grid,.feat-grid{grid-template-columns:repeat(2,1fr)}
+  .stats-grid{grid-template-columns:repeat(2,1fr);gap:36px}
+  .foot-grid{grid-template-columns:1fr 1fr}
+}
+@media (max-width:900px){
+  .hero-grid{grid-template-columns:1fr;gap:52px}
+  .split{grid-template-columns:1fr;gap:34px}
+  .bili-grid{grid-template-columns:1fr 1fr}
+  .lt-features{grid-template-columns:1fr}
+  .nav-links{
+    position:absolute;top:72px;left:0;right:0;background:var(--surface);flex-direction:column;
+    padding:12px;gap:4px;margin:0;box-shadow:var(--shadow2);border-bottom:1px solid var(--line);
+    display:none;
+  }
+  .nav-links.open{display:flex}
+  .nav-links a{padding:13px 18px;font-size:16px}
+  .menu-btn{
+    display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;
+    border:1px solid var(--line);background:var(--surface);cursor:pointer;color:#3C4043;flex:none;
+  }
+  .menu-btn svg{width:22px;height:22px}
+  .nav{gap:10px}
+  .brand{flex:1}
+  .nav-cta .btn span{display:none}
+  .nav-cta .btn{padding:11px 14px}
+}
+@media (max-width:640px){
+  section{padding:56px 0}
+  .src-grid,.feat-grid,.bili-grid{grid-template-columns:1fr}
+  .feat.wide{grid-column:span 1}
+  .stats{padding:44px 24px;border-radius:32px}
+  .stats-grid{grid-template-columns:1fr 1fr;gap:28px}
+  .cta{padding:44px 22px;border-radius:32px}
+  .foot-grid{grid-template-columns:1fr;gap:26px}
+  .float-badge{display:none}
+  .hero{padding-top:44px}
+  .lt-stage{gap:16px}
+  .link-line{width:100%;height:2px;order:3}
+  .pal{width:100%;max-width:300px}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}
+  html{scroll-behavior:auto}
+  .reveal{opacity:1;transform:none}
+}
+</style>
+</head>
+<body class="loading">
+<!-- ============ 加载动画 ============ -->
+<div id="loader" role="status" aria-live="polite">
+  <div class="loader-brand">
+    <span class="mark" aria-hidden="true"><i></i><i></i><i></i></span>
+    <span>音之理音</span>
+  </div>
+  <div class="gdots" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+  <div class="loader-bar" aria-hidden="true"></div>
+  <div class="loader-cap">正在唤醒播放器…</div>
+</div>
+<div id="scrollbar" aria-hidden="true"></div>
+
+<!-- ============ 顶栏 ============ -->
+<header id="top">
+  <div class="wrap nav">
+    <a class="brand" href="#hero" aria-label="音之理音 首页">
+      <span class="mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span><b>音之理音</b><small>YZLiYin</small></span>
+    </a>
+    <nav class="nav-links" id="navLinks" aria-label="主导航">
+      <a href="#sources">音源</a>
+      <a href="#features">功能</a>
+      <a href="#crosssource">跨源找歌</a>
+      <a href="#listentogether">一起听</a>
+      <a href="#bilibili">B站</a>
+      <a href="#faq">常见问题</a>
+    </nav>
+    <div class="nav-cta">
+      <a class="btn btn-out" data-ripple href="https://github.com/frestoy5/YZLiYin" target="_blank" rel="noopener" aria-label="在 GitHub 上查看">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.73.5.98 5.24.98 11.52c0 4.86 3.15 8.98 7.52 10.44.55.1.75-.24.75-.53v-1.86c-3.06.67-3.7-1.48-3.7-1.48-.5-1.28-1.23-1.62-1.23-1.62-1-.69.08-.67.08-.67 1.11.08 1.7 1.14 1.7 1.14.99 1.7 2.6 1.21 3.23.93.1-.72.39-1.21.7-1.49-2.44-.28-5.01-1.22-5.01-5.44 0-1.2.43-2.18 1.13-2.95-.11-.28-.49-1.4.11-2.92 0 0 .93-.3 3.05 1.13a10.5 10.5 0 0 1 5.56 0c2.11-1.43 3.04-1.13 3.04-1.13.6 1.52.22 2.64.11 2.92.7.77 1.13 1.75 1.13 2.95 0 4.23-2.58 5.16-5.03 5.43.4.34.75 1.02.75 2.06v3.05c0 .29.2.64.76.53a10.55 10.55 0 0 0 7.51-10.44C23.02 5.24 18.27.5 12 .5z"/></svg>
+        <span>GitHub</span>
+      </a>
+      <a class="btn btn-filled" data-ripple href="https://b23.tv/GvKJP95" target="_blank" rel="noopener" aria-label="在哔哩哔哩观看介绍视频">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.8 2.2 15.7 4.4A9.3 9.3 0 0 1 12 3.5c-1.3 0-2.5.3-3.7.9L6.2 2.2A.7.7 0 0 0 5.1 2.8l-.1 1.6C2.7 6 1.5 8.6 1.5 11.6c0 4.8 3.9 8.7 8.7 8.7h3.6c4.8 0 8.7-3.9 8.7-8.7 0-3-1.2-5.6-3.5-7.2l-.1-1.6a.7.7 0 0 0-1.1-.6zM8.3 14.2a1.4 1.4 0 1 1-2.8 0 1.4 1.4 0 0 1 2.8 0zm7.4 0a1.4 1.4 0 1 1-2.8 0 1.4 1.4 0 0 1 2.8 0z"/></svg>
+        <span>B站视频</span>
+      </a>
+      <button class="menu-btn" id="menuBtn" aria-label="打开菜单" aria-expanded="false" aria-controls="navLinks">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main>
+<!-- ============ Hero ============ -->
+<section class="hero" id="hero">
+  <div class="hero-bg" aria-hidden="true"><i></i><i></i><i></i></div>
+  <div class="wrap hero-grid">
+    <div class="hero-copy">
+      <span class="chip reveal"><span class="dot"></span>开源 · 免费 · 无广告 · v2.0.37257</span>
+      <h1 class="reveal">一个播放器，<br><span class="grad">听遍全网。</span></h1>
+      <p class="lede reveal">
+        音之理音把 <span class="c1">网易云音乐</span>、<span class="c2">酷狗音乐</span>、<span class="c3">哔哩哔哩</span> 和 <span class="c4">YouTube</span>
+        装进同一个 App。搜一次，四个音源同时给你答案；这首歌播不了，它自己换个地方接着放。
+      </p>
+
+      <div class="gsearch reveal" id="gsearch">
+        <div class="box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="gsearchInput" type="text" placeholder="搜索：周杰伦 晴天" autocomplete="off"
+                 aria-label="站内功能搜索" role="combobox" aria-expanded="false" aria-controls="suggList">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#34A853" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/><path d="M18 11a6 6 0 0 1-12 0M12 17v4"/></svg>
+        </div>
+        <div class="sugg" id="suggList" role="listbox"></div>
+      </div>
+
+      <div class="hero-actions reveal">
+        <a class="btn btn-filled btn-lg" data-ripple href="https://github.com/frestoy5/YZLiYin" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.73.5.98 5.24.98 11.52c0 4.86 3.15 8.98 7.52 10.44.55.1.75-.24.75-.53v-1.86c-3.06.67-3.7-1.48-3.7-1.48-.5-1.28-1.23-1.62-1.23-1.62-1-.69.08-.67.08-.67 1.11.08 1.7 1.14 1.7 1.14.99 1.7 2.6 1.21 3.23.93.1-.72.39-1.21.7-1.49-2.44-.28-5.01-1.22-5.01-5.44 0-1.2.43-2.18 1.13-2.95-.11-.28-.49-1.4.11-2.92 0 0 .93-.3 3.05 1.13a10.5 10.5 0 0 1 5.56 0c2.11-1.43 3.04-1.13 3.04-1.13.6 1.52.22 2.64.11 2.92.7.77 1.13 1.75 1.13 2.95 0 4.23-2.58 5.16-5.03 5.43.4.34.75 1.02.75 2.06v3.05c0 .29.2.64.76.53a10.55 10.55 0 0 0 7.51-10.44C23.02 5.24 18.27.5 12 .5z"/></svg>
+          去 GitHub 看代码
+        </a>
+        <a class="btn btn-out btn-lg" data-ripple href="https://b23.tv/GvKJP95" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="#FB7299" aria-hidden="true"><path d="M17.8 2.2 15.7 4.4A9.3 9.3 0 0 1 12 3.5c-1.3 0-2.5.3-3.7.9L6.2 2.2A.7.7 0 0 0 5.1 2.8l-.1 1.6C2.7 6 1.5 8.6 1.5 11.6c0 4.8 3.9 8.7 8.7 8.7h3.6c4.8 0 8.7-3.9 8.7-8.7 0-3-1.2-5.6-3.5-7.2l-.1-1.6a.7.7 0 0 0-1.1-.6zM8.3 14.2a1.4 1.4 0 1 1-2.8 0 1.4 1.4 0 0 1 2.8 0zm7.4 0a1.4 1.4 0 1 1-2.8 0 1.4 1.4 0 0 1 2.8 0z"/></svg>
+          B站看介绍视频
+        </a>
+      </div>
+
+      <div class="hero-meta reveal">
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Android 8.0+ 可装</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Kotlin + Jetpack Compose</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>中 / 日 / 英 三语界面</span>
+      </div>
+    </div>
+
+    <div class="phone-wrap reveal">
+      <div class="phone" aria-hidden="true">
+        <div class="screen">
+          <div class="st"><i>21:04</i><i>5G ▮▮▮ 87%</i></div>
+          <div><div class="p-hi">晚上好 🌙</div><div class="p-title">今天想听点什么？</div></div>
+          <div class="p-search">搜索歌曲、歌手、歌单<span class="bar"></span></div>
+          <div class="p-chips"><span class="on">全部</span><span>网易云</span><span>酷狗</span><span>B站</span><span>YouTube</span></div>
+          <div class="p-card">
+            <span class="p-art"><i></i><i></i><i></i><i></i></span>
+            <span class="p-meta"><b>晴天</b><span>周杰伦 · 叶惠美</span></span>
+            <span class="p-tag">已跨源</span>
+          </div>
+          <div class="p-prog"><i></i></div>
+          <div class="p-ctrl">
+            <span>⏮</span>
+            <span class="play">▶</span>
+            <span>⏭</span>
+          </div>
+          <div class="p-list">
+            <div class="p-row"><span class="n">1</span>七里香<span class="g">网易云</span></div>
+            <div class="p-row"><span class="n">2</span>稻香<span class="g">酷狗</span></div>
+            <div class="p-row"><span class="n">3</span>夜曲<span class="g">B站</span></div>
+          </div>
+          <div class="p-nav"><i class="on"></i><i></i><i></i><i></i></div>
+        </div>
+        <div class="float-badge fb1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12a8 8 0 0 1 14-5M20 12a8 8 0 0 1-14 5"/><path d="M18 3v4h-4M6 21v-4h4"/></svg>
+          自动跨源
+        </div>
+        <div class="float-badge fb2">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
+          无损 · Hi-Res
+        </div>
+        <div class="float-badge fb3">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="10" r="2.4"/><path d="M3 19a6 6 0 0 1 12 0M15.5 19a4.5 4.5 0 0 1 5.5-4.4"/></svg>
+          一起听 · 2 人
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 音源 ============ -->
+<section id="sources">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow">四个音源，一个入口</span>
+      <h2>搜一次，全网同时找答案</h2>
+      <p>不用在四个 App 之间来回复制歌名。搜索页支持「全部」聚合检索，一次覆盖网易云、酷狗、B站与 YouTube，歌曲、歌单、歌手、专辑四个维度分开呈现。</p>
+    </div>
+    <div class="src-grid">
+      <div class="src-card reveal" style="--c:#EA4335;--cbg:#FDECEA">
+        <div class="src-ic" aria-hidden="true">网</div>
+        <h3>网易云音乐</h3>
+        <p>扫码 / 验证码登录，同步「我喜欢」与歌单；标准到 Hi·Res 五档音质，会员曲可播。</p>
+        <div class="src-q">热搜榜 · 评论区 · 歌单广场</div>
+      </div>
+      <div class="src-card reveal" style="--c:#FF8A34;--cbg:#FFF1E7">
+        <div class="src-ic" aria-hidden="true">酷</div>
+        <h3>酷狗音乐</h3>
+        <p>扫码登录同步「我喜欢」，128K 到 Hi-Res 音质可选，歌词接口与网易云互补。</p>
+        <div class="src-q">我喜欢 · KRC 歌词</div>
+      </div>
+      <div class="src-card reveal" style="--c:#FB7299;--cbg:#FFF0F5">
+        <div class="src-ic" aria-hidden="true">B</div>
+        <h3>哔哩哔哩</h3>
+        <p>既是音源也是内容站：投稿视频、评论区三连、UP 主动态、直播间弹幕都在应用内。</p>
+        <div class="src-q">DASH 音画合流 · 收藏夹同步</div>
+      </div>
+      <div class="src-card reveal" style="--c:#EA4335;--cbg:#FDECEA">
+        <div class="src-ic" aria-hidden="true" style="background:#101728;color:#fff">▶</div>
+        <h3>YouTube</h3>
+        <p>NewPipe 解析直链与 HLS，网页 Google 登录或粘贴 Cookie，四档音质随网速自适应。</p>
+        <div class="src-q">直链 / HLS 播放 · 凭据自动轮换</div>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- ============ 功能 ============ -->
+<section id="features">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow">功能一览</span>
+      <h2>该有的都有，还多了一点</h2>
+      <p>从找歌、播歌到和朋友一起听，每一块都做了完整闭环，而不是摆个壳子。</p>
+    </div>
+    <div class="feat-grid">
+      <div class="feat reveal" style="--g1:#4285F4;--g2:#7C5CFF">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 14-5M20 12a8 8 0 0 1-14 5"/><path d="M18 3v4h-4M6 21v-4h4"/></svg></div>
+        <h3>跨源找歌</h3>
+        <p>无版权、403、会员试听片段都不怕，按网易云 → 酷狗 → B站顺序自动换源接着放。</p>
+      </div>
+      <div class="feat reveal" style="--g1:#00C2A8;--g2:#34A853">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><circle cx="17" cy="10" r="2.6"/><path d="M2.5 19.5a6.5 6.5 0 0 1 13 0M15.8 19.5a4.8 4.8 0 0 1 5.7-4.6"/></svg></div>
+        <h3>一起听</h3>
+        <p>六位房间号 + 邀请链接，播放进度实时同步，和异地的朋友同频听同一首歌。</p>
+      </div>
+      <div class="feat reveal" style="--g1:#FB7299;--g2:#FF5C7A">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="3.5"/><path d="m10.5 9.5 5 2.5-5 2.5z"/></svg></div>
+        <h3>B站深度整合</h3>
+        <p>看投稿、刷评论、一键三连、逛 UP 主主页，还能进直播间边看边发弹幕。</p>
+      </div>
+      <div class="feat reveal" style="--g1:#7C5CFF;--g2:#B06BFF">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4v16M19 4v16M9 8v8M15 8v8M12 6v12"/></svg></div>
+        <h3>歌词三件套</h3>
+        <p>自动匹配、译文显示、手动编辑 LRC；字号、波浪、亮度实时可调并带预览。</p>
+      </div>
+      <div class="feat reveal" style="--g1:#FFB020;--g2:#FF8A34">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5v11M8 11l4 4 4-4"/><path d="M4.5 17v2.5h15V17"/></svg></div>
+        <h3>缓存离线</h3>
+        <p>播过的歌自动落盘，800MB 上限智能淘汰最旧的；曲库可管理、批量下载。</p>
+      </div>
+      <div class="feat reveal" style="--g1:#4285F4;--g2:#00C2A8">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6.5v5c0 5 3.4 8.6 8 9.5 4.6-.9 8-4.5 8-9.5v-5z"/><path d="m9 12 2.2 2.2L15.5 10"/></svg></div>
+        <h3>多账号曲库</h3>
+        <p>网易云扫码、酷狗扫码、B站扫码、YouTube 网页登录，四处收藏汇进一个曲库。</p>
+      </div>
+      <div class="feat reveal" style="--g1:#7C5CFF;--g2:#4285F4">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17M3.5 12h17"/></svg></div>
+        <h3>Material You</h3>
+        <p>Android 12+ 跟随壁纸动态取色，白天黑夜、界面大小、字体大小都能单独调。</p>
+      </div>
+      <div class="feat reveal" style="--g1:#EA4335;--g2:#FFB020">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M9.3 19V5M14.7 19v-7M20 19v-11"/></svg></div>
+        <h3>全网热度榜</h3>
+        <p>热搜榜、每 10 分钟刷新的热度榜、新歌速递、推荐歌单与正在直播卡片聚合在首页。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 跨源找歌 ============ -->
+<section id="crosssource">
+  <div class="wrap">
+    <div class="split">
+      <div class="sec-head reveal" style="margin-bottom:0">
+        <span class="eyebrow">核心能力</span>
+        <h2>这首歌播不了？<br>它自己换个地方继续放</h2>
+        <p>版权下架、接口 403、会员只能试听 30 秒——遇到这些情况，播放器不该弹一句「暂时无法播放」就把你晾在那。</p>
+        <ul class="checklist">
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            <div><b>固定轮转，不死循环</b><span>按 网易云 → 酷狗 → B站 的顺序去找，并记住「放坏链接的源」自动跳过。</span></div>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            <div><b>打分匹配，不是瞎猜</b><span>歌名、歌手、时长三项加权打分，够及格线才切，避免换成另一首同名歌。</span></div>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            <div><b>换错了还能换回来</b><span>播放页右下角标注「来自 XX」，一键「更换音频」手动搜回你想要的那一版。</span></div>
+          </li>
+        </ul>
+      </div>
+
+      <div class="demo reveal" id="flowDemo">
+        <div class="demo-head">
+          <b>正在解析：晴天 — 周杰伦</b>
+          <span id="flowStep">等待开始</span>
+        </div>
+        <div class="flow">
+          <div class="node" data-src="netease">
+            <span class="badge">网</span>
+            <span class="txt"><b>网易云音乐</b><span>曲库无版权</span></span>
+            <span class="stt">待检测</span>
+          </div>
+          <div class="node" data-src="kugou">
+            <span class="badge">酷</span>
+            <span class="txt"><b>酷狗音乐</b><span>链接可取但播放 403</span></span>
+            <span class="stt">待检测</span>
+          </div>
+          <div class="node" data-src="bilibili">
+            <span class="badge">B</span>
+            <span class="txt"><b>哔哩哔哩</b><span>官方投稿 · 04:29</span></span>
+            <span class="stt">待检测</span>
+          </div>
+        </div>
+        <div class="score">
+          <div class="score-row"><span>匹配打分（歌名 55 + 歌手 25 + 时长 30）</span><b id="scoreNum">0 / 70</b></div>
+          <div class="score-bar"><i id="scoreBar"></i></div>
+          <div class="score-row" style="margin:10px 0 0"><span>结果</span><b id="flowResult" style="color:var(--muted)">检测中…</b></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 一起听 ============ -->
+<section id="listentogether">
+  <div class="wrap">
+    <div class="sec-head reveal" style="max-width:760px">
+      <span class="eyebrow">一起听</span>
+      <h2>你在深圳，他在北京，放的是同一秒</h2>
+      <p>建一个房间，把邀请链接发给朋友，点开就进。房主主导播放，听众端用变速软同步悄悄追平进度。</p>
+    </div>
+
+    <div class="lt-stage reveal">
+      <div class="pal p1">
+        <span class="av">房</span>
+        <b>房主 · 猫羽</b>
+        <span class="role">控制进度 · 切歌 · 暂停</span>
+        <div class="wave" aria-hidden="true">
+          <i style="height:40%"></i><i style="height:85%;animation-delay:.1s"></i><i style="height:60%;animation-delay:.2s"></i>
+          <i style="height:100%;animation-delay:.3s"></i><i style="height:52%;animation-delay:.4s"></i><i style="height:74%;animation-delay:.5s"></i>
+          <i style="height:35%;animation-delay:.6s"></i><i style="height:88%;animation-delay:.7s"></i>
+        </div>
+        <div class="sync"><span class="lv"></span>正在播放 02:14</div>
+      </div>
+      <div class="link-line" aria-hidden="true"></div>
+      <div class="pal p2">
+        <span class="av">听</span>
+        <b>听众 · 你</b>
+        <span class="role">跟着放 · 可申请控制</span>
+        <div class="wave" aria-hidden="true">
+          <i style="height:40%"></i><i style="height:85%;animation-delay:.1s"></i><i style="height:60%;animation-delay:.2s"></i>
+          <i style="height:100%;animation-delay:.3s"></i><i style="height:52%;animation-delay:.4s"></i><i style="height:74%;animation-delay:.5s"></i>
+          <i style="height:35%;animation-delay:.6s"></i><i style="height:88%;animation-delay:.7s"></i>
+        </div>
+        <div class="sync"><span class="lv"></span>已同步 · 偏差 0.3s</div>
+      </div>
+    </div>
+
+    <div class="lt-features">
+      <div class="lt-f reveal"><b>0.95× – 1.05× 软同步</b><p>小偏差靠微调播放速率悄悄追平，不卡顿、不跳播；偏差过大才直接 seek 跳过去。</p></div>
+      <div class="lt-f reveal"><b>邀请链接 / 深链直达</b><p>复制链接或六位密钥发给朋友，冷启动也能接住深链弹窗确认；兼容 NeriPlayer 客户端协议。</p></div>
+      <div class="lt-f reveal"><b>可自建服务器</b><p>默认官方服务端，也支持填自己的地址；邀请链接强制 https，断线自动重连。</p></div>
+      <div class="lt-f reveal"><b>房间权限可控</b><p>是否允许成员暂停、切歌、拖进度都由房主决定，成员进出时可自动暂停。</p></div>
+      <div class="lt-f reveal"><b>共享解析结果</b><p>打开「共享本机解析的音频链接」，听众直接复用房主找好的音源，不用自己再找一遍。</p></div>
+      <div class="lt-f reveal"><b>状态一目了然</b><p>连接中、重连中、房主离线房间关闭，每种状态都有明确提示，不会莫名其妙卡住。</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ B站 ============ -->
+<section id="bilibili" style="padding-top:20px">
+  <div class="wrap">
+    <div class="bili">
+      <div class="wrap">
+        <div class="sec-head reveal">
+          <span class="eyebrow" style="color:#FB7299">不止把 B站当音源</span>
+          <h2>把整个小破站搬进播放器</h2>
+          <p>视频、评论、UP 主、直播，四个维度都做进了应用里——所以它偶尔更像一个「听 B站」的客户端。</p>
+        </div>
+        <div class="bili-grid">
+          <div class="bili-card reveal">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="3.5"/><path d="m10.5 9.5 5 2.5-5 2.5z"/></svg></div>
+            <h3>应用内播放投稿</h3>
+            <p>ExoPlayer 走 DASH 把画面轨和声音轨合流播放，刷到喜欢的投稿不用跳出去。</p>
+            <div class="danmaku" aria-hidden="true">
+              <span>前方高能</span><span>这也太好听了吧</span><span>三连支持！</span><span>来了来了</span>
+              <i class="lb">LIVE 弹幕</i>
+            </div>
+          </div>
+          <div class="bili-card reveal">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 12.5c0 4-3.8 7.2-8.5 7.2a10 10 0 0 1-2.6-.34L4.5 21l1.2-3.3A6.9 6.9 0 0 1 3.5 12.5c0-4 3.8-7.2 8.5-7.2s8.5 3.2 8.5 7.2z"/></svg></div>
+            <h3>评论区 + 一键三连</h3>
+            <p>看热评、翻回复、登录后发表评论；点赞、投币、收藏、转发一次搞定。</p>
+            <div class="sanlian">
+              <button class="b1" data-ripple data-count="1.2万" data-unit="">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 10.5V20H4.5A1.5 1.5 0 0 1 3 18.5v-6A1.5 1.5 0 0 1 4.5 11H7zm0 0 3.6-6.4A1.8 1.8 0 0 1 13.8 5v4h4.4a2 2 0 0 1 2 2.4l-1.2 6A2 2 0 0 1 17 19H7"/></svg>
+                点赞 <em style="font-style:normal;margin-left:4px">1.2万</em>
+              </button>
+              <button class="b2" data-ripple data-count="3642" data-unit="">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="6.5" width="18" height="12" rx="3"/><path d="M8 6.5V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1.5M12 10v5M9.5 12.5h5"/></svg>
+                投币 <em style="font-style:normal;margin-left:4px">3642</em>
+              </button>
+              <button class="b3" data-ripple data-count="8901" data-unit="">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3.8 2.5 5.2 5.7.8-4.1 4 1 5.7-5.1-2.7-5.1 2.7 1-5.7-4.1-4 5.7-.8z"/></svg>
+                收藏 <em style="font-style:normal;margin-left:4px">8901</em>
+              </button>
+            </div>
+          </div>
+          <div class="bili-card reveal">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h9"/><circle cx="18.5" cy="17.5" r="3"/></svg></div>
+            <h3>UP 主 · 直播 · 弹幕</h3>
+            <p>投稿与动态两个 Tab、关注粉丝数据、IP 属地与大会员标识；进直播间 WebSocket 实时收弹幕，登录后还能发。</p>
+            <div class="danmaku" aria-hidden="true" style="height:96px">
+              <span>主播唱一个</span><span>卡了卡了？</span><span>已关注 ✓</span><span>这首叫什么</span>
+              <i class="lb">直播间 · 1.8万人在看</i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- ============ 数据带 ============ -->
+<section style="padding-top:34px">
+  <div class="wrap">
+    <div class="stats reveal">
+      <div class="stats-grid">
+        <div class="stat"><b class="count" data-to="4">0</b><span>音源聚合</span><span class="sub">网易云 / 酷狗 / B站 / YouTube</span></div>
+        <div class="stat"><b class="count" data-to="800" data-suffix="MB">0</b><span>智能缓存上限</span><span class="sub">超限自动淘汰最旧</span></div>
+        <div class="stat"><b class="count" data-to="3">0</b><span>界面语言</span><span class="sub">中文 / 日本語 / English</span></div>
+        <div class="stat"><b class="count" data-to="100" data-suffix="%">0</b><span>开源免费</span><span class="sub">无广告 · 无内购 · 无追踪</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CTA ============ -->
+<section id="download">
+  <div class="wrap">
+    <div class="cta reveal">
+      <span class="chip" style="margin-bottom:6px"><span class="dot"></span>Android 8.0 (API 26) 及以上</span>
+      <h2 style="margin-top:18px">准备好听见，就是道理了吗？</h2>
+      <p>代码、问题、想法都在 GitHub 上见；想先看看它长什么样，去 B站 看介绍视频。</p>
+      <div class="cta-btns">
+        <a class="btn btn-filled btn-lg" data-ripple href="https://github.com/frestoy5/YZLiYin" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.73.5.98 5.24.98 11.52c0 4.86 3.15 8.98 7.52 10.44.55.1.75-.24.75-.53v-1.86c-3.06.67-3.7-1.48-3.7-1.48-.5-1.28-1.23-1.62-1.23-1.62-1-.69.08-.67.08-.67 1.11.08 1.7 1.14 1.7 1.14.99 1.7 2.6 1.21 3.23.93.1-.72.39-1.21.7-1.49-2.44-.28-5.01-1.22-5.01-5.44 0-1.2.43-2.18 1.13-2.95-.11-.28-.49-1.4.11-2.92 0 0 .93-.3 3.05 1.13a10.5 10.5 0 0 1 5.56 0c2.11-1.43 3.04-1.13 3.04-1.13.6 1.52.22 2.64.11 2.92.7.77 1.13 1.75 1.13 2.95 0 4.23-2.58 5.16-5.03 5.43.4.34.75 1.02.75 2.06v3.05c0 .29.2.64.76.53a10.55 10.55 0 0 0 7.51-10.44C23.02 5.24 18.27.5 12 .5z"/></svg>
+          GitHub 仓库
+        </a>
+        <a class="btn btn-tonal btn-lg" data-ripple href="https://b23.tv/GvKJP95" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="#FB7299" aria-hidden="true"><path d="M17.8 2.2 15.7 4.4A9.3 9.3 0 0 1 12 3.5c-1.3 0-2.5.3-3.7.9L6.2 2.2A.7.7 0 0 0 5.1 2.8l-.1 1.6C2.7 6 1.5 8.6 1.5 11.6c0 4.8 3.9 8.7 8.7 8.7h3.6c4.8 0 8.7-3.9 8.7-8.7 0-3-1.2-5.6-3.5-7.2l-.1-1.6a.7.7 0 0 0-1.1-.6zM8.3 14.2a1.4 1.4 0 1 1-2.8 0 1.4 1.4 0 0 1 2.8 0zm7.4 0a1.4 1.4 0 1 1-2.8 0 1.4 1.4 0 0 1 2.8 0z"/></svg>
+          B站介绍视频
+        </a>
+        <a class="btn btn-out btn-lg" data-ripple href="https://github.com/frestoy5/YZLiYin/issues" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.4v.2"/></svg>
+          提 Issue
+        </a>
+      </div>
+      <div class="cta-note">
+        <span>本地出包：</span><code>./gradlew assembleRelease</code>
+        <button class="copy-btn" id="copyBtn" data-ripple>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2.5"/><path d="M6 15H5.5A2.5 2.5 0 0 1 3 12.5v-7A2.5 2.5 0 0 1 5.5 3h7A2.5 2.5 0 0 1 15 5.5V6"/></svg>
+          复制
+        </button>
+        <span style="width:100%;height:0"></span>
+        <span>仓库地址：</span><code id="repoUrl">github.com/frestoy5/YZLiYin</code>
+        <button class="copy-btn" id="copyRepo" data-ripple>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2.5"/><path d="M6 15H5.5A2.5 2.5 0 0 1 3 12.5v-7A2.5 2.5 0 0 1 5.5 3h7A2.5 2.5 0 0 1 15 5.5V6"/></svg>
+          复制
+        </button>
+      </div>
+      <p class="cta-note" style="margin-top:16px">Release 产物尚未挂到 GitHub，请以仓库 README 中的构建方式为准，谨防第三方下载站的转载包。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section id="faq">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow">常见问题</span>
+      <h2>你可能会问</h2>
+    </div>
+    <div class="faq-list">
+      <details class="qa reveal" open>
+        <summary><span class="qa-ic">?</span>收费吗？会塞广告或会员吗？<span class="plus" aria-hidden="true">+</span></summary>
+        <div class="ans">完全开源免费，没有广告、没有内购、没有统计上报。项目的出发点就是 README 里那句「欢迎所有喜欢开源盛世的人」。</div>
+      </details>
+      <details class="qa reveal">
+        <summary><span class="qa-ic">?</span>我的账号安全吗？数据会上传吗？<span class="plus" aria-hidden="true">+</span></summary>
+        <div class="ans">登录凭据保存在本机（YouTube 凭据用 EncryptedSharedPreferences 加密存储并定期轮换），搜索与播放解析都在本地完成。只有「一起听」需要连接房间服务器——可以自建。</div>
+      </details>
+      <details class="qa reveal">
+        <summary><span class="qa-ic">?</span>怎么安装到手机上？<span class="plus" aria-hidden="true">+</span></summary>
+        <div class="ans">
+          仓库暂未挂官方 Release 包，可克隆源码后执行 <code style="background:var(--tint2);padding:3px 8px;border-radius:6px;font-size:13.5px">./gradlew assembleRelease</code>
+          本地出包，产物在 <code style="background:var(--tint2);padding:3px 8px;border-radius:6px;font-size:13.5px">app/build/outputs/apk/release/</code>。最低支持 Android 8.0。欢迎关注
+          <a href="https://github.com/frestoy5/YZLiYin/releases" target="_blank" rel="noopener">Releases 页</a>获取后续正式包。
+        </div>
+      </details>
+      <details class="qa reveal">
+        <summary><span class="qa-ic">?</span>一起听怎么和朋友连上？<span class="plus" aria-hidden="true">+</span></summary>
+        <div class="ans">在「一起听」页用当前播放队列建房，把邀请链接或六位房间号 + 密钥发给朋友，点开即可加入；支持剪贴板一键加入，也兼容 NeriPlayer 客户端的深链协议。</div>
+      </details>
+      <details class="qa reveal">
+        <summary><span class="qa-ic">?</span>支持哪些音质？有无损吗？<span class="plus" aria-hidden="true">+</span></summary>
+        <div class="ans">有。网易云支持标准 / 较高 / 极高 / 无损 / Hi·Res，酷狗最高 Hi-Res，B站提供 64K–192K，YouTube 提供四档自适应；设置页可按音源分别配置，播放页会显示当前实际来源。</div>
+      </details>
+      <details class="qa reveal">
+        <summary><span class="qa-ic">?</span>和 NeriPlayer 是什么关系？<span class="plus" aria-hidden="true">+</span></summary>
+        <div class="ans">音之理音在设计上参考了开源项目 NeriPlayer（GPLv3），一起听协议与其服务端字段一一对应、可互通，YouTube 解析部分移植自其 fork。相关版权声明保留在「设置 → 关于」中。</div>
+      </details>
+    </div>
+  </div>
+</section>
+</main>
+
+<!-- ============ Footer ============ -->
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <a class="brand" href="#hero">
+          <span class="mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span><b>音之理音</b><small>YZLiYin</small></span>
+        </a>
+        <p>听见，就是道理。<br>开源全网音乐播放器，为所有喜欢开源盛世的人而做。</p>
+        <div class="socials">
+          <a href="https://github.com/frestoy5/YZLiYin" target="_blank" rel="noopener" aria-label="GitHub 仓库">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.73.5.98 5.24.98 11.52c0 4.86 3.15 8.98 7.52 10.44.55.1.75-.24.75-.53v-1.86c-3.06.67-3.7-1.48-3.7-1.48-.5-1.28-1.23-1.62-1.23-1.62-1-.69.08-.67.08-.67 1.11.08 1.7 1.14 1.7 1.14.99 1.7 2.6 1.21 3.23.93.1-.72.39-1.21.7-1.49-2.44-.28-5.01-1.22-5.01-5.44 0-1.2.43-2.18 1.13-2.95-.11-.28-.49-1.4.11-2.92 0 0 .93-.3 3.05 1.13a10.5 10.5 0 0 1 5.56 0c2.11-1.43 3.04-1.13 3.04-1.13.6 1.52.22 2.64.11 2.92.7.77 1.13 1.75 1.13 2.95 0 4.23-2.58 5.16-5.03 5.43.4.34.75 1.02.75 2.06v3.05c0 .29.2.64.76.53a10.55 10.55 0 0 0 7.51-10.44C23.02 5.24 18.27.5 12 .5z"/></svg>
+          </a>
+          <a class="bili" href="https://b23.tv/GvKJP95" target="_blank" rel="noopener" aria-label="B站介绍视频">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.8 2.2 15.7 4.4A9.3 9.3 0 0 1 12 3.5c-1.3 0-2.5.3-3.7.9L6.2 2.2A.7.7 0 0 0 5.1 2.8l-.1 1.6C2.7 6 1.5 8.6 1.5 11.6c0 4.8 3.9 8.7 8.7 8.7h3.6c4.8 0 8.7-3.9 8.7-8.7 0-3-1.2-5.6-3.5-7.2l-.1-1.6a.7.7 0 0 0-1.1-.6zM8.3 14.2a1.4 1.4 0 1 1-2.8 0 1.4 1.4 0 0 1 2.8 0zm7.4 0a1.4 1.4 0 1 1-2.8 0 1.4 1.4 0 0 1 2.8 0z"/></svg>
+          </a>
+          <a href="https://github.com/frestoy5/YZLiYin/issues" target="_blank" rel="noopener" aria-label="提交 Issue">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.4v.2"/></svg>
+          </a>
+        </div>
+      </div>
+      <div class="foot-col">
+        <h4>产品</h4>
+        <a href="#sources">音源</a>
+        <a href="#features">功能</a>
+        <a href="#crosssource">跨源找歌</a>
+        <a href="#listentogether">一起听</a>
+        <a href="#bilibili">B站整合</a>
+      </div>
+      <div class="foot-col">
+        <h4>资源</h4>
+        <a href="https://github.com/frestoy5/YZLiYin" target="_blank" rel="noopener">GitHub 仓库</a>
+        <a href="https://github.com/frestoy5/YZLiYin/issues" target="_blank" rel="noopener">问题反馈</a>
+        <a href="https://github.com/frestoy5/YZLiYin/releases" target="_blank" rel="noopener">版本发布</a>
+        <a href="https://b23.tv/GvKJP95" target="_blank" rel="noopener">B站介绍视频</a>
+      </div>
+      <div class="foot-col">
+        <h4>关于</h4>
+        <a href="#faq">常见问题</a>
+        <a href="#download">下载与构建</a>
+        <a href="https://github.com/frestoy5/YZLiYin/blob/main/README.md" target="_blank" rel="noopener">README</a>
+        <a href="#hero">回到顶部</a>
+      </div>
+    </div>
+    <div class="foot-bot">
+      <span>© 2026 音之理音 YZLiYin · 本页面为开源项目宣传页</span>
+      <span>基于 NeriPlayer 等开源项目思路构建 · 感谢开源社区</span>
+      <span class="langs"><span>中文</span><span>日本語</span><span>English</span></span>
+    </div>
+  </div>
+</footer>
+
+<button id="fab" aria-label="回到顶部">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+</button>
+<div id="snack" role="status" aria-live="polite">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+  <span id="snackText">已复制</span>
+</div>
+<script>
+(function () {
+  'use strict';
+  var reduce = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  var $ = function (s, c) { return (c || document).querySelector(s); };
+  var $$ = function (s, c) { return Array.prototype.slice.call((c || document).querySelectorAll(s)); };
+
+  /* ---------- 加载动画 ---------- */
+  var loader = $('#loader');
+  var start = Date.now();
+  function hideLoader() {
+    var wait = Math.max(0, 900 - (Date.now() - start));
+    setTimeout(function () {
+      loader.classList.add('hide');
+      document.body.classList.remove('loading');
+      kickReveal();
+    }, wait);
+  }
+  if (document.readyState === 'complete') hideLoader();
+  else window.addEventListener('load', hideLoader);
+  setTimeout(hideLoader, 4000); // 兜底：字体/网络卡住也不挡页面
+
+  /* ---------- 滚动进度条 / 顶栏 / FAB ---------- */
+  var bar = $('#scrollbar'), head = $('#top'), fab = $('#fab');
+  function onScroll() {
+    var y = window.scrollY || document.documentElement.scrollTop;
+    var h = document.documentElement.scrollHeight - window.innerHeight;
+    bar.style.width = (h > 0 ? (y / h) * 100 : 0) + '%';
+    head.classList.toggle('scrolled', y > 8);
+    fab.classList.toggle('show', y > 640);
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+  fab.addEventListener('click', function () {
+    window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+  });
+
+  /* ---------- 移动端菜单 ---------- */
+  var menuBtn = $('#menuBtn'), navLinks = $('#navLinks');
+  menuBtn.addEventListener('click', function () {
+    var open = navLinks.classList.toggle('open');
+    menuBtn.setAttribute('aria-expanded', String(open));
+  });
+  navLinks.addEventListener('click', function (e) {
+    if (e.target.tagName === 'A') {
+      navLinks.classList.remove('open');
+      menuBtn.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  /* ---------- Material 波纹 ---------- */
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest ? e.target.closest('[data-ripple]') : null;
+    if (!t) return;
+    var r = t.getBoundingClientRect();
+    var size = Math.max(r.width, r.height);
+    var s = document.createElement('span');
+    s.className = 'ripple';
+    s.style.width = s.style.height = size + 'px';
+    s.style.left = (e.clientX - r.left - size / 2) + 'px';
+    s.style.top = (e.clientY - r.top - size / 2) + 'px';
+    t.appendChild(s);
+    setTimeout(function () { s.remove(); }, 650);
+  });
+
+  /* ---------- 滚动浮现 ---------- */
+  var io = null;
+  if ('IntersectionObserver' in window && !reduce) {
+    io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en, i) {
+        if (en.isIntersecting) {
+          var el = en.target;
+          setTimeout(function () { el.classList.add('in'); }, (i % 6) * 80);
+          io.unobserve(el);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+    $$('.reveal').forEach(function (el) { io.observe(el); });
+  } else {
+    $$('.reveal').forEach(function (el) { el.classList.add('in'); });
+  }
+  function kickReveal() {
+    $$('.reveal').forEach(function (el) {
+      var r = el.getBoundingClientRect();
+      if (r.top < window.innerHeight * 0.95) el.classList.add('in');
+    });
+  }
+  kickReveal();
+
+  /* ---------- 导航高亮 ---------- */
+  var secs = ['sources', 'features', 'crosssource', 'listentogether', 'bilibili', 'faq']
+    .map(function (id) { return document.getElementById(id); }).filter(Boolean);
+  if ('IntersectionObserver' in window) {
+    var navIo = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        $$('#navLinks a').forEach(function (a) {
+          a.classList.toggle('active', a.getAttribute('href') === '#' + en.target.id);
+        });
+      });
+    }, { rootMargin: '-45% 0px -50% 0px' });
+    secs.forEach(function (s) { navIo.observe(s); });
+  }
+
+  /* ---------- 搜索框联想（Google 风格） ---------- */
+  var SUGGS = [
+    { t: '跨源找歌，播不了自动换源', k: '功能', h: '#crosssource' },
+    { t: '一起听，异地同频实时同步', k: '功能', h: '#listentogether' },
+    { t: 'B站直播弹幕与评论三连', k: '功能', h: '#bilibili' },
+    { t: '歌词译文、编辑与样式调节', k: '功能', h: '#features' },
+    { t: '800MB 智能缓存，离线也能听', k: '功能', h: '#features' },
+    { t: '网易云 酷狗 B站 YouTube 四音源', k: '音源', h: '#sources' },
+    { t: '开源免费无广告，怎么安装', k: '问题', h: '#faq' },
+    { t: '去 GitHub 看源码', k: '跳转', h: 'https://github.com/frestoy5/YZLiYin' },
+    { t: '去 B站 看介绍视频', k: '跳转', h: 'https://b23.tv/GvKJP95' }
+  ];
+  var gs = $('#gsearch'), ginput = $('#gsearchInput'), glist = $('#suggList');
+  function renderSugg(q) {
+    var list = SUGGS.filter(function (s) { return !q || s.t.indexOf(q) > -1; }).slice(0, 6);
+    glist.innerHTML = '';
+    if (!list.length) { gs.classList.remove('open'); return; }
+    list.forEach(function (s) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('role', 'option');
+      b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">' +
+        '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>' +
+        '<span></span><b></b>';
+      b.querySelector('span').textContent = s.t;
+      b.querySelector('b').textContent = s.k;
+      b.addEventListener('click', function () {
+        ginput.value = s.t;
+        gs.classList.remove('open');
+        if (/^https?:/.test(s.h)) window.open(s.h, '_blank', 'noopener');
+        else {
+          var el = document.querySelector(s.h);
+          if (el) el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+        }
+      });
+      glist.appendChild(b);
+    });
+    gs.classList.add('open');
+    ginput.setAttribute('aria-expanded', 'true');
+  }
+  ginput.addEventListener('focus', function () { renderSugg(ginput.value.trim()); });
+  ginput.addEventListener('input', function () { renderSugg(ginput.value.trim()); });
+  document.addEventListener('click', function (e) {
+    if (!gs.contains(e.target)) gs.classList.remove('open');
+  });
+  ginput.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') gs.classList.remove('open');
+    if (e.key === 'Enter') { var f = glist.querySelector('button'); if (f) f.click(); }
+  });
+
+  /* ---------- 跨源找歌演示循环 ---------- */
+  var flow = $('#flowDemo');
+  if (flow) {
+    var nodes = $$('.node', flow);
+    var stepEl = $('#flowStep'), numEl = $('#scoreNum'), barEl = $('#scoreBar'), resEl = $('#flowResult');
+    var timers = [];
+    function clearTimers() { timers.forEach(clearTimeout); timers = []; }
+    function at(ms, fn) { timers.push(setTimeout(fn, ms)); }
+    function reset() {
+      nodes.forEach(function (n) {
+        n.classList.remove('active', 'fail', 'win');
+        n.querySelector('.stt').textContent = '待检测';
+      });
+      stepEl.textContent = '等待开始';
+      numEl.textContent = '0 / 70';
+      barEl.style.width = '0%';
+      resEl.textContent = '检测中…';
+      resEl.style.color = 'var(--muted)';
+    }
+    function play() {
+      clearTimers(); reset();
+      at(400, function () {
+        nodes[0].classList.add('active');
+        nodes[0].querySelector('.stt').textContent = '查询中';
+        stepEl.textContent = '① 检测网易云音乐';
+      });
+      at(1700, function () {
+        nodes[0].classList.remove('active');
+        nodes[0].classList.add('fail');
+        nodes[0].querySelector('.stt').textContent = '无版权 ✕';
+        nodes[1].classList.add('active');
+        nodes[1].querySelector('.stt').textContent = '取链接…';
+        stepEl.textContent = '② 尝试酷狗音乐';
+      });
+      at(3100, function () {
+        nodes[1].classList.remove('active');
+        nodes[1].classList.add('fail');
+        nodes[1].querySelector('.stt').textContent = '403 ✕';
+        nodes[2].classList.add('active');
+        nodes[2].querySelector('.stt').textContent = '匹配中…';
+        stepEl.textContent = '③ 尝试哔哩哔哩';
+        numEl.textContent = '55 / 70';
+        barEl.style.width = '68%';
+      });
+      at(4300, function () {
+        nodes[2].classList.remove('active');
+        nodes[2].classList.add('win');
+        nodes[2].querySelector('.stt').textContent = '播放中 ✓';
+        stepEl.textContent = '④ 匹配成功，开始播放';
+        numEl.textContent = '92 / 70';
+        barEl.style.width = '92%';
+        resEl.textContent = '已切换到 B站音源 · 04:29';
+        resEl.style.color = 'var(--g-green)';
+      });
+      at(7600, play);
+    }
+    var running = false;
+    if ('IntersectionObserver' in window && !reduce) {
+      new IntersectionObserver(function (en) {
+        if (en[0].isIntersecting && !running) { running = true; play(); }
+        else if (!en[0].isIntersecting && running) { running = false; clearTimers(); }
+      }, { threshold: 0.3 }).observe(flow);
+    } else {
+      nodes[2].classList.add('win');
+      nodes[2].querySelector('.stt').textContent = '播放中 ✓';
+      nodes[0].classList.add('fail');
+      nodes[1].classList.add('fail');
+      numEl.textContent = '92 / 70';
+      barEl.style.width = '92%';
+      resEl.textContent = '已切换到 B站音源 · 04:29';
+      resEl.style.color = 'var(--g-green)';
+    }
+  }
+
+  /* ---------- 一键三连 ---------- */
+  $$('.sanlian button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var on = b.classList.toggle('done');
+      if (on) {
+        var raw = b.getAttribute('data-count');
+        var em = b.querySelector('em');
+        var m = raw.match(/^([\d.]+)(.*)$/);
+        if (m && /^[\d.]+$/.test(raw)) {
+          var target = Math.round(parseFloat(m[1]) + 1), cur = 0, n = parseInt(m[1], 10);
+          var steps = 12, i = 0;
+          var iv = setInterval(function () {
+            i++;
+            cur = Math.round(n + (target - n) * (i / steps));
+            em.textContent = cur;
+            if (i >= steps) clearInterval(iv);
+          }, 30);
+        } else { em.textContent = '已三连'; }
+        showSnack('三连成功，感谢支持！');
+      } else {
+        b.querySelector('em').textContent = b.getAttribute('data-count');
+      }
+    });
+  });
+
+  /* ---------- 数字滚动 ---------- */
+  function countUp(el) {
+    var to = parseInt(el.getAttribute('data-to'), 10);
+    var suffix = el.getAttribute('data-suffix') || '';
+    if (reduce) { el.textContent = to + suffix; return; }
+    var dur = 1400, t0 = performance.now();
+    function tick(now) {
+      var p = Math.min(1, (now - t0) / dur);
+      var e = 1 - Math.pow(1 - p, 3);
+      el.textContent = Math.round(to * e) + suffix;
+      if (p < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+  var counted = false;
+  if ('IntersectionObserver' in window) {
+    var stIo = new IntersectionObserver(function (en) {
+      if (en[0].isIntersecting && !counted) {
+        counted = true;
+        $$('.count').forEach(countUp);
+      }
+    }, { threshold: 0.4 });
+    var statsEl = $('.stats');
+    if (statsEl) stIo.observe(statsEl);
+  } else {
+    $$('.count').forEach(countUp);
+  }
+
+  /* ---------- 复制 + Snackbar ---------- */
+  var snack = $('#snack'), snackText = $('#snackText'), snackTimer = null;
+  function showSnack(msg) {
+    snackText.textContent = msg;
+    snack.classList.add('show');
+    clearTimeout(snackTimer);
+    snackTimer = setTimeout(function () { snack.classList.remove('show'); }, 2600);
+  }
+  function copy(text, msg) {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(function () { showSnack(msg); },
+        function () { legacy(text, msg); });
+    } else legacy(text, msg);
+  }
+  function legacy(text, msg) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); showSnack(msg); }
+    catch (e) { showSnack('复制失败，请手动选择'); }
+    ta.remove();
+  }
+  var copyBtn = $('#copyBtn');
+  if (copyBtn) copyBtn.addEventListener('click', function () { copy('./gradlew assembleRelease', '已复制构建命令'); });
+  var copyRepo = $('#copyRepo');
+  if (copyRepo) copyRepo.addEventListener('click', function () { copy('https://github.com/frestoy5/YZLiYin', '已复制仓库地址'); });
+})();
+</script>
+</body>
+</html>

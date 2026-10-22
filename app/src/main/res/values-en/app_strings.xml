@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English. Any key missing here falls back to Chinese (values/) rather than showing blank. -->
+<resources>
+    <!-- Bottom / side navigation tabs -->
+    <string name="app_tab_home">Home</string>
+    <string name="app_tab_search">Search</string>
+    <string name="app_tab_library">Library</string>
+    <string name="app_tab_settings">Settings</string>
+
+    <!-- Listen-together invite dialog -->
+    <string name="app_invite_title">Join Listen Together</string>
+    <string name="app_invite_friend">A friend</string>
+    <string name="app_invite_text">%1$s invited you to room %2$s</string>
+    <string name="app_invite_join_fail">Could not join the room</string>
+    <string name="app_invite_joining">Joining…</string>
+    <string name="app_invite_join">Join</string>
+    <string name="app_invite_ignore">Ignore</string>
+
+    <!-- Offline banner above the mini player -->
+    <string name="app_offline">You are offline</string>
+
+    <!-- Long-track playback confirmation: two dialogs (play anyway → math problem) -->
+    <string name="app_durwarn_title">Playback duration alert</string>
+    <string name="app_durwarn_text">“%1$s” is %2$s long, which reaches the %3$s you set. Play it anyway?</string>
+    <string name="app_durwarn_ok">Play anyway</string>
+    <string name="app_durwarn_cancel">Do not play</string>
+    <string name="app_durmath_title">Confirm playback</string>
+    <string name="app_durmath_prompt">One more step — solve this to start playing: %1$s =</string>
+    <string name="app_durmath_wrong">Wrong answer, try again</string>
+    <string name="app_durmath_ok">Start playing</string>
+    <string name="app_durmath_cancel">Do not play</string>
+</resources>

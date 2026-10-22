@@ -5,6 +5,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import top.aryun.yzliyin.R
 import top.aryun.yzliyin.core.AppGraph
 import top.aryun.yzliyin.core.data.JsonCodecs
 import top.aryun.yzliyin.core.model.Comment
@@ -13,6 +14,7 @@ import top.aryun.yzliyin.core.model.Playlist
 import top.aryun.yzliyin.core.model.QrStatus
 import top.aryun.yzliyin.core.model.Song
 import top.aryun.yzliyin.core.model.Source
+import top.aryun.yzliyin.util.AppLocale
 import top.aryun.yzliyin.util.NPLogger
 import top.aryun.yzliyin.util.isDirectUrl
 
@@ -25,6 +27,9 @@ object BiliApi {
 
     private const val TAG = "BiliApi"
     private const val PAGE_SIZE = 20
+
+    /** 弹幕接口挂掉时的兜底弹幕服务器（官方公开地址，匿名也能读）。 */
+    private const val FALLBACK_LIVE_DM_HOST = "wss://broadcastlv.chat.bilibili.com/sub"
 
     private val client: BiliClient get() = AppGraph.bilibili
     private val store get() = AppGraph.store
@@ -69,7 +74,7 @@ object BiliApi {
      */
     suspend fun upVideos(mid: String, cursor: String = ""): BiliUpPage {
         val parsedMid = mid.toLongOrNull() ?: 0L
-        require(parsedMid > 0L) { "缺少 UP 主 ID" }
+        require(parsedMid > 0L) { AppLocale.string(R.string.net_missing_up_mid) }
         return client.upVideos(parsedMid, cursor)
     }
 
@@ -82,7 +87,7 @@ object BiliApi {
      */
     suspend fun upCard(mid: String): BiliUpCard {
         val parsedMid = mid.toLongOrNull() ?: 0L
-        require(parsedMid > 0L) { "缺少 UP 主 ID" }
+        require(parsedMid > 0L) { AppLocale.string(R.string.net_missing_up_mid) }
         return client.upCard(parsedMid)
     }
 
@@ -92,7 +97,7 @@ object BiliApi {
      */
     suspend fun upDynamics(mid: String, offset: String = ""): BiliDynamicPage {
         val parsedMid = mid.toLongOrNull() ?: 0L
-        require(parsedMid > 0L) { "缺少 UP 主 ID" }
+        require(parsedMid > 0L) { AppLocale.string(R.string.net_missing_up_mid) }
         return client.upDynamics(parsedMid, offset)
     }
 
@@ -170,20 +175,20 @@ object BiliApi {
     ): List<BiliQuadStep> {
         val info = infoCache(bvid)
         val aid = info.aid
-        if (aid <= 0L) throw IllegalStateException("缺少稿件 ID")
+        if (aid <= 0L) throw IllegalStateException(AppLocale.string(R.string.net_missing_video_id))
 
         val steps = mutableListOf<BiliQuadStep>()
 
-        if (like) steps += runStep("点赞") { client.archiveLike(aid) }
-        if (coins > 0) steps += runStep("投币") { client.coinAdd(aid, multiply = coins) }
-        if (favorite) steps += runStep("收藏") {
+        if (like) steps += runStep(AppLocale.string(R.string.net_quad_like)) { client.archiveLike(aid) }
+        if (coins > 0) steps += runStep(AppLocale.string(R.string.net_quad_coin)) { client.coinAdd(aid, multiply = coins) }
+        if (favorite) steps += runStep(AppLocale.string(R.string.net_quad_favorite)) {
             val folders = client.createdFavFolders(userId)
             val folder = folders.firstOrNull { it.isDefault } ?: folders.firstOrNull()
-                ?: error("没有可用的收藏夹")
+                ?: error(AppLocale.string(R.string.net_no_fav_folder))
             client.favDeal(aid, listOf(folder.mediaId))
         }
-        if (repost) steps += runStep("转发到动态") {
-            if (info.dynamicId <= 0L) error("该投稿没有动态，无法转发")
+        if (repost) steps += runStep(AppLocale.string(R.string.net_quad_repost)) {
+            if (info.dynamicId <= 0L) error(AppLocale.string(R.string.net_no_dynamic_repost))
             client.repostDynamic(info.dynamicId, info.ownerMid, aid, info.title)
         }
         return steps
@@ -194,7 +199,7 @@ object BiliApi {
         BiliQuadStep(name, ok = true)
     } catch (t: Throwable) {
         NPLogger.w(TAG, "四连「$name」失败：${t.message}")
-        BiliQuadStep(name, ok = false, message = t.message ?: "失败")
+        BiliQuadStep(name, ok = false, message = t.message ?: AppLocale.string(R.string.net_failed))
     }
 
     // ---------- 播放 ----------
@@ -357,17 +362,17 @@ object BiliApi {
 
     /** 轮询扫码状态；成功后落地凭证。 */
     suspend fun checkQr(key: String = pendingQrKey): QrStatus = withContext(Dispatchers.IO) {
-        if (key.isBlank()) return@withContext QrStatus.Failed("二维码已失效，请刷新")
+        if (key.isBlank()) return@withContext QrStatus.Failed(AppLocale.string(R.string.net_qr_expired))
         runCatching {
             val result = client.qrPoll(key)
             when (result.code) {
                 0 -> {
                     store.saveCookies(Source.BILIBILI, client.cookies())
                     // 昵称与头像随后的 refreshProfile() 拉取，这里不写占位值
-                    QrStatus.Success(store.displayName(Source.BILIBILI).ifBlank { "B 站账号" })
+                    QrStatus.Success(store.displayName(Source.BILIBILI).ifBlank { AppLocale.string(R.string.net_bili_default_name) })
                 }
                 86090 -> QrStatus.Scanned
-                86038 -> QrStatus.Failed("二维码已过期，请刷新")
+                86038 -> QrStatus.Failed(AppLocale.string(R.string.net_qr_expired))
                 else -> QrStatus.Waiting
             }
         }.getOrElse {
@@ -375,4 +380,50 @@ object BiliApi {
             QrStatus.Waiting
         }
     }
+
+    // ---------- 直播 ----------
+
+    /** 首页「正在直播」；两条源都挂了就返回空表，首页据此整块隐藏。 */
+    suspend fun liveRooms(page: Int = 1, pageSize: Int = 20): List<BiliLiveRoom> =
+        runCatching { client.liveRooms(page, pageSize) }
+            .onFailure { NPLogger.w(TAG, "获取直播列表失败：${it.message}") }
+            .getOrDefault(emptyList())
+
+    /** 进房间要的详情（标题/封面/主播头像/看过人数）。 */
+    suspend fun liveRoomInfo(roomId: Long): BiliLiveRoom = client.liveRoomInfo(roomId)
+
+    /** 直播流地址，已按偏好排好序，取第一个就能播。 */
+    suspend fun liveStreams(roomId: Long): List<BiliLiveStream> = client.liveStreams(roomId)
+
+    /** 主播 mid → 他自己的直播间；该用户没开过直播间返回 null。 */
+    suspend fun liveBrief(mid: Long): BiliLiveBrief? = client.liveBrief(mid)
+
+    /**
+     * 弹幕弹道；拿不到就退回官方公开弹幕服务器匿名读，
+     * 保证进房至少能看到别人在说什么。
+     */
+    suspend fun liveDmInfo(roomId: Long): BiliLiveDmInfo =
+        runCatching { client.liveDmInfo(roomId) }.getOrElse {
+            NPLogger.w(TAG, "获取弹幕通道失败，改用公开地址：${it.message}")
+            BiliLiveDmInfo(token = "", hosts = listOf(FALLBACK_LIVE_DM_HOST))
+        }
+
+    /** 进房先拉的最近弹幕，拉不到就空着等实时的。 */
+    suspend fun liveDmHistory(roomId: Long): List<BiliLiveMsg> = client.liveDmHistory(roomId)
+
+    /** 直播间发言；未登录 / 被禁言会抛错，由界面提示。 */
+    suspend fun sendLiveMsg(roomId: Long, message: String) = client.sendLiveMsg(roomId, message)
+
+    /** 主播是否已被我关注（房间页头像右侧的关注按钮）。 */
+    suspend fun liveRelation(fid: Long): Boolean =
+        runCatching { client.liveRelation(fid) }
+            .onFailure { NPLogger.w(TAG, "查询关注状态失败：${it.message}") }
+            .getOrDefault(false)
+
+    /** 改关注；[follow] 为真则关注，否则取关。 */
+    suspend fun liveRelationModify(fid: Long, follow: Boolean): Boolean =
+        runCatching { client.liveRelationModify(fid, follow) }.getOrElse {
+            NPLogger.w(TAG, "改关注失败：${it.message}")
+            throw it
+        }
 }

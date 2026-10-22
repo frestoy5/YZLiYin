@@ -1,6 +1,7 @@
 package top.aryun.yzliyin
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -15,9 +16,22 @@ import top.aryun.yzliyin.listentogether.ListenTogetherInviteBus
 import top.aryun.yzliyin.listentogether.invite.parseListenTogetherInvite
 import top.aryun.yzliyin.ui.App
 import top.aryun.yzliyin.ui.theme.YZLiYinTheme
+import top.aryun.yzliyin.util.AppLocale
 import top.aryun.yzliyin.util.applyScreenOrientation
 
 class MainActivity : ComponentActivity() {
+
+    /**
+     * 界面语言（设置 → 主题）：资源在 Context 建立时就定死了，所以语言必须在这里
+     * 重包一次 Context，[onCreate] 里再改已经晚了。
+     *
+     * Application.onCreate 先于 Activity 创建，AppGraph 必已初始化；仍加
+     * [AppGraph.initialized] 兜底，避免极早期路径（深链冷启动等）踩到未初始化。
+     */
+    override fun attachBaseContext(newBase: Context) {
+        val lang = if (AppGraph.initialized) AppGraph.store.language else AppLocale.SYSTEM
+        super.attachBaseContext(AppLocale.wrap(newBase, lang))
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 日本語。ここに無いキーは values/（中国語）へフォールバック。 -->
+<resources>
+    <!-- 品牌名：日文界面里照原品牌书写，不音译 -->
+    <string name="src_netease">NetEase Cloud Music</string>
+    <string name="src_kugou">Kugou Music</string>
+    <string name="src_bilibili">bilibili</string>
+    <string name="src_youtube">YouTube</string>
+    <string name="src_local">端末内の音楽</string>
+    <string name="src_local_gone">このファイルは端末上に見つかりません。もう一度スキャンしてください</string>
+</resources>

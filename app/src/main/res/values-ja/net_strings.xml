@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  core/net 层（BiliApi / BiliClient / KugouApi / NeteaseApi）的用户可见提示。
+  日文。未收录的 key 会回落到中文（values/），不会显示空白。
+-->
+<resources>
+    <!-- BiliApi.kt -->
+    <string name="net_qr_expired">QRコードの有効期限が切れました。更新してください</string>
+    <string name="net_bili_default_name">bilibili</string>
+    <string name="net_quad_like">いいね</string>
+    <string name="net_quad_coin">コイン</string>
+    <string name="net_quad_favorite">お気に入り</string>
+    <string name="net_quad_repost">タイムラインへシェア</string>
+    <string name="net_no_fav_folder">使用できるお気に入りフォルダがありません</string>
+    <string name="net_no_dynamic_repost">この投稿にはシェアできるタイムライン投稿がありません</string>
+    <string name="net_failed">失敗</string>
+    <string name="net_missing_up_mid">UP主 ID がありません</string>
+    <string name="net_missing_video_id">動画 ID がありません</string>
+
+    <!-- BiliClient.kt -->
+    <string name="net_risk_blocked_request">リスク制限によりブロックされました（-412）。もう一度お試しください</string>
+    <string name="net_risk_blocked_action">リスク制限によりブロックされました（-412）。もう一度お試しください</string>
+    <string name="net_repost">シェア</string>
+    <string name="net_bili_empty_response">Bilibili から空の応答が返されました</string>
+    <string name="net_bili_invalid_json">Bilibili の応答が有効な JSON ではありません</string>
+    <string name="net_bili_endpoint_failed">%1$s に失敗：code=%2$s、message=%3$s</string>
+    <string name="net_bili_nav_missing_wbi">nav が有効な wbi_img を返しませんでした</string>
+    <string name="net_bili_webticket_missing_nav">WebTicket が有効な nav を返しませんでした</string>
+    <string name="net_bili_qr_missing">Bilibili が QR コードを返しませんでした</string>
+
+    <!-- KugouApi.kt -->
+    <string name="net_kugou_missing_hash">Kugou Music のトラックにオーディオ hash がありません</string>
+    <string name="net_kugou_paid">この曲は Kugou Music での購入または会員登録が必要です。現在のアカウントでは試聴のみ可能です</string>
+    <string name="net_kugou_security_check">Kugou Music がセキュリティ確認を要求しています。デバイス登録が完了していない可能性があります。もう一度お試しください</string>
+    <string name="net_kugou_no_stream">Kugou Music の再生リンクを取得できませんでした（権利がない可能性があります）</string>
+    <string name="net_kugou_no_credential">Kugou Music がログイン情報を返しませんでした</string>
+    <string name="net_kugou_default_name">Kugouユーザー</string>
+
+    <!-- NeteaseApi.kt -->
+    <string name="net_comment_sent">コメントを投稿しました</string>
+    <string name="net_comment_need_login">コメントを投稿するには先にログインしてください</string>
+    <string name="net_comment_send_failed">コメントの投稿に失敗しました（%1$s）</string>
+    <string name="net_resolve_failed">再生リンクを取得できませんでした。もう一度お試しください</string>
+    <string name="net_no_copyright">この曲には現在権利がないため、再生リンクを取得できません</string>
+    <string name="net_netease_vip">この曲は NetEase Music の会員登録が必要です。現在のアカウントでは試聴のみ可能です</string>
+    <string name="net_netease_invalid_id">NetEase Music のトラック id が無効です</string>
+    <string name="net_invalid_song_id">曲の id が無効です</string>
+    <string name="net_captcha_send_failed">認証コードの送信に失敗しました</string>
+    <string name="net_captcha_sent">認証コードを送信しました</string>
+    <string name="net_captcha_incorrect">認証コードが正しくありません</string>
+    <string name="net_login_failed">ログインに失敗しました</string>
+    <string name="net_login_no_cookie">ログインに有効な Cookie が返されませんでした。Web ログインをお試しください</string>
+</resources>
